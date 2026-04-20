@@ -2,7 +2,7 @@
 
 ![Version](https://img.shields.io/badge/current-v0.2.0-%2376B900?style=for-the-badge)
 ![Last Updated](https://img.shields.io/badge/updated-April_19_2025-%232196F3?style=for-the-badge)
-![Status](https://img.shields.io/badge status-Health_Monitor-%234CAF50?style=for-the-badge)
+![Status](https://img.shields.io/badge/status-Health_Monitor-%234CAF50?style=for-the-badge)
 
 **Project:** Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
 **Document Version:** 1.0
