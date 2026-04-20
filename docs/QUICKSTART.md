@@ -176,10 +176,10 @@ sudo pacman -S opencl-headers ocl-icd opencl-mesa  # Arch Linux
 ```mermaid
 flowchart TD
     subgraph Config["CMake Configuration"]
-        A[Default<br/>(Recommended)] --> B[cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_VULKAN=OFF -DWITH_OPENCL=ON -DWITH_DAEMON=ON -DWITH_TESTS=ON]
-        C[Full<br/>(All Features)] --> D[cmake .. -DWITH_VULKAN=ON -DWITH_OPENCL=ON -DWITH_DAEMON=ON -DWITH_TESTS=ON]
-        E[Minimal<br/>(Core Only)] --> F[cmake .. -DWITH_VULKAN=OFF -DWITH_OPENCL=OFF -DWITH_DAEMON=OFF -DWITH_TESTS=OFF]
-        G[Debug<br/>(Debugging)] --> H[cmake .. -DCMAKE_BUILD_TYPE=Debug -DWITH_DEBUG=ON]
+        A[Default\n(Recommended)] --> B[cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_VULKAN=OFF -DWITH_OPENCL=ON -DWITH_DAEMON=ON -DWITH_TESTS=ON]
+        C[Full\n(All Features)] --> D[cmake .. -DWITH_VULKAN=ON -DWITH_OPENCL=ON -DWITH_DAEMON=ON -DWITH_TESTS=ON]
+        E[Minimal\n(Core Only)] --> F[cmake .. -DWITH_VULKAN=OFF -DWITH_OPENCL=OFF -DWITH_DAEMON=OFF -DWITH_TESTS=OFF]
+        G[Debug\n(Debugging)] --> H[cmake .. -DCMAKE_BUILD_TYPE=Debug -DWITH_DEBUG=ON]
     end
     
     style A fill:#4CAF50,stroke:#388E3C
