@@ -38,7 +38,7 @@ gantt
     Documentation Update      :active, med, 2025-04-01, 2025-04-20
     Icon Creation             :done, med, 2025-04-19, 2025-04-19
     
-    sectionFuture
+    section Future
     Vulkan Layer Fix         :      high, 2025-04-20, 2025-05-15
     CUDA Wrapper             :      med, after 2025-05-15, 14d
     Kernel Module           :      low, after 2025-06-01, 21d
@@ -428,16 +428,6 @@ flowchart TD
 
 ### Line Count Growth (2025)
 
-```mermaid
-lineChart
-    title Line Count Growth - 2025
-    x-axis: ["Jan", "Feb", "Mar", "Apr"]
-    y-axis: [0, 5000, 10000, 15000, 20000, 25000, 30000]
-    line: ["Source Files", 1000, 8000, 15000, 25700]
-    line: ["Header Files", 500, 1200, 1500, 1800]
-    line: ["Test Files", 0, 0, 200, 1500]
-```
-
 | Month | Source Files | Header Files | Test Files | Total | Change |
 |-------|---------------|--------------|------------|-------|--------|
 | January | ~1,000 | ~500 | 0 | ~1,500 | - |
@@ -446,17 +436,6 @@ lineChart
 | April | ~25,700 | ~1,800 | ~1,500 | ~29,000 | +12,300 |
 
 ### File Count Growth
-
-```mermaid
-barChart
-    title File Count Growth
-    x-axis: Month
-    y-axis: Files
-    bar: ["Jan", 10, #1A5FB4]
-    bar: ["Feb", 20, #4CAF50]
-    bar: ["Mar", 25, #FF9800]
-    bar: ["Apr", 29, #F44336]
-```
 
 | Month | Source Files | Header Files | Total Files |
 |-------|---------------|--------------|-------------|
