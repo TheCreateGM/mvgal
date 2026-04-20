@@ -1,0 +1,11 @@
+# MVGAL udev rules
+# Multi-Vendor GPU Aggregation Layer for Linux
+
+# Set device mode for MVGAL character device
+SUBSYSTEM=="mvgal", MODE="0666", GROUP="video"
+
+# Tag DRM devices for MVGAL
+SUBSYSTEM=="drm", TAG+="mvgal"
+
+# Set permissions for DMA-BUF export
+SUBSYSTEM=="dma_buf", MODE="0666", GROUP="video"

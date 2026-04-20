@@ -1,0 +1,1 @@
+/usr/bin/cc -fPIC -Wl,--dependency-file=CMakeFiles/mvgal_opencl.dir/link.d -shared -Wl,-soname,libmvgal_opencl.so -o libmvgal_opencl.so CMakeFiles/mvgal_opencl.dir/intercept/opencl/cl_intercept.c.o  libmvgal_core.a /usr/lib64/libOpenCL.so -ldl -lm

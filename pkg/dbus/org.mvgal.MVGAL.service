@@ -1,0 +1,8 @@
+[D-BUS Service]
+Name=org.mvgal.MVGAL
+Exec=/usr/bin/mvgal-dbus-service
+User=root
+SystemdService=mvgal-dbus.service
+
+[Install]
+Alias=org.mvgal.MVGAL

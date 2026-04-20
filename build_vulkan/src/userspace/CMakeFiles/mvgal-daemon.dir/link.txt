@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/mvgal-daemon.dir/link.d "CMakeFiles/mvgal-daemon.dir/daemon/main.c.o" "CMakeFiles/mvgal-daemon.dir/daemon/gpu_manager.c.o" "CMakeFiles/mvgal-daemon.dir/daemon/config.c.o" "CMakeFiles/mvgal-daemon.dir/daemon/ipc.c.o" -o mvgal-daemon  libmvgal_core.a -lm

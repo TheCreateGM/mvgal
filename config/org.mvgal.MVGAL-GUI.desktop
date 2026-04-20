@@ -1,0 +1,16 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=MVGAL Configuration
+GenericName=Multi-Vendor GPU Aggregation Layer Configuration
+Comment=Configure MVGAL GPU management settings
+Exec=mvgal-gui
+Icon=/usr/share/icons/hicolor/256x256/apps/mvgal.svg
+Terminal=false
+Categories=System;Settings;Hardware;
+StartupNotify=true
+Keywords=GPU;multi-vendor;CUDA;Direct3D;Metal;WebGPU;
+
+[Desktop Action profile]
+Name=Profile Configuration
+Exec=mvgal-gui

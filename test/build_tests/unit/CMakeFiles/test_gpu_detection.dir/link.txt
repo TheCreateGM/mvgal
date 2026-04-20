@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/test_gpu_detection.dir/link.d CMakeFiles/test_gpu_detection.dir/test_gpu_detection.c.o -o test_gpu_detection   -L/home/axogm/Documents/Driver/mvgal/tests/unit/../../build  -Wl,-rpath,/home/axogm/Documents/Driver/mvgal/tests/unit/../../build -lmvgal_core

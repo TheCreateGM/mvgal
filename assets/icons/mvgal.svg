@@ -1,0 +1,14 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 257 249" width="528" height="512">
+	<defs>
+		<image  width="167" height="107" id="img1" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKcAAABrAQMAAAAo8gBgAAAAAXNSR0IB2cksfwAAAAZQTFRFLDlHAAAAf/vG8QAAAAJ0Uk5T/wDltzBKAAAAa0lEQVR4nGNkYKhvYGBg+CjA/uOgg/wDIPMvCwPjqCg5ogwM/39yMDCMio6KDiJRMCBKtL6WhfEfZlofFUUXZWCw388ElCAsysDQ2AAS/f9/VJQ80QYGSEk7KkpIFFwEECUKSqNA7qgoGaIAKaGnMGRiNroAAAAASUVORK5CYII="/>
+		<image  width="167" height="107" id="img2" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKcAAABrAQMAAAAo8gBgAAAAAXNSR0IB2cksfwAAAAZQTFRFVHqVAAAAC4Qa1gAAAAJ0Uk5T/wDltzBKAAAAa0lEQVR4nGNkYKhvYGBg+CjA/uOgg/wDIPMvCwPjqCg5ogwM/39yMDCMio6KDiJRMCBKtL6WhfEfZlofFUUXZWCw388ElCAsysDQ2AAS/f9/VJQ80QYGSEk7KkpIFFwEECUKSqNA7qgoGaIAKaGnMGRiNroAAAAASUVORK5CYII="/>
+		<image  width="257" height="107" id="img3" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQEAAABrAQMAAABNOqU2AAAAAXNSR0IB2cksfwAAAAZQTFRFAAAALDlHcgxfwgAAAAJ0Uk5TAP9bkSK1AAAAcElEQVR4nGNkYPzHAAR/WUBkfQOIZGRg4P/wk4MBAhhHVQxfFf+hDIafHPYHoMz/TKSqaAQZDRKyP/BQAchk/jOqYoSpAIFRFaMqRlUMJRXsPwiV66MqRlWM1vvDTgUUoKmACTcSoQLathxVMRJVAAD42FcZ5soFfwAAAABJRU5ErkJggg=="/>
+		<image  width="257" height="107" id="img4" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQEAAABrAQMAAABNOqU2AAAAAXNSR0IB2cksfwAAAAZQTFRFAAAAVHqVm2fJFAAAAAJ0Uk5TAP9bkSK1AAAAcElEQVR4nGNkYPzHAAR/WUBkfQOIZGRg4P/wk4MBAhhHVQxfFf+hDIafHPYHoMz/TKSqaAQZDRKyP/BQAchk/jOqYoSpAIFRFaMqRlUMJRXsPwiV66MqRlWM1vvDTgUUoKmACTcSoQLathxVMRJVAAD42FcZ5soFfwAAAABJRU5ErkJggg=="/>
+	</defs>
+	<style>
+	</style>
+	<use id="MV copy" href="#img1" x="45" y="10"/>
+	<use id="MV" href="#img2" x="45" y="0"/>
+	<use id="GAL copy" href="#img3" x="0" y="132"/>
+	<use id="GAL" href="#img4" x="0" y="142"/>
+</svg>

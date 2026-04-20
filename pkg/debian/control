@@ -1,0 +1,36 @@
+Source: mvgal
+Section: utils
+Priority: optional
+Maintainer: AxoGM <creategm10@proton.me>
+Build-Depends: debhelper (>= 13), gcc, make, libpthread-stubs0-dev
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: mvgal
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Multi-Vendor GPU Aggregation Layer
+ MVGAL is a Linux kernel module and userspace library that provides
+ a unified interface for managing multiple GPUs from different vendors
+ (AMD, NVIDIA, Intel). It includes:
+ .
+  * Kernel module with DRM device enumeration
+  * CUDA Driver and Runtime API interception
+  * Direct3D, Metal, WebGPU, OpenCL API interception
+  * Workload distribution strategies (round-robin, AFR, SFR, hybrid)
+  * Cross-GPU memory migration
+  * DMA-BUF support for cross-vendor sharing
+  * Comprehensive benchmark suite
+
+Package: mvgal-dev
+Architecture: amd64
+Section: libdevel
+Depends: mvgal (= ${binary:Version}), ${misc:Depends}
+Description: MVGAL development files
+ Development headers and static libraries for MVGAL.
+
+Package: mvgal-benchmarks
+Architecture: amd64
+Depends: mvgal (= ${binary:Version}), ${misc:Depends}
+Description: MVGAL benchmark suite
+ Synthetic, real-world, and stress benchmarks for MVGAL.

@@ -1,0 +1,61 @@
+#!/bin/bash
+# Post-installation script for MVGAL
+
+set -e
+
+# Create configuration directory
+mkdir -p /etc/mvgal
+
+# Create default configuration file if it doesn't exist
+if [ ! -f /etc/mvgal/mvgal.conf ]; then
+    cat > /etc/mvgal/mvgal.conf << 'EOF'
+[general]
+enabled = true
+log_level = 3
+
+[gpus]
+devices = auto
+
+[scheduler]
+strategy = hybrid
+load_balance = true
+thermal_aware = true
+
+[memory]
+use_dmabuf = true
+p2p_enabled = true
+replicate_threshold = 16777216
+
+[vulkan]
+enabled = true
+debug = false
+
+[opencl]
+enabled = true
+
+[cuda]
+enabled = false
+EOF
+    chmod 644 /etc/mvgal/mvgal.conf
+fi
+
+# Create runtime directory
+mkdir -p /var/run/mvgal
+chmod 755 /var/run/mvgal
+
+# Create log directory
+mkdir -p /var/log/mvgal
+chmod 755 /var/log/mvgal
+
+# Update library cache
+if [ -x /sbin/ldconfig ]; then
+    /sbin/ldconfig
+fi
+
+# Enable and start daemon if systemd is available
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload > /dev/null 2>&1 || true
+    systemctl enable mvgal-daemon.service > /dev/null 2>&1 || true
+fi
+
+exit 0

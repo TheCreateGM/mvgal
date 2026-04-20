@@ -1,0 +1,4 @@
+# Kbuild file for MVGAL kernel module
+
+obj-m := mvgal.o
+mvgal-objs := mvgal_kernel.o

@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/test_config.dir/link.d CMakeFiles/test_config.dir/test_config.c.o -o test_config   -L/home/axogm/Documents/Driver/mvgal/tests/unit/../../build  -Wl,-rpath,/home/axogm/Documents/Driver/mvgal/tests/unit/../../build -lmvgal_core

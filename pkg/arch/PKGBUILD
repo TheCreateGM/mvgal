@@ -1,0 +1,97 @@
+# Maintainer: AxoGM <creategm10@proton.me>
+# Contributor:
+
+pkgname=mvgal
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Multi-Vendor GPU Aggregation Layer for Linux"
+arch=('x86_64')
+url="https://github.com/TheCreateGM/mvgal"
+license=('GPL3')
+groups=('gpu')
+depends=('glibc' 'pthread')
+makedepends=('gcc' 'make' 'linux-headers>=6.0')
+optdepends=(
+    'cuda: for CUDA API interception'
+    'wine: for Direct3D API interception'
+    'vulkan: for Vulkan/WebGPU support'
+)
+provides=('libmvgal_core.so' 'libmvgal_cuda.so' 'libmvgal_d3d.so' 'libmvgal_metal.so' 'libmvgal_webgpu.so' 'libmvgal_opencl.so')
+conflicts=()
+replaces=()
+backup=()
+options=()
+install=mvgal.install
+source=("$pkgname-$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "$srcdir/$pkgname-$pkgver"
+
+    # Build kernel module
+    msg2 "Building kernel module..."
+    cd src/kernel
+    make -C /usr/lib/modules/$(uname -r)/build M=$(pwd) modules
+
+    # Build userspace libraries
+    msg2 "Building userspace libraries..."
+    cd ../../src/userspace
+    make all
+
+    # Build benchmarks
+    msg2 "Building benchmarks..."
+    cd ../../benchmarks
+    make all
+}
+
+package() {
+    cd "$srcdir/$pkgname-$pkgver"
+
+    # Install kernel module
+    msg2 "Installing kernel module..."
+    install -Dm644 src/kernel/mvgal.ko "$pkgdir/usr/lib/modules/$(uname -r)/kernel/drivers/gpu/mvgal.ko"
+
+    # Install userspace libraries
+    msg2 "Installing userspace libraries..."
+    install -Dm755 src/userspace/libmvgal_core.so "$pkgdir/usr/lib/libmvgal_core.so"
+    install -Dm755 src/userspace/intercept/cuda/libmvgal_cuda.so "$pkgdir/usr/lib/libmvgal_cuda.so"
+    install -Dm755 src/userspace/intercept/d3d/libmvgal_d3d.so "$pkgdir/usr/lib/libmvgal_d3d.so"
+    install -Dm755 src/userspace/intercept/metal/libmvgal_metal.so "$pkgdir/usr/lib/libmvgal_metal.so"
+    install -Dm755 src/userspace/intercept/webgpu/libmvgal_webgpu.so "$pkgdir/usr/lib/libmvgal_webgpu.so"
+    install -Dm755 src/userspace/intercept/opencl/libmvgal_opencl.so "$pkgdir/usr/lib/libmvgal_opencl.so"
+
+    # Install headers
+    msg2 "Installing headers..."
+    install -Dm644 include/mvgal/*.h -t "$pkgdir/usr/include/mvgal/"
+
+    # Install benchmarks
+    msg2 "Installing benchmarks..."
+    install -Dm755 benchmarks/synthetic/mvgal_synthetic_bench "$pkgdir/usr/bin/mvgal_synthetic_bench"
+    install -Dm755 benchmarks/real_world/mvgal_realworld_bench "$pkgdir/usr/bin/mvgal_realworld_bench"
+    install -Dm755 benchmarks/stress/mvgal_stress_bench "$pkgdir/usr/bin/mvgal_stress_bench"
+
+    # Install configuration
+    msg2 "Installing configuration..."
+    install -Dm644 config/mvgal.conf "$pkgdir/etc/mvgal/mvgal.conf"
+
+    # Install udev rules
+    msg2 "Installing udev rules..."
+    install -Dm644 config/99-mvgal.rules "$pkgdir/usr/lib/udev/rules.d/99-mvgal.rules"
+
+    # Install modprobe config
+    msg2 "Installing modprobe config..."
+    install -Dm644 config/mvgal.conf "$pkgdir/usr/lib/modprobe.d/mvgal.conf"
+
+    # Install load/unload scripts
+    msg2 "Installing module scripts..."
+    install -Dm755 config/load-module.sh "$pkgdir/usr/bin/mvgal-load-module"
+    install -Dm755 config/unload-module.sh "$pkgdir/usr/bin/mvgal-unload-module"
+
+    # Install icon
+    msg2 "Installing icon..."
+    install -Dm644 config/icons/hicolor/256x256/apps/mvgal.svg "$pkgdir/usr/share/icons/hicolor/256x256/apps/mvgal.svg"
+
+    # Install desktop file
+    msg2 "Installing desktop file..."
+    install -Dm644 config/org.mvgal.MVGAL-GUI.desktop "$pkgdir/usr/share/applications/org.mvgal.MVGAL-GUI.desktop"
+}

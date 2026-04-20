@@ -1,0 +1,15 @@
+/home/axogm/Documents/Driver/mvgal/build_tests/CMakeFiles/test.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/CMakeFiles/edit_cache.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/CMakeFiles/rebuild_cache.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/unit/CMakeFiles/test_gpu_detection.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/unit/CMakeFiles/test_memory.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/unit/CMakeFiles/test_scheduler.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/unit/CMakeFiles/test_core_api.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/unit/CMakeFiles/test_config.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/unit/CMakeFiles/test.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/unit/CMakeFiles/edit_cache.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/unit/CMakeFiles/rebuild_cache.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/integration/CMakeFiles/test_multi_gpu.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/integration/CMakeFiles/test.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/integration/CMakeFiles/edit_cache.dir
+/home/axogm/Documents/Driver/mvgal/build_tests/integration/CMakeFiles/rebuild_cache.dir

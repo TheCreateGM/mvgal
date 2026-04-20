@@ -1,0 +1,42 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/mvgal.dir/link.d"
+  "CMakeFiles/mvgal.dir/api/mvgal_api.c.o"
+  "CMakeFiles/mvgal.dir/api/mvgal_api.c.o.d"
+  "CMakeFiles/mvgal.dir/api/mvgal_log.c.o"
+  "CMakeFiles/mvgal.dir/api/mvgal_log.c.o.d"
+  "CMakeFiles/mvgal.dir/daemon/config.c.o"
+  "CMakeFiles/mvgal.dir/daemon/config.c.o.d"
+  "CMakeFiles/mvgal.dir/daemon/gpu_manager.c.o"
+  "CMakeFiles/mvgal.dir/daemon/gpu_manager.c.o.d"
+  "CMakeFiles/mvgal.dir/daemon/ipc.c.o"
+  "CMakeFiles/mvgal.dir/daemon/ipc.c.o.d"
+  "CMakeFiles/mvgal.dir/memory/allocator.c.o"
+  "CMakeFiles/mvgal.dir/memory/allocator.c.o.d"
+  "CMakeFiles/mvgal.dir/memory/dmabuf.c.o"
+  "CMakeFiles/mvgal.dir/memory/dmabuf.c.o.d"
+  "CMakeFiles/mvgal.dir/memory/memory.c.o"
+  "CMakeFiles/mvgal.dir/memory/memory.c.o.d"
+  "CMakeFiles/mvgal.dir/memory/sync.c.o"
+  "CMakeFiles/mvgal.dir/memory/sync.c.o.d"
+  "CMakeFiles/mvgal.dir/scheduler/load_balancer.c.o"
+  "CMakeFiles/mvgal.dir/scheduler/load_balancer.c.o.d"
+  "CMakeFiles/mvgal.dir/scheduler/scheduler.c.o"
+  "CMakeFiles/mvgal.dir/scheduler/scheduler.c.o.d"
+  "CMakeFiles/mvgal.dir/scheduler/strategy/afr.c.o"
+  "CMakeFiles/mvgal.dir/scheduler/strategy/afr.c.o.d"
+  "CMakeFiles/mvgal.dir/scheduler/strategy/compute_offload.c.o"
+  "CMakeFiles/mvgal.dir/scheduler/strategy/compute_offload.c.o.d"
+  "CMakeFiles/mvgal.dir/scheduler/strategy/hybrid.c.o"
+  "CMakeFiles/mvgal.dir/scheduler/strategy/hybrid.c.o.d"
+  "CMakeFiles/mvgal.dir/scheduler/strategy/sfr.c.o"
+  "CMakeFiles/mvgal.dir/scheduler/strategy/sfr.c.o.d"
+  "CMakeFiles/mvgal.dir/scheduler/strategy/task.c.o"
+  "CMakeFiles/mvgal.dir/scheduler/strategy/task.c.o.d"
+  "libmvgal.pdb"
+  "libmvgal.so"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang C)
+  include(CMakeFiles/mvgal.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

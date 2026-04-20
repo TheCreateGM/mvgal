@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/test_multi_gpu.dir/link.d CMakeFiles/test_multi_gpu.dir/test_multi_gpu_validation.c.o -o test_multi_gpu   -L/home/axogm/Documents/Driver/mvgal/tests/integration/../../build  -Wl,-rpath,/home/axogm/Documents/Driver/mvgal/tests/integration/../../build -lmvgal_core
