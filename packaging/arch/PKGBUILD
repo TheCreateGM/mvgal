@@ -1,0 +1,144 @@
+# Maintainer: AxoGM <creategm10@proton.me>
+# Contributor:
+pkgname=mvgal
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Multi-Vendor GPU Aggregation Layer for Linux - enabling heterogeneous GPUs to function as a single logical device"
+arch=('x86_64')
+url="https://github.com/TheCreateGM/mvgal"
+license=('GPL3')
+groups=()
+depends=('libdrm' 'libpci' 'systemd' 'vulkan-devel' 'opencl-headers' 'ocl-icd')
+makedepends=('gcc' 'make' 'cmake' 'pkgconf' 'git')
+optdepends=('nvidia-utils: CUDA support' 'cuda: CUDA Toolkit' 'vulkan-validation-layers: Vulkan validation')
+provides=()
+conflicts=()
+replaces=()
+backup=('etc/mvgal/mvgal.conf')
+options=()
+install=
+changelog=
+
+# Source array - in a real package, this would be the Git repo
+# For local builds, we use the current directory
+source=(
+    "git+https://github.com/TheCreateGM/mvgal.git#tag=v${pkgver}"
+)
+sha256sums=('SKIP')  # For local builds; real packages should have actual hashes
+
+prepare() {
+    cd "$srcdir/$pkgname"
+    # If building from local source, no preparation needed
+    # If building from git, you might need:
+    # git submodule update --init --recursive
+}
+
+build() {
+    cd "$srcdir/$pkgname"
+
+    # Create build directory
+    mkdir -p build
+    cd build
+
+    # Configure with CMake
+    cmake .. \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DWITH_VULKAN=ON \
+        -DWITH_OPENCL=ON \
+        -DWITH_DAEMON=ON \
+        -DWITH_KERNEL_MODULE=OFF \
+        -DWITH_TESTS=OFF \
+        -DWITH_BENCHMARKS=OFF
+
+    # Build
+    make -j$(nproc)
+}
+
+check() {
+    cd "$srcdir/$pkgname/build"
+    # Run tests if enabled
+    ctest -V || true
+}
+
+package() {
+    cd "$srcdir/$pkgname"
+
+    # Install libraries
+    install -Dm644 build/libmvgal.so* "$pkgdir/usr/lib/libmvgal.so.$pkgver"
+    install -Dm644 build/libmvgal_core.a "$pkgdir/usr/lib/libmvgal_core.a"
+
+    # Install Vulkan layer
+    install -Dm644 build/libVK_LAYER_MVGAL.so "$pkgdir/usr/lib/libVK_LAYER_MVGAL.so" || true
+
+    # Install headers
+    install -Dm644 include/mvgal/*.h -t "$pkgdir/usr/include/mvgal/"
+
+    # Install daemon
+    install -Dm755 build/mvgal-daemon "$pkgdir/usr/sbin/mvgal-daemon" || true
+
+    # Install Vulkan manifest
+    install -Dm644 src/userspace/intercept/vulkan/manifest.json \
+        "$pkgdir/usr/share/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json" || true
+
+    # Install configuration
+    [ -f rpm/mvgal.conf ] && install -Dm644 rpm/mvgal.conf "$pkgdir/etc/mvgal/mvgal.conf" || \
+        install -Dm644 packaging/rpm/mvgal.conf "$pkgdir/etc/mvgal/mvgal.conf"
+
+    # Install systemd service
+    [ -f rpm/mvgal-daemon.service ] && install -Dm644 rpm/mvgal-daemon.service \
+        "$pkgdir/usr/lib/systemd/system/mvgal-daemon.service" || \
+        install -Dm644 packaging/rpm/mvgal-daemon.service \
+        "$pkgdir/usr/lib/systemd/system/mvgal-daemon.service"
+
+    # Install documentation
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+    install -Dm644 QUICKSTART.md "$pkgdir/usr/share/doc/$pkgname/QUICKSTART.md"
+    install -Dm644 PROGRESS.md "$pkgdir/usr/share/doc/$pkgname/PROGRESS.md"
+    install -Dm644 CHANGES_2025.md "$pkgdir/usr/share/doc/$pkgname/CHANGES_2025.md"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+    # Create symlinks for shared library
+    ln -s "libmvgal.so.$pkgver" "$pkgdir/usr/lib/libmvgal.so.0"
+    ln -s "libmvgal.so.0" "$pkgdir/usr/lib/libmvgal.so"
+
+    # Fix permissions
+    chmod 755 "$pkgdir/usr/sbin/mvgal-daemon" || true
+    chmod 644 "$pkgdir/usr/lib/"* || true
+    chmod 644 "$pkgdir/usr/include/mvgal/"* || true
+}
+
+package_dev() {
+    pkgdesc="Development files for MVGAL"
+
+    cd "$srcdir/$pkgname"
+
+    # Install development files
+    install -Dm644 build/libmvgal_core.a "$pkgdir/usr/lib/libmvgal_core.a"
+    install -Dm644 include/mvgal/*.h -t "$pkgdir/usr/include/mvgal/"
+
+    # Symlink for libtool
+    ln -s "libmvgal_core.a" "$pkgdir/usr/lib/libmvgal.a"
+}
+
+package_vulkan() {
+    pkgdesc="Vulkan interception layer for MVGAL"
+    depends=('mvgal' 'vulkan-devel')
+
+    cd "$srcdir/$pkgname"
+
+    install -Dm644 build/libVK_LAYER_MVGAL.so "$pkgdir/usr/lib/libVK_LAYER_MVGAL.so" || true
+    install -Dm644 src/userspace/intercept/vulkan/manifest.json \
+        "$pkgdir/usr/share/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json" || true
+}
+
+package_daemon() {
+    pkgdesc="MVGAL Background Daemon"
+    depends=('mvgal' 'systemd')
+
+    cd "$srcdir/$pkgname"
+
+    install -Dm755 build/mvgal-daemon "$pkgdir/usr/sbin/mvgal-daemon" || true
+    install -Dm644 packaging/rpm/mvgal-daemon.service \
+        "$pkgdir/usr/lib/systemd/system/mvgal-daemon.service"
+}

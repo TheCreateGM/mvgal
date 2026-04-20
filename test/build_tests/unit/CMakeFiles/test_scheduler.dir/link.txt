@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/test_scheduler.dir/link.d CMakeFiles/test_scheduler.dir/test_scheduler.c.o -o test_scheduler   -L/home/axogm/Documents/Driver/mvgal/tests/unit/../../build  -Wl,-rpath,/home/axogm/Documents/Driver/mvgal/tests/unit/../../build -lmvgal_core

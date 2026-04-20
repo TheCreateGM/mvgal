@@ -1,0 +1,37 @@
+[Unit]
+Description=Multi-Vendor GPU Aggregation Layer Daemon
+Documentation=https://github.com/TheCreateGM/mvgal
+After=syslog.target network.target
+Wants=syslog.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/sbin/mvgal-daemon
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=mvgal-daemon
+
+# GPU access requires these capabilities
+AmbientCapabilities=CAP_SYS_ADMIN CAP_DAC_READ_SEARCH
+
+# Allow access to GPU devices
+DeviceAllow=/dev/dri/* rw
+DeviceAllow=/dev/nvidia* rw
+DeviceAllow=/dev/vgpu* rw
+
+# Environment variables
+Environment=MVGAL_ENABLED=1
+Environment=MVGAL_LOG_LEVEL=3
+
+[Install]
+WantedBy=multi-user.target
+Alias=mvgal.service
+
+[State]
+# PID file location
+PIDFile=/var/run/mvgal/mvgal.pid

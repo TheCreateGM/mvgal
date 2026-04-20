@@ -1,0 +1,29 @@
+[Unit]
+Description=MVGAL DBus Service
+Documentation=https://github.com/TheCreateGM/mvgal
+After=dbus.service syslog.target network.target
+
+[Service]
+Type=dbus
+BusName=org.mvgal.MVGAL
+ExecStart=/usr/bin/mvgal-dbus-service
+User=root
+Group=video
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=mvgal-dbus
+
+Restart=always
+RestartSec=5s
+
+# Security
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+
+# DBus policy
+DBusPolicy=@org.mvgal.MVGAL
+
+[Install]
+WantedBy=multi-user.target

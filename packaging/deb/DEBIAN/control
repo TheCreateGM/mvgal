@@ -1,0 +1,68 @@
+Package: mvgal
+Version: 0.1.0
+Section: libs
+Priority: optional
+Architecture: amd64
+Maintainer: AxoGM <creategm10@proton.me>
+Description: Multi-Vendor GPU Aggregation Layer for Linux
+ MVGAL enables heterogeneous GPUs (AMD, NVIDIA, Intel, Moore Threads)
+ to function as a single logical compute and rendering device.
+ .
+ Features:
+  * Unified abstraction for multiple GPUs
+  * Smart scheduling with AFR, SFR, and Hybrid strategies
+  * DMA-BUF based cross-GPU memory management
+  * Vulkan layer for transparent API interception
+  * OpenCL and CUDA support (experimental)
+  * Daemon for background GPU management
+
+Depends: libdrm-dev, libpci-dev, libudev-dev, libsystemd-dev
+Recommends: vulkan-tools, libvulkan-dev, opencl-headers
+Suggests: nvidia-cuda-toolkit
+Conflicts:
+Replaces:
+Provides:
+Built-Using:
+
+Package: mvgal-dev
+Version: 0.1.0
+Section: libdevel
+Priority: optional
+Architecture: amd64
+Maintainer: AxoGM <creategm10@proton.me>
+Description: MVGAL Development Files
+ Development headers and static libraries for MVGAL.
+ .
+ This package contains the development files needed to build
+ applications that use MVGAL.
+
+Depends: mvgal (= 0.1.0)
+
+Package: mvgal-vulkan
+Version: 0.1.0
+Section: libs
+Priority: optional
+Architecture: amd64
+Maintainer: AxoGM <creategm10@proton.me>
+Description: MVGAL Vulkan Layer
+ Vulkan interception layer for MVGAL.
+ .
+ This package provides the Vulkan layer that enables transparent
+ GPU aggregation for Vulkan applications.
+
+Depends: mvgal (= 0.1.0), libvulkan-dev
+
+Package: mvgal-daemon
+Version: 0.1.0
+Section: admin
+Priority: optional
+Architecture: amd64
+Maintainer: AxoGM <creategm10@proton.me>
+Description: MVGAL Background Daemon
+ Background service for GPU management and coordination.
+ .
+ This package contains the mvgal-daemon service that manages
+ GPU detection, workload distribution, and inter-process
+ communication.
+
+Depends: mvgal (= 0.1.0), libsystemd-dev

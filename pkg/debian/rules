@@ -1,0 +1,44 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_auto_build:
+	# Build kernel module
+	cd src/kernel && make -C /lib/modules/$$(uname -r)/build M=$$(pwd) modules
+	# Build userspace libraries
+	cd src/userspace && make all
+	# Build benchmarks
+	cd benchmarks && make all
+
+override_dh_auto_install:
+	# Install kernel module
+	mkdir -p debian/mvgal/lib/modules/$$(uname -r)/kernel/drivers/gpu
+	cp src/kernel/mvgal.ko debian/mvgal/lib/modules/$$(uname -r)/kernel/drivers/gpu/
+	# Install userspace libraries
+	mkdir -p debian/mvgal/usr/lib
+	cp src/userspace/libmvgal_core.so debian/mvgal/usr/lib/
+	cp src/userspace/intercept/cuda/libmvgal_cuda.so debian/mvgal/usr/lib/
+	cp src/userspace/intercept/d3d/libmvgal_d3d.so debian/mvgal/usr/lib/
+	cp src/userspace/intercept/metal/libmvgal_metal.so debian/mvgal/usr/lib/
+	cp src/userspace/intercept/webgpu/libmvgal_webgpu.so debian/mvgal/usr/lib/
+	cp src/userspace/intercept/opencl/libmvgal_opencl.so debian/mvgal/usr/lib/
+	# Install headers
+	mkdir -p debian/mvgal-dev/usr/include/mvgal
+	cp include/mvgal/*.h debian/mvgal-dev/usr/include/mvgal/
+	# Install benchmarks
+	mkdir -p debian/mvgal-benchmarks/usr/bin
+	cp benchmarks/synthetic/mvgal_synthetic_bench debian/mvgal-benchmarks/usr/bin/
+	cp benchmarks/real_world/mvgal_realworld_bench debian/mvgal-benchmarks/usr/bin/
+	cp benchmarks/stress/mvgal_stress_bench debian/mvgal-benchmarks/usr/bin/
+	# Install configuration
+	mkdir -p debian/mvgal/etc/mvgal
+	cp config/mvgal.conf debian/mvgal/etc/mvgal/
+	# Install udev rules
+	mkdir -p debian/mvgal/lib/udev/rules.d
+	cp config/99-mvgal.rules debian/mvgal/lib/udev/rules.d/
+	# Install icon
+	mkdir -p debian/mvgal/usr/share/icons/hicolor/256x256/apps
+	cp config/icons/hicolor/256x256/apps/mvgal.svg debian/mvgal/usr/share/icons/hicolor/256x256/apps/
+	# Install desktop file
+	mkdir -p debian/mvgal/usr/share/applications
+	cp config/org.mvgal.MVGAL-GUI.desktop debian/mvgal/usr/share/applications/

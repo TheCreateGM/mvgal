@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/test_memory.dir/link.d CMakeFiles/test_memory.dir/test_memory.c.o -o test_memory   -L/home/axogm/Documents/Driver/mvgal/tests/unit/../../build  -Wl,-rpath,/home/axogm/Documents/Driver/mvgal/tests/unit/../../build -lmvgal_core

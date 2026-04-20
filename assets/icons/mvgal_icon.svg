@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="core" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a3a3a"/>
+      <stop offset="100%" stop-color="#1a1a1a"/>
+    </linearGradient>
+    <linearGradient id="amd" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e31837"/>
+      <stop offset="100%" stop-color="#9e0019"/>
+    </linearGradient>
+    <linearGradient id="nvidia" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#76b900"/>
+      <stop offset="100%" stop-color="#4a7800"/>
+    </linearGradient>
+    <linearGradient id="intel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0071c5"/>
+      <stop offset="100%" stop-color="#00458c"/>
+    </linearGradient>
+    <linearGradient id="moore" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffd700"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="none"/>
+
+  <!-- Core Hexagon -->
+  <g transform="translate(256,256)">
+    <polygon points="-64,0 -32,52 32,52 64,0 32,-52 -32,-52" fill="url(#core)"/>
+    <polygon points="-64,0 -32,52 32,52 64,0 32,-52 -32,-52" fill="none" stroke="#505050" stroke-width="2"/>
+  </g>
+
+  <!-- AMD GPU (Top-Left) -->
+  <circle cx="128" cy="128" r="48" fill="url(#amd)"/>
+  <circle cx="128" cy="128" r="48" fill="none" stroke="#ffffff" stroke-width="2" stroke-opacity="0.3"/>
+
+  <!-- NVIDIA GPU (Top-Right) -->
+  <circle cx="384" cy="128" r="48" fill="url(#nvidia)"/>
+  <circle cx="384" cy="128" r="48" fill="none" stroke="#ffffff" stroke-width="2" stroke-opacity="0.3"/>
+
+  <!-- Intel GPU (Bottom-Left) -->
+  <circle cx="128" cy="384" r="48" fill="url(#intel)"/>
+  <circle cx="128" cy="384" r="48" fill="none" stroke="#ffffff" stroke-width="2" stroke-opacity="0.3"/>
+
+  <!-- Moore Threads GPU (Bottom-Right) -->
+  <circle cx="384" cy="384" r="48" fill="url(#moore)"/>
+  <circle cx="384" cy="384" r="48" fill="none" stroke="#000000" stroke-width="2" stroke-opacity="0.3"/>
+
+  <!-- Connection lines -->
+  <line x1="256" y1="256" x2="128" y2="128" stroke="#505050" stroke-width="6" stroke-linecap="round"/>
+  <line x1="256" y1="256" x2="384" y2="128" stroke="#505050" stroke-width="6" stroke-linecap="round"/>
+  <line x1="256" y1="256" x2="128" y2="384" stroke="#505050" stroke-width="6" stroke-linecap="round"/>
+  <line x1="256" y1="256" x2="384" y2="384" stroke="#505050" stroke-width="6" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,66 @@
+# MVGAL Git Ignore
+# Multi-Vendor GPU Aggregation Layer for Linux
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.ko
+*.mod.c
+.*.cmd
+*.mod
+
+# Benchmark results
+benchmarks/results/*.txt
+
+# Tools binaries
+tools/mvgal
+tools/mvgal-config
+
+# GUI binaries
+gui/mvgal-gui
+gui/mvgal-tray
+
+# DBus service
+pkg/dbus/mvgal-dbus-service
+
+# Kernel module build files
+src/kernel/*.o
+src/kernel/*.ko
+src/kernel/.*.cmd
+src/kernel/*.mod.c
+
+# Userspace library build files
+src/userspace/*.o
+src/userspace/*.so
+src/userspace/intercept/*/*.o
+src/userspace/intercept/*/*.so
+
+# IDE/Debug files
+*.swp
+*.swo
+*~
+.DS_Store
+.idea/
+.vscode/
+build/
+
+# Logs
+*.log
+/tmp/mvgal_dump.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.xpm
+
+# Distribution
+dist/
+
+# System files
+*.deb
+*.rpm
+*.tar.gz
+*.snap
+*.Flatpak

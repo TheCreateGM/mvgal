@@ -1,0 +1,121 @@
+{
+  "app-id": "org.mvgal.MVGAL",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "24.08",
+  "sdk": "org.freedesktop.Sdk",
+  "command": "mvgal-tray",
+  "finish-args": [
+    "--share=ipc",
+    "--socket=wayland",
+    "--socket=x11",
+    "--socket=pulseaudio",
+    "--device=dri",
+    "--device=kmsg",
+    "--allow=multiarch",
+    "--filesystem=host",
+    "--talk-name=org.freedesktop.Notifications",
+    "--system-talk-name=org.freedesktop)*.Device.*"
+  ],
+  "build-options": {
+    "arch": {
+      "x86_64": {
+        "env": {
+          "CC": "gcc",
+          "CFLAGS": "-O2 -g"
+        }
+      }
+    }
+  },
+  "cleanup": ["/lib/firmware", "/usr/lib/firmware"],
+  "modules": [
+    {
+      "name": "kernel-headers",
+      "buildsystem": "simple",
+      "build-commands": [
+        "ln -sf /usr/lib/modules/$(uname -r)/build /usr/src/linux-headers"
+      ],
+      "sources": []
+    },
+    {
+      "name": "mvgal",
+      "buildsystem": "simple",
+      "build-commands": [
+        "# Build kernel module",
+        "cd src/kernel && make -C /usr/src/linux-headers M=$(pwd) modules",
+        "# Build userspace libraries",
+        "cd ../userspace && make all",
+        "# Build benchmarks",
+        "cd ../../benchmarks && make all",
+        "# Build CLI tools",
+        "cd ../tools && make all",
+        "# Build GUI",
+        "cd ../gui && make all"
+      ],
+      "install-commands": [
+        "# Install kernel module",
+        "install -Dm644 src/kernel/mvgal.ko /app/lib/modules/mvgal.ko",
+        "# Install userspace libraries",
+        "install -Dm755 src/userspace/libmvgal_core.so /app/lib/libmvgal_core.so",
+        "install -Dm755 src/userspace/intercept/cuda/libmvgal_cuda.so /app/lib/libmvgal_cuda.so",
+        "install -Dm755 src/userspace/intercept/d3d/libmvgal_d3d.so /app/lib/libmvgal_d3d.so",
+        "install -Dm755 src/userspace/intercept/metal/libmvgal_metal.so /app/lib/libmvgal_metal.so",
+        "install -Dm755 src/userspace/intercept/webgpu/libmvgal_webgpu.so /app/lib/libmvgal_webgpu.so",
+        "install -Dm755 src/userspace/intercept/opencl/libmvgal_opencl.so /app/lib/libmvgal_opencl.so",
+        "# Install headers",
+        "install -Dm644 include/mvgal/*.h -t /app/include/mvgal/",
+        "# Install benchmarks",
+        "install -Dm755 benchmarks/synthetic/mvgal_synthetic_bench /app/bin/mvgal_synthetic_bench",
+        "install -Dm755 benchmarks/real_world/mvgal_realworld_bench /app/bin/mvgal_realworld_bench",
+        "install -Dm755 benchmarks/stress/mvgal_stress_bench /app/bin/mvgal_stress_bench",
+        "# Install CLI tools",
+        "install -Dm755 tools/mvgal-config /app/bin/mvgal-config",
+        "install -Dm755 tools/mvgal /app/bin/mvgal",
+        "# Install GUI",
+        "install -Dm755 gui/mvgal-gui /app/bin/mvgal-gui",
+        "# Install tray icon",
+        "install -Dm755 gui/mvgal-tray /app/bin/mvgal-tray",
+        "# Install configuration",
+        "install -Dm644 config/mvgal.conf /app/etc/mvgal/mvgal.conf",
+        "# Install desktop files",
+        "install -Dm644 config/org.mvgal.MVGAL-GUI.desktop /app/share/applications/org.mvgal.MVGAL-GUI.desktop",
+        "# Install icons",
+        "install -Dm644 config/icons/hicolor/256x256/apps/mvgal.svg /app/share/icons/hicolor/256x256/apps/mvgal.svg"
+      ],
+      "sources": [
+        {
+          "type": "dir",
+          "path": "."
+        }
+      ]
+    }
+  ],
+  "addons": [
+    {
+      "type": "dbus-service",
+      "name": "mvgal-dbus",
+      "interface": "org.mvgal.MVGAL",
+      "object-path": "/org/mvgal/MVGAL"
+    }
+  ],
+  "metadata": {
+    "name": "MVGAL",
+    "summary": "Multi-Vendor GPU Aggregation Layer",
+    "description": "MVGAL provides a unified interface for managing multiple GPUs from different vendors (AMD, NVIDIA, Intel) on Linux. It includes kernel module with DRM device enumeration, API interception for CUDA/D3D/Metal/WebGPU/OpenCL, workload distribution strategies, cross-GPU memory migration, DMA-BUF support, and a comprehensive benchmark suite.",
+    "developer": "AxoGM",
+    "developer-url": "https://github.com/TheCreateGM/mvgal",
+    "project-license": ["GPL-3.0-or-later"],
+    "categories": ["System", "Utility", "Hardware"],
+    "keywords": [
+      "GPU",
+      "multi-vendor",
+      "CUDA",
+      "Direct3D",
+      "Metal",
+      "WebGPU",
+      "OpenCL",
+      "load-balancing"
+    ],
+    "icon": "org.mvgal.MVGAL",
+    "screenshots": []
+  }
+}

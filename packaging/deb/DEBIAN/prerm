@@ -1,0 +1,17 @@
+#!/bin/bash
+# Pre-removal script for MVGAL
+
+set -e
+
+# Stop daemon if running
+if [ -d /run/systemd/system ]; then
+    systemctl stop mvgal-daemon.service > /dev/null 2>&1 || true
+fi
+
+# Remove runtime files
+rm -f /var/run/mvgal/*
+
+# Note: Don't remove /var/run/mvgal directory as it might be in use
+# Don't remove /etc/mvgal/mvgal.conf as it might have user customizations
+
+exit 0
