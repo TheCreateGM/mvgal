@@ -68,20 +68,7 @@ pie
 
 ### Build Status Summary
 
-```mermaid
-barChart
-    title Build Status by Component
-    x-axis: Component
-    y-axis: Status (1=Success)
-    bar: ["Core Library", 1, #4CAF50]
-    bar: ["Memory", 1, #4CAF50]
-    bar: ["Scheduler", 1, #4CAF50]
-    bar: ["Daemon", 1, #4CAF50]
-    bar: ["Tests", 1, #4CAF50]
-    bar: ["OpenCL", 1, #4CAF50]
-    bar: ["Vulkan", 0.05, #FF9800]
-    bar: ["CUDA", 0, #F44336]
-```
+**All components build successfully except Vulkan (5%) and CUDA (0%)**
 
 ---
 
@@ -554,17 +541,7 @@ flowchart TD
 
 ### Code Statistics
 
-```mermaid
-barChart
-    title Code Statistics (v0.2.0)
-    x-axis: Metric
-    y-axis: Count
-    bar: ["Total C Files", 24, #1A5FB4]
-    bar: ["Total Lines", 25700, #4CAF50]
-    bar: ["Public API Fun", 220, #FF9800]
-    bar: ["Internal Fun", 480, #FF5722]
-    bar: ["Tests", 6, #2196F3]
-```
+**Total: 24 C files, ~25,700 lines, 220+ public API functions, 480+ internal functions, 6 test files**
 
 | Metric | Count |
 |--------|-------|
