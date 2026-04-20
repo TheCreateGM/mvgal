@@ -19,25 +19,6 @@
 
 MVGAL (Multi-Vendor GPU Aggregation Layer) is a cutting-edge Linux system that combines 2 or more GPUs from different vendors — AMD, NVIDIA, Intel, and Moore Threads — into a unified abstraction layer. This revolutionary approach allows applications, games, and compute workloads to utilize multiple GPUs seamlessly, regardless of vendor differences.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  BEFORE MVGAL: करण                                                                                   │
-│                                                                     │
-│    Application → [GPU 0: AMD]    Application → [GPU 1: NVIDIA]    │
-│                 Separate Memory                Separate Memory    │
-│                                                                     │
-│  AFTER MVGAL:                                                                                       │
-│                                                                     │
-│    Application → [MVGAL Unified GPU]    Unified Memory Space      │
-│                    │                                                       │
-│              ┌─────┼─────┐                                           │
-│              ▼     ▼     ▼                                           │
-│         [AMD]   [NVIDIA]   [Intel]                                    │
-│           │       │        │                                            │
-│      Shared Memory via DMA-BUF                                       │
-└─────────────────────────────────────────────────────────────────┘
-```
-
 ### 🎯 Core Value Proposition
 
 **Transform Your Multi-GPU System:**
