@@ -107,16 +107,16 @@ flowchart TD
 ```mermaid
 flowchart TD
     subgraph VulkanFiles["Vulkan Layer Files"]
-        V1[vk_layer.c<br/>✅ Compiles<br/>(minimal stub)]
-        V2[vk_instance.c<br/>❌ Errors<br/>vkGetProcAddress missing]
-        V3[vk_device.c<br/>❌ Errors<br/>original pointers missing]
-        V4[vk_queue.c<br/>❌ Not examined]
-        V5[vk_command.c<br/>❌ Not examined]
+        V1["vk_layer.c: Compiles (minimal stub)"]
+        V2["vk_instance.c: Errors - vkGetProcAddress missing"]
+        V3["vk_device.c: Errors - original pointers missing"]
+        V4["vk_queue.c: Not examined"]
+        V5["vk_command.c: Not examined"]
     end
     
     subgraph Dependencies["Dependencies"]
-        D1[Vulkan SDK<br/>libvulkan-dev]
-        D2[vulkan/vulkan.h header]
+        D1["Vulkan SDK: libvulkan-dev"]
+        D2["vulkan/vulkan.h header"]
     end
     
     V2 --> D1
@@ -269,25 +269,21 @@ flowchart LR
 
 ### By Module
 
-```mermaid
-barChart
-    title Module Completion Percentage
-    x-axis: Module
-    y-axis: Completion %
-    bar: ["Core API", 100, #4CAF50]
-    bar: ["GPU Management", 100, #4CAF50]
-    bar: ["GPU Health", 100, #4CAF50]
-    bar: ["Memory", 100, #4CAF50]
-    bar: ["Scheduler", 100, #4CAF50]
-    bar: ["Daemon", 100, #4CAF50]
-    bar: ["Logging", 100, #4CAF50]
-    bar: ["IPC", 100, #4CAF50]
-    bar: ["Config", 100, #4CAF50]
-    bar: ["OpenCL Intercept", 100, #4CAF50]
-    bar: ["Vulkan Layer", 5, #FF9800]
-    bar: ["CUDA Wrapper", 0, #F44336]
-    bar: ["Kernel Module", 0, #F44336]
-```
+| Module | Completion |
+|--------|------------|
+| Core API | 100% |
+| GPU Management | 100% |
+| GPU Health | 100% |
+| Memory | 100% |
+| Scheduler | 100% |
+| Daemon | 100% |
+| Logging | 100% |
+| IPC | 100% |
+| Config | 100% |
+| OpenCL Intercept | 100% |
+| Vulkan Layer | 5% |
+| CUDA Wrapper | 0% |
+| Kernel Module | 0% |
 
 | Module | Total Functions | Implemented | Percentage |
 |--------|----------------|-------------|------------|
