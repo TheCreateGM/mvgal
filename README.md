@@ -4,7 +4,6 @@
   <img src="assets/icons/mvgal.svg" alt="MVGAL Logo">
 </p>
 
-[![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)](https://github.com/TheCreateGM/mvgal)
 [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![Language: C11](https://img.shields.io/badge/Language-C11-%23A8B9CC.svg?style=for-the-badge&logo=c&logoColor=white)](https://en.cppreference.com/w/c/11)
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux-%23FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)](https://www.linux.org)
@@ -19,24 +18,6 @@
 
 MVGAL (Multi-Vendor GPU Aggregation Layer) is a cutting-edge Linux system that combines 2 or more GPUs from different vendors — AMD, NVIDIA, Intel, and Moore Threads — into a unified abstraction layer. This revolutionary approach allows applications, games, and compute workloads to utilize multiple GPUs seamlessly, regardless of vendor differences.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  BEFORE MVGAL: करण                                                                                   │
-│                                                                     │
-│    Application → [GPU 0: AMD]    Application → [GPU 1: NVIDIA]    │
-│                 Separate Memory                Separate Memory    │
-│                                                                     │
-│  AFTER MVGAL:                                                                                       │
-│                                                                     │
-│    Application → [MVGAL Unified GPU]    Unified Memory Space      │
-│                    │                                                       │
-│              ┌─────┼─────┐                                           │
-│              ▼     ▼     ▼                                           │
-│         [AMD]   [NVIDIA]   [Intel]                                    │
-│           │       │        │                                            │
-│      Shared Memory via DMA-BUF                                       │
-└─────────────────────────────────────────────────────────────────┘
-```
 
 ### 🎯 Core Value Proposition
 
