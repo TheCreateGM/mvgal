@@ -176,10 +176,10 @@ sudo pacman -S opencl-headers ocl-icd opencl-mesa  # Arch Linux
 ```mermaid
 flowchart TD
     subgraph Config["CMake Configuration"]
-        A[Default\n(Recommended)] --> B[cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_VULKAN=OFF -DWITH_OPENCL=ON -DWITH_DAEMON=ON -DWITH_TESTS=ON]
-        C[Full\n(All Features)] --> D[cmake .. -DWITH_VULKAN=ON -DWITH_OPENCL=ON -DWITH_DAEMON=ON -DWITH_TESTS=ON]
-        E[Minimal\n(Core Only)] --> F[cmake .. -DWITH_VULKAN=OFF -DWITH_OPENCL=OFF -DWITH_DAEMON=OFF -DWITH_TESTS=OFF]
-        G[Debug\n(Debugging)] --> H[cmake .. -DCMAKE_BUILD_TYPE=Debug -DWITH_DEBUG=ON]
+        A["Default<br>(Recommended)"] --> B[cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_VULKAN=OFF -DWITH_OPENCL=ON -DWITH_DAEMON=ON -DWITH_TESTS=ON]
+        C["Full<br>(All Features)"] --> D[cmake .. -DWITH_VULKAN=ON -DWITH_OPENCL=ON -DWITH_DAEMON=ON -DWITH_TESTS=ON]
+        E["Minimal<br>(Core Only)"] --> F[cmake .. -DWITH_VULKAN=OFF -DWITH_OPENCL=OFF -DWITH_DAEMON=OFF -DWITH_TESTS=OFF]
+        G["Debug<br>(Debugging)"] --> H[cmake .. -DCMAKE_BUILD_TYPE=Debug -DWITH_DEBUG=ON]
     end
     
     style A fill:#4CAF50,stroke:#388E3C
@@ -469,7 +469,7 @@ flowchart TD
     D --> F[Logs to syslog/journalctl]
     
     E --> G[Press Ctrl+C to stop]
-    F --> H[sudo kill $(cat /var/run/mvgal/mvgal.pid)]
+    F --> H["sudo kill $(cat /var/run/mvgal/mvgal.pid)"]
     
     style A fill:#FF9800,stroke:#E68A00
     style B fill:#9C27B0,stroke:#7B1FA2
@@ -503,25 +503,7 @@ sudo kill $(cat /var/run/mvgal/mvgal.pid)
 
 ### Component Status
 
-```mermaid
-barChart
-    title Component Status (v0.2.0)
-    x-axis: Component
-    y-axis: Status %
-    bar: ["Core API", 100, #4CAF50]
-    bar: ["GPU Management", 100, #4CAF50]
-    bar: ["GPU Health", 100, #4CAF50]
-    bar: ["Memory Module", 100, #4CAF50]
-    bar: ["Scheduler", 100, #4CAF50]
-    bar: ["Daemon", 100, #4CAF50]
-    bar: ["Logging", 100, #4CAF50]
-    bar: ["IPC", 100, #4CAF50]
-    bar: ["Config", 100, #4CAF50]
-    bar: ["OpenCL Intercept", 100, #4CAF50]
-    bar: ["Tests", 100, #4CAF50]
-    bar: ["Vulkan Layer", 5, #FF9800]
-    bar: ["CUDA Wrapper", 0, #F44336]
-```
+**All components at 100% except:** Vulkan Layer (5%), CUDA Wrapper (0%)
 
 | Component | Files | Status | Notes |
 |-----------|-------|--------|-------|
@@ -633,7 +615,7 @@ flowchart TD
     end
     
     A1 --> B1[MVGAL_ENABLED=1]
-    A1 --> B2[MVGAL_GPUS="0,1,2"]
+    A1 --> B2["MVGAL_GPUS=0,1,2"]
     
     A2 --> C1[MVGAL_STRATEGY=hybrid]
     A2 --> C2[MVGAL_LOAD_BALANCE=1]
@@ -850,26 +832,7 @@ ls /dev/dri/
 
 ### Overall Progress
 
-```mermaid
-barChart
-    title Project Completion (v0.2.0 "Health Monitor")
-    x-axis: Category
-    y-axis: Completion %
-    bar: ["Core Functionality", 100, #4CAF50]
-    bar: ["GPU Detection", 100, #4CAF50]
-    bar: ["Memory Management", 100, #4CAF50]
-    bar: ["Scheduler", 100, #4CAF50]
-    bar: ["Daemon", 100, #4CAF50]
-    bar: ["Health Monitoring", 100, #4CAF50]
-    bar: ["Health Monitoring", 100, #4CAF50]
-    bar: ["OpenCL Intercept", 100, #4CAF50]
-    bar: ["Tests", 100, #4CAF50]
-    bar: ["Documentation", 100, #4CAF50]
-    bar: ["Icon", 100, #4CAF50]
-    bar: ["Vulkan Layer", 5, #FF9800]
-    bar: ["CUDA Wrapper", 0, #F44336]
-    bar: ["Kernel Module", 0, #F44336]
-```
+**Project Completion: ~92%** - All core components complete except Vulkan Layer (5%), CUDA Wrapper (0%), and Kernel Module (0%).
 
 | Aspect | Status |
 |--------|--------|
