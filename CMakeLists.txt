@@ -168,6 +168,7 @@ add_compile_options(
     -Wconversion
     -Wsign-conversion
     -Wformat=2
+    -Wno-format-truncation
 )
 
 if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
