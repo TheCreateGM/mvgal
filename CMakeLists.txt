@@ -100,7 +100,7 @@ find_package(Threads REQUIRED)
 
 # Optional dependencies
 if(WITH_VULKAN)
-    find_package(Vulkan REQUIRED)
+    find_package(Vulkan)
     if(NOT Vulkan_FOUND)
         message(WARNING "Vulkan not found, Vulkan layer will not be built")
         set(WITH_VULKAN OFF)
@@ -108,7 +108,7 @@ if(WITH_VULKAN)
 endif()
 
 if(WITH_OPENCL)
-    find_package(OpenCL REQUIRED)
+    find_package(OpenCL)
     if(NOT OpenCL_FOUND)
         message(WARNING "OpenCL not found, OpenCL interception will not be built")
         set(WITH_OPENCL OFF)
