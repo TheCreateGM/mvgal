@@ -759,7 +759,7 @@ static bool find_render_node_for_device(const char *device_realpath,
         }
 
         if (strcmp(entry_realpath, device_realpath) == 0) {
-            (void)snprintf(render_node, render_node_size, "/dev/dri/%s", entry->d_name);
+            snprintf(render_node, render_node_size, "/dev/dri/%.30s", entry->d_name);
             closedir(drm_dir);
             return true;
         }
@@ -813,7 +813,7 @@ static mvgal_error_t scan_drm_devices_locked(void)
         gpu->id = g_gpu_manager.gpu_count;
         gpu->memory_type = MVGAL_MEMORY_TYPE_UNKNOWN;
         gpu->pcie_gen = MVGAL_PCIE_UNKNOWN;
-        (void)snprintf(gpu->drm_node, sizeof(gpu->drm_node), "/dev/dri/%s", entry->d_name);
+        snprintf(gpu->drm_node, sizeof(gpu->drm_node), "/dev/dri/%.30s", entry->d_name);
 
         (void)find_render_node_for_device(device_realpath,
                                           gpu->drm_render_node,
@@ -894,7 +894,7 @@ static mvgal_error_t scan_nvidia_devices_locked(void)
             continue;
         }
 
-        (void)snprintf(node_path, sizeof(node_path), "/dev/%s", entry->d_name);
+        snprintf(node_path, sizeof(node_path), "/dev/%.30s", entry->d_name);
 
         for (uint32_t i = 0; i < g_gpu_manager.gpu_count; ++i) {
             mvgal_gpu_descriptor_t *gpu = &g_gpu_manager.gpus[i];

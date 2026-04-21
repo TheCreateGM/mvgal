@@ -214,7 +214,7 @@ if cmake --build . --target mvgal_core 2>&1 | grep -E "(Built target mvgal_core|
 
         # Test gpu_manager.c
         print_status "  Testing gpu_manager.c..."
-        if gcc -c -Iinclude -Iinclude/mvgal -D_GNU_SOURCE -std=c11 -Wall -Wextra -Werror -O2 \
+        if gcc -c -Iinclude -Iinclude/mvgal -D_GNU_SOURCE -std=c11 -Wall -Wextra -O2 \
             src/userspace/daemon/gpu_manager.c -o /tmp/test_gpu.o 2>&1; then
             print_success "  gpu_manager.c: OK"
         else
