@@ -259,17 +259,15 @@ mvgal_error_t mvgal_buffer_allocate_internal(
     void *ptr = NULL;
     
     if (alloc_info->flags & MVGAL_MEMORY_FLAG_HOST_VALID) {
-        // Use mmap for aligned allocation
-        long page_size = getpagesize();
-        if (alloc_info->alignment <= (size_t)page_size || alloc_info->alignment == 0) {
-            ptr = mmap(NULL, aligned_size, PROT_READ | PROT_WRITE,
-                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-        } else {
-            // For large alignments, use posix_memalign
+        // Host-visible allocations should be directly CPU-accessible and
+        // freeable through the normal system allocator path.
+        if (alloc_info->alignment > sizeof(void *) && alloc_info->alignment != 0) {
             int ret = posix_memalign(&ptr, alloc_info->alignment, aligned_size);
             if (ret != 0) {
                 ptr = NULL;
             }
+        } else {
+            ptr = malloc(aligned_size);
         }
     } else {
         // Use regular malloc

@@ -84,7 +84,9 @@ typedef struct {
 /**
  * @brief Global logging state
  */
-static log_state_t g_log_state = {0};
+static log_state_t g_log_state = {
+    .lock = PTHREAD_MUTEX_INITIALIZER,
+};
 
 /**
  * @brief Check if logging is initialized
@@ -265,9 +267,6 @@ void mvgal_log_init(mvgal_log_level_t level, mvgal_log_callback_t callback, void
         g_log_state.use_colors = false;
     }
     
-    // Initialize mutex
-    pthread_mutex_init(&g_log_state.lock, NULL);
-    
     // Register initial callback if provided
     if (callback != NULL) {
         mvgal_log_register_callback(callback, user_data);
@@ -314,7 +313,6 @@ void mvgal_log_shutdown(void) {
     g_log_initialized = false;
     
     pthread_mutex_unlock(&g_log_state.lock);
-    pthread_mutex_destroy(&g_log_state.lock);
 }
 
 /**

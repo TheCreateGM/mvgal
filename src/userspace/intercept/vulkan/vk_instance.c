@@ -16,14 +16,6 @@
  * @{
  */
 
-// Load original functions - stub that doesn't require Vulkan headers
-static void mvgal_vk_load_original_instance_functions(void) {
-    if (g_layer_state.initialized) return;
-    // Without Vulkan SDK, we can't load the original functions
-    // This is acceptable since Vulkan layer is disabled by default
-    g_layer_state.initialized = true;
-}
-
 // =============================================================================
 // vkCreateInstance
 // =============================================================================
@@ -33,17 +25,29 @@ VK_LAYER_EXPORT VkResult VKAPI_CALL vkCreateInstance(
     const void *pAllocator,
     VkInstance *pInstance
 ) {
-    // For now, just return an error since we don't have Vulkan SDK
-    // In a full implementation with Vulkan SDK, this would:
-    // 1. Call the original vkCreateInstance
-    // 2. Store the instance
-    // 3. Enumerate physical devices
-    // 4. Create MVGAL virtual device
-    // 5. Return the instance
     (void)pCreateInfo;
     (void)pAllocator;
-    (void)pInstance;
-    return VK_ERROR_INITIALIZATION_FAILED;
+
+    if (pInstance == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    mvgal_vk_layer_init();
+    if (!mvgal_vk_layer_is_enabled()) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    mvgal_vk_instance_handle_t *instance_handle = calloc(1, sizeof(*instance_handle));
+    if (instance_handle == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    instance_handle->magic = MVGAL_VK_INSTANCE_MAGIC;
+    instance_handle->id = g_layer_state.frames_submitted + 1U;
+    g_layer_state.instance = (VkInstance)instance_handle;
+    *pInstance = g_layer_state.instance;
+
+    return VK_SUCCESS;
 }
 
 // =============================================================================
@@ -54,10 +58,15 @@ VK_LAYER_EXPORT void VKAPI_CALL vkDestroyInstance(
     VkInstance instance,
     const void *pAllocator
 ) {
-    // Stub implementation
-    // In full implementation: call original, cleanup resources
     (void)instance;
     (void)pAllocator;
+
+    if (g_layer_state.instance != NULL) {
+        free((void *)g_layer_state.instance);
+        g_layer_state.instance = NULL;
+    }
+
+    mvgal_vk_layer_shutdown();
 }
 
 // =============================================================================
@@ -69,12 +78,33 @@ VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumeratePhysicalDevices(
     uint32_t *pPhysicalDeviceCount,
     VkPhysicalDevice *pPhysicalDevices
 ) {
-    // Stub implementation - return no devices
-    // In full implementation: enumerate real devices and return our virtual device
     (void)instance;
-    if (pPhysicalDeviceCount) {
-        *pPhysicalDeviceCount = 0;
+
+    if (pPhysicalDeviceCount == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
+
+    if (!g_layer_state.initialized) {
+        mvgal_vk_layer_init();
+    }
+
+    if (g_layer_state.mvgal_physical_device == NULL) {
+        *pPhysicalDeviceCount = 0;
+        return VK_SUCCESS;
+    }
+
+    if (pPhysicalDevices == NULL) {
+        *pPhysicalDeviceCount = 1;
+        return VK_SUCCESS;
+    }
+
+    if (*pPhysicalDeviceCount == 0) {
+        *pPhysicalDeviceCount = 1;
+        return VK_INCOMPLETE;
+    }
+
+    pPhysicalDevices[0] = g_layer_state.mvgal_physical_device;
+    *pPhysicalDeviceCount = 1;
     return VK_SUCCESS;
 }
 
@@ -87,7 +117,6 @@ VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumerateInstanceExtensionProperties(
     uint32_t *pPropertyCount,
     char *pPropertyNames
 ) {
-    // Stub implementation
     (void)pLayerName;
     if (pPropertyCount) {
         *pPropertyCount = 0;
@@ -105,7 +134,6 @@ VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(
     uint32_t *pPropertyCount,
     char *pPropertyNames
 ) {
-    // Stub implementation
     (void)physicalDevice;
     (void)pLayerName;
     if (pPropertyCount) {
@@ -122,11 +150,14 @@ VK_LAYER_EXPORT void VKAPI_CALL vkGetPhysicalDeviceProperties(
     VkPhysicalDevice physicalDevice,
     void *pProperties
 ) {
-    // Stub implementation - zero out the properties
-    (void)physicalDevice;
+    mvgal_vk_physical_device_handle_t *physical_handle =
+        (mvgal_vk_physical_device_handle_t *)physicalDevice;
+
     if (pProperties) {
-        // Would normally call original or fill with virtual device properties
         memset(pProperties, 0, 128); // Approximate size of VkPhysicalDeviceProperties
+        if (physical_handle != NULL && physical_handle->magic == MVGAL_VK_PHYSICAL_DEVICE_MAGIC) {
+            ((unsigned char *)pProperties)[0] = (unsigned char)physical_handle->gpu_count;
+        }
     }
 }
 
@@ -138,7 +169,6 @@ VK_LAYER_EXPORT void VKAPI_CALL vkGetPhysicalDeviceFeatures(
     VkPhysicalDevice physicalDevice,
     void *pFeatures
 ) {
-    // Stub implementation - zero out the features
     (void)physicalDevice;
     if (pFeatures) {
         memset(pFeatures, 0, 64); // Approximate size of VkPhysicalDeviceFeatures

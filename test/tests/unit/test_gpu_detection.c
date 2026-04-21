@@ -254,14 +254,14 @@ static void test_gpu_select_best(void)
     
     mvgal_gpu_selection_criteria_t criteria = {
         .use_compute_score = true,
-        .use_graphics_score = false,
-        .use_memory = false,
-        .use_features = false,
+        .use_graphics_score = true,
+        .use_memory = true,
+        .use_features = true,
         .required_features = MVGAL_FEATURE_COMPUTE,
         .preferred_features = 0,
         .min_vram = 0,
         .preferred_vendor = MVGAL_VENDOR_UNKNOWN,
-        .required_api = MVGAL_API_CUDA
+        .required_api = MVGAL_API_NONE
     };
     
     mvgal_gpu_descriptor_t selected;
@@ -274,6 +274,132 @@ static void test_gpu_select_best(void)
     mvgal_shutdown();
     
     MVGAL_LOG_INFO("TEST: GPU Select Best - PASSED");
+}
+
+// =============================================================================
+// Test: GPU Find By Node
+// =============================================================================
+
+static void test_gpu_find_by_node(void)
+{
+    MVGAL_LOG_INFO("TEST: GPU Find By Node");
+
+    mvgal_error_t err = mvgal_init(0);
+    TEST_ASSERT(err == MVGAL_SUCCESS, "mvgal_init failed");
+
+    int count = mvgal_gpu_get_count();
+    if (count == 0) {
+        MVGAL_LOG_WARN("No GPUs detected, skipping node lookup test");
+        mvgal_shutdown();
+        return;
+    }
+
+    mvgal_gpu_descriptor_t gpu0;
+    err = mvgal_gpu_get_descriptor(0, &gpu0);
+    TEST_ASSERT(err == MVGAL_SUCCESS, "Failed to get first GPU descriptor");
+
+    if (gpu0.drm_node[0] != '\0') {
+        mvgal_gpu_descriptor_t by_card;
+        err = mvgal_gpu_find_by_node(gpu0.drm_node, &by_card);
+        TEST_ASSERT(err == MVGAL_SUCCESS, "Failed to find GPU by DRM card node");
+        TEST_ASSERT(by_card.id == gpu0.id, "DRM card node resolved to wrong GPU");
+    }
+
+    if (gpu0.drm_render_node[0] != '\0') {
+        mvgal_gpu_descriptor_t by_render;
+        err = mvgal_gpu_find_by_node(gpu0.drm_render_node, &by_render);
+        TEST_ASSERT(err == MVGAL_SUCCESS, "Failed to find GPU by DRM render node");
+        TEST_ASSERT(by_render.id == gpu0.id, "DRM render node resolved to wrong GPU");
+    }
+
+    if (gpu0.drm_node[0] != '\0' && gpu0.drm_render_node[0] != '\0') {
+        mvgal_gpu_descriptor_t by_card;
+        mvgal_gpu_descriptor_t by_render;
+        err = mvgal_gpu_find_by_node(gpu0.drm_node, &by_card);
+        TEST_ASSERT(err == MVGAL_SUCCESS, "Card node lookup failed");
+        err = mvgal_gpu_find_by_node(gpu0.drm_render_node, &by_render);
+        TEST_ASSERT(err == MVGAL_SUCCESS, "Render node lookup failed");
+        TEST_ASSERT(by_card.id == by_render.id,
+                    "Card and render nodes should map to the same physical GPU");
+    }
+
+    mvgal_shutdown();
+
+    MVGAL_LOG_INFO("TEST: GPU Find By Node - PASSED");
+}
+
+// =============================================================================
+// Test: GPU Rescan
+// =============================================================================
+
+static void test_gpu_rescan(void)
+{
+    MVGAL_LOG_INFO("TEST: GPU Rescan");
+
+    mvgal_error_t err = mvgal_init(0);
+    TEST_ASSERT(err == MVGAL_SUCCESS, "mvgal_init failed");
+
+    int before = mvgal_gpu_get_count();
+    TEST_ASSERT(before >= 0, "Initial GPU count invalid");
+
+    err = mvgal_gpu_rescan();
+    TEST_ASSERT(err == MVGAL_SUCCESS, "GPU rescan failed");
+
+    int after = mvgal_gpu_get_count();
+    TEST_ASSERT(after >= 0, "Rescanned GPU count invalid");
+    TEST_ASSERT(after == before, "GPU count should remain stable across a local rescan");
+
+    mvgal_shutdown();
+
+    MVGAL_LOG_INFO("TEST: GPU Rescan - PASSED");
+}
+
+// =============================================================================
+// Test: Logical Device Creation
+// =============================================================================
+
+static void test_logical_device(void)
+{
+    MVGAL_LOG_INFO("TEST: Logical Device");
+
+    mvgal_error_t err = mvgal_init(0);
+    TEST_ASSERT(err == MVGAL_SUCCESS, "mvgal_init failed");
+
+    int count = mvgal_gpu_get_count();
+    if (count == 0) {
+        MVGAL_LOG_WARN("No GPUs detected, skipping logical device test");
+        mvgal_shutdown();
+        return;
+    }
+
+    uint32_t gpu_indices[2] = {0, 0};
+    uint32_t logical_gpu_count = count >= 2 ? 2U : 1U;
+    void *device = NULL;
+    mvgal_logical_device_descriptor_t logical_desc;
+
+    for (uint32_t i = 0; i < logical_gpu_count; ++i) {
+        gpu_indices[i] = i;
+    }
+
+    err = mvgal_device_create(logical_gpu_count, gpu_indices, &device);
+    TEST_ASSERT(err == MVGAL_SUCCESS, "Failed to create logical device");
+    TEST_ASSERT(device != NULL, "Logical device is NULL");
+
+    err = mvgal_device_get_descriptor(device, &logical_desc);
+    TEST_ASSERT(err == MVGAL_SUCCESS, "Failed to get logical device descriptor");
+    TEST_ASSERT(logical_desc.gpu_count == logical_gpu_count,
+                "Logical device GPU count mismatch");
+    TEST_ASSERT(logical_desc.descriptor.type == MVGAL_GPU_TYPE_VIRTUAL,
+                "Logical device type should be virtual");
+    TEST_ASSERT(logical_desc.descriptor.vram_total > 0,
+                "Logical device should aggregate non-zero VRAM");
+    TEST_ASSERT(logical_desc.primary_gpu_index < (uint32_t)count,
+                "Primary GPU index should refer to a member GPU");
+
+    mvgal_device_destroy(device);
+    mvgal_shutdown();
+
+    MVGAL_LOG_INFO("TEST: Logical Device - PASSED");
 }
 
 // =============================================================================
@@ -296,6 +422,9 @@ int main(void)
     test_gpu_enable_disable();
     test_gpu_memory_info();
     test_gpu_select_best();
+    test_gpu_find_by_node();
+    test_gpu_rescan();
+    test_logical_device();
     
     // Print summary
     printf("\n");

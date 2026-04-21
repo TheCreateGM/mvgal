@@ -1,12 +1,12 @@
 # Integration Tests CMakeLists.txt
 
 include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/mvgal
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/mvgal
 )
 
 link_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../build
+    ${CMAKE_BINARY_DIR}
 )
 
 # Multi-GPU validation test

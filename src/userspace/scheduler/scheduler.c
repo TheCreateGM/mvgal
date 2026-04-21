@@ -304,6 +304,9 @@ mvgal_error_t mvgal_workload_queue(
         return MVGAL_ERROR_MEMORY;
     }
     
+    // The queue owns a transient reference until the workload is processed.
+    mvgal_workload_retain(workload);
+
     // Add to tail
     workload->next = NULL;
     workload->prev = queue->tail;
@@ -723,6 +726,13 @@ mvgal_error_t mvgal_workload_submit(
     
     // Signal scheduler thread
     pthread_cond_signal(&g_scheduler_state.work_cond);
+
+    if (!g_scheduler_state.thread_running) {
+        mvgal_error_t process_err = mvgal_scheduler_process_internal();
+        if (process_err != MVGAL_SUCCESS) {
+            return process_err;
+        }
+    }
     
     *workload = w;
     MVGAL_LOG_DEBUG("Workload %u submitted", w->descriptor.id);
@@ -776,6 +786,13 @@ mvgal_error_t mvgal_workload_submit_with_callback(
     
     // Signal scheduler thread
     pthread_cond_signal(&g_scheduler_state.work_cond);
+
+    if (!g_scheduler_state.thread_running) {
+        err = mvgal_scheduler_process_internal();
+        if (err != MVGAL_SUCCESS) {
+            return err;
+        }
+    }
     
     *workload = w;
     MVGAL_LOG_DEBUG("Workload %u submitted with callback", w->descriptor.id);

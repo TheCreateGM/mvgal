@@ -1,17 +1,17 @@
 # Unit Tests CMakeLists.txt
 
 include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/mvgal
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/userspace
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/userspace/api
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/userspace/daemon
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/userspace/memory
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/userspace/scheduler
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/mvgal
+    ${CMAKE_SOURCE_DIR}/src/userspace
+    ${CMAKE_SOURCE_DIR}/src/userspace/api
+    ${CMAKE_SOURCE_DIR}/src/userspace/daemon
+    ${CMAKE_SOURCE_DIR}/src/userspace/memory
+    ${CMAKE_SOURCE_DIR}/src/userspace/scheduler
 )
 
 link_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../build
+    ${CMAKE_BINARY_DIR}
 )
 
 # =============================================================================
@@ -85,6 +85,24 @@ target_link_libraries(test_core_api
 )
 
 add_test(NAME test_core_api COMMAND test_core_api)
+
+# =============================================================================
+# Execution Tests
+# =============================================================================
+
+add_executable(test_execution
+    test_execution.c
+)
+
+target_link_libraries(test_execution
+    mvgal_core
+    Threads::Threads
+    ${DRM_IMPORTED_TARGET}
+    ${PCI_IMPORTED_TARGET}
+    ${UDEV_IMPORTED_TARGET}
+)
+
+add_test(NAME test_execution COMMAND test_execution)
 
 # =============================================================================
 # Configuration Tests

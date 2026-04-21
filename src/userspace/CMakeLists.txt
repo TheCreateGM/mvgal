@@ -7,6 +7,7 @@ add_library(mvgal_core STATIC
     daemon/gpu_manager.c
     daemon/config.c
     daemon/ipc.c
+    execution/execution.c
     memory/memory.c
     memory/dmabuf.c
     memory/allocator.c
@@ -43,6 +44,7 @@ add_library(mvgal SHARED
     daemon/gpu_manager.c
     daemon/config.c
     daemon/ipc.c
+    execution/execution.c
     memory/memory.c
     memory/dmabuf.c
     memory/allocator.c

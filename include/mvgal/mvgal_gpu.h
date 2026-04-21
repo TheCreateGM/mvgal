@@ -349,11 +349,43 @@ mvgal_error_t mvgal_device_create(
 );
 
 /**
+ * @brief Normalized logical device descriptor
+ *
+ * The embedded GPU descriptor represents the lowest-common-denominator profile
+ * that is safe to expose as a single logical device. Aggregate fields preserve
+ * the full union of member-device capabilities for scheduler and policy code.
+ */
+typedef struct {
+    mvgal_gpu_descriptor_t descriptor; ///< Common-denominator logical GPU profile
+    uint32_t gpu_count;                ///< Number of member GPUs
+    uint32_t gpu_indices[16];          ///< Member GPU indices
+    uint64_t gpu_mask;                 ///< Bitmask of member GPUs
+    uint64_t common_features;          ///< Feature intersection across members
+    uint64_t aggregate_features;       ///< Feature union across members
+    mvgal_api_type_t common_api_mask;  ///< API intersection across members
+    mvgal_api_type_t aggregate_api_mask; ///< API union across members
+    bool heterogeneous;                ///< True when vendors or types differ
+    uint32_t primary_gpu_index;        ///< Highest-scoring member GPU
+} mvgal_logical_device_descriptor_t;
+
+/**
  * @brief Destroy a logical device
  * 
  * @param device Device to destroy
  */
 void mvgal_device_destroy(void *device);
+
+/**
+ * @brief Query a logical device descriptor
+ *
+ * @param device Logical device returned by mvgal_device_create
+ * @param descriptor Descriptor to fill (out)
+ * @return MVGAL_SUCCESS on success, error code on failure
+ */
+mvgal_error_t mvgal_device_get_descriptor(
+    void *device,
+    mvgal_logical_device_descriptor_t *descriptor
+);
 
 /**
  * @brief GPU health status
