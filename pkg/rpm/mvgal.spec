@@ -1,5 +1,5 @@
 Name:           mvgal
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Multi-Vendor GPU Aggregation Layer for Linux
 
@@ -8,10 +8,10 @@ URL:            https://github.com/TheCreateGM/mvgal
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  gcc, gcc-c++, make, cmake >= 3.20
-BuildRequires:  libdrm-devel, libpciaccess-devel, systemd-devel
-BuildRequires:  vulkan-devel, opencl-headers
+BuildRequires:  libdrm-devel, libpciaccess-devel, systemd-devel, libudev-devel
+BuildRequires:  vulkan-devel, opencl-headers, ocl-icd-devel
 
-Requires:      libdrm, libpciaccess, systemd
+Requires:      libdrm, libpciaccess, systemd, libudev
 Requires:      vulkan-loader, ocl-icd
 
 Prefix:        /usr
@@ -44,7 +44,7 @@ rm -rf %{buildroot}
 
 # Libs
 mkdir -p %{buildroot}%{_libdir}
-for lib in build/src/userspace/libmvgal.so* build/src/userspace/libmvgal_core.a build/src/userspace/libVK_LAYER_MVGAL.so; do
+for lib in build/src/userspace/libmvgal.so* build/src/userspace/libmvgal_core.a build/src/userspace/libVK_LAYER_MVGAL.so build/src/userspace/libmvgal_opencl.so; do
     [ -f "$lib" ] && install -m 644 "$lib" %{buildroot}%{_libdir}/ || true
 done
 
@@ -57,8 +57,9 @@ install -m 644 include/mvgal/mvgal_memory.h %{buildroot}%{_includedir}/mvgal/
 install -m 644 include/mvgal/mvgal_scheduler.h %{buildroot}%{_includedir}/mvgal/
 install -m 644 include/mvgal/mvgal_log.h %{buildroot}%{_includedir}/mvgal/
 install -m 644 include/mvgal/mvgal_config.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_version.h %{buildroot}%{_includedir}/mvgal/
 install -m 644 include/mvgal/mvgal_ipc.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_execution.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_version.h %{buildroot}%{_includedir}/mvgal/
 install -m 644 include/mvgal/mvgal_intercept.h %{buildroot}%{_includedir}/mvgal/
 
 # Daemon
@@ -67,17 +68,19 @@ install -m 755 build/src/userspace/mvgal-daemon %{buildroot}%{_sbindir}/
 
 # Config
 mkdir -p %{buildroot}%{_sysconfdir}/mvgal
-install -m 644 rpm/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf
+mkdir -p %{buildroot}%{_udevrulesdir}
+install -m 644 config/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf
+install -m 644 config/99-mvgal.rules %{buildroot}%{_udevrulesdir}/99-mvgal.rules
 
 # Vulkan
 mkdir -p %{buildroot}%{_datadir}/vulkan/explicit_layer.d
 mkdir -p %{buildroot}%{_datadir}/vulkan/icd.d
-install -m 644 src/userspace/intercept/vulkan/manifest.json \
+install -m 644 build/src/userspace/VK_LAYER_MVGAL.json \
     %{buildroot}%{_datadir}/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json
 
 # Systemd
 mkdir -p %{buildroot}%{_unitdir}
-install -m 644 rpm/mvgal-daemon.service \
+install -m 644 pkg/systemd/mvgal-dbus.service \
     %{buildroot}%{_unitdir}/mvgal-daemon.service
 
 %post
@@ -112,9 +115,11 @@ fi
 %{_libdir}/libmvgal.so*
 %{_libdir}/libmvgal_core.a
 %{_libdir}/libVK_LAYER_MVGAL.so
+%{_libdir}/libmvgal_opencl.so
 %{_includedir}/mvgal/*.h
 %{_sbindir}/mvgal-daemon
 %{_sysconfdir}/mvgal/
+%{_udevrulesdir}/99-mvgal.rules
 %{_datadir}/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json
 %{_unitdir}/mvgal-daemon.service
 
