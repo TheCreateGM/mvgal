@@ -19,7 +19,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm copr-cli
+          sudo apt-get install -y rpm
+          curl -sL https://copr.fedorainfracloud.org/coprs/g/copr/copr-cli/repo/ubuntu-24.04/group_copr-copr-cli-ubuntu-24.04.list | sudo tee /etc/apt/sources.list.d/copr-cli.list
+          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 4607814280185884
+          sudo apt-get update
+          sudo apt-get install -y copr-cli
 
       - name: Configure COPR
         run: |
