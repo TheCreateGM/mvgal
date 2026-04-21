@@ -50,27 +50,13 @@ sudo make install
 
 ### 2. Enable MVGAL Vulkan Layer
 
-Create or edit `~/.local/share/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json`:
+The current Vulkan bootstrap uses an implicit layer manifest. In a normal install, the manifest lives under `/usr/share/vulkan/implicit_layer.d/` and the layer is activated by environment variable rather than `VK_LAYER_PATH`.
 
-```json
-{
-  "file_format_version" : "1.0.0",
-  "layer" : {
-    "name" : "VK_LAYER_MVGAL",
-    "type" : "GLOBAL",
-    "library_path" : "/usr/lib/libVK_LAYER_MVGAL.so",
-    "api_version" : "1.3.0",
-    "implementation_version" : "1",
-    "description" : "Multi-Vendor GPU Aggregation Layer"
-  }
-}
-```
+For local testing from a build tree:
 
-Or use the built-in manifest:
 ```bash
-# Copy MVGAL's manifest to user layers
-cp /usr/share/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json \
-   ~/.local/share/vulkan/explicit_layer.d/
+export VK_IMPLICIT_LAYER_PATH=/path/to/build/src/userspace
+export MVGAL_VULKAN_ENABLE=1
 ```
 
 ---
@@ -86,7 +72,7 @@ Set these in your shell or Steam launch options:
 export MVGAL_ENABLED=1
 
 # Enable Vulkan layer
-export MVGAL_VULKAN_ENABLED=1
+export MVGAL_VULKAN_ENABLE=1
 
 # Select distribution strategy for gaming
 # Options: afr, sfr, hybrid, single, round_robin
@@ -106,12 +92,12 @@ export MVGAL_GPUS="0,1"
 2. Select "Properties"
 3. Under "Launch Options", add:
    ```
-   VK_LAYER_PATH=/usr/lib sh -c 'export MVGAL_ENABLED=1; export MVGAL_STRATEGY=afr; exec "$@"'
+   sh -c 'export MVGAL_ENABLED=1; export MVGAL_VULKAN_ENABLE=1; export MVGAL_STRATEGY=afr; exec "$@"'
    ```
 
 Or simpler:
 ```
-VK_LAYER_PATH=/usr/lib MVGAL_ENABLED=1 MVGAL_STRATEGY=afr %command%
+MVGAL_ENABLED=1 MVGAL_VULKAN_ENABLE=1 MVGAL_STRATEGY=afr %command%
 ```
 
 ### Proton Configuration
@@ -119,10 +105,8 @@ VK_LAYER_PATH=/usr/lib MVGAL_ENABLED=1 MVGAL_STRATEGY=afr %command%
 Edit `~/.steam/steam/steamapps/common/Proton-*/proton` and add:
 
 ```bash
-# Pre-load MVGAL Vulkan layer
-export VK_LAYER_PATH="/usr/lib:${VK_LAYER_PATH}"
 export MVGAL_ENABLED=1
-export MVGAL_VULKAN_ENABLED=1
+export MVGAL_VULKAN_ENABLE=1
 export MVGAL_STRATEGY=afr
 ```
 
@@ -251,7 +235,7 @@ export MVGAL_auto_detect_games=1
 ### Game Crashes on Start
 ```bash
 # Check if Vulkan layer is loading
-VK_LAYER_PATH=/usr/lib VK_INSTANCE_LAYERS=VK_LAYER_MVGAL vkcube
+MVGAL_VULKAN_ENABLE=1 vkcube
 
 # Verify layer is detected
 vulkaninfo | grep MVGAL
@@ -296,7 +280,7 @@ export MVGAL_ENABLED=0
 | Variable | Values | Default | Description |
 |----------|--------|---------|-------------|
 | `MVGAL_ENABLED` | 0/1 | 1 | Master enable switch |
-| `MVGAL_VULKAN_ENABLED` | 0/1 | 1 | Enable Vulkan interception |
+| `MVGAL_VULKAN_ENABLE` | 0/1 | 1 | Enable Vulkan implicit layer |
 | `MVGAL_VULKAN_DEBUG` | 0/1 | 0 | Enable Vulkan debug layer |
 | `MVGAL_STRATEGY` | afr/sfr/task/compute/hybrid/single/round_robin | hybrid | Distribution strategy |
 | `MVGAL_GPUS` | comma-separated indices | all | GPUs to use |
@@ -307,7 +291,7 @@ export MVGAL_ENABLED=0
 | `MVGAL_USE_DMABUF` | 0/1 | 1 | Use DMA-BUF |
 | `MVGAL_P2P_ENABLED` | 0/1 | 1 | Enable P2P transfers |
 | `MVGAL_REPLICATE_THRESHOLD` | bytes | 16777216 | Replication threshold |
-| `VK_LAYER_PATH` | path | - | Vulkan layer search path |
+| `VK_IMPLICIT_LAYER_PATH` | path | - | Override implicit-layer manifest search path for local testing |
 
 ---
 
@@ -319,7 +303,7 @@ export MVGAL_ENABLED=0
 MVGAL_LOG_LEVEL=5 vkcube 2>&1 | grep "GPU"
 
 # Check unified device properties
-VK_LAYER_PATH=/usr/lib vulkaninfo | grep -A 10 "MVGAL"
+MVGAL_VULKAN_ENABLE=1 vulkaninfo | grep -A 10 "MVGAL"
 ```
 
 ### Benchmark Performance
@@ -349,7 +333,7 @@ PROTON_USE_WINED3D=1 %command%
 
 For Vulkan games:
 ```
-PROTON_USE_WINED3D=1 VK_LAYER_PATH=/usr/lib MVGAL_ENABLED=1 %command%
+PROTON_USE_WINED3D=1 MVGAL_ENABLED=1 MVGAL_VULKAN_ENABLE=1 %command%
 ```
 
 ### Proton Logs

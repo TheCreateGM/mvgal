@@ -47,13 +47,6 @@ mvgal_error_t mvgal_execution_get_stats_internal(mvgal_stats_t *stats);
 void mvgal_execution_reset_stats_internal(void);
 
 /**
- * @brief Version numbers
- */
-#define MVGAL_VERSION_MAJOR 0
-#define MVGAL_VERSION_MINOR 1
-#define MVGAL_VERSION_PATCH 0
-
-/**
  * @brief Magic number for context validation
  */
 #define MVGAL_CONTEXT_MAGIC 0x4D56474C  // "MVGL"

@@ -607,8 +607,8 @@ vkQueueSubmit(queue, 1, &submitInfo, fence);
 
 **Enable the layer:**
 ```bash
-export VK_LAYER_PATH=/usr/local/lib/vulkan
-export VK_ICD_FILENAMES=/usr/local/share/vulkan/icd.d/mvgal_icd.json
+export MVGAL_VULKAN_ENABLE=1
+export MVGAL_VULKAN_DEBUG=1
 ```
 
 ### OpenCL Applications

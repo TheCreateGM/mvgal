@@ -36,6 +36,15 @@ src/userspace/*.so
 src/userspace/intercept/*/*.o
 src/userspace/intercept/*/*.so
 
+# Generated build trees checked in historically but not useful as local changes
+build_vulkan/
+test/build_tests/
+
+# Benchmark binaries
+benchmarks/synthetic/mvgal_synthetic_bench
+benchmarks/real_world/mvgal_realworld_bench
+benchmarks/stress/mvgal_stress_bench
+
 # IDE/Debug files
 *.swp
 *.swo
