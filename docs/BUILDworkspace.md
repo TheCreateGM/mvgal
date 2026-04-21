@@ -605,3 +605,7 @@ Include:
 ## License
 
 MVGAL is licensed under GPL-3.0-or-later. See COPYING or LICENSE file for details.
+
+---
+
+*© 2026 MVGAL Project. Version 0.2.0 "Health Monitor". All Rights Reserved.*
