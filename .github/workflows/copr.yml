@@ -1,0 +1,15 @@
+name: Build on Fedora COPR
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger COPR build
+        run: |
+          curl -X POST "https://copr.fedorainfracloud.org/webhooks/custom/axogm/mvgal/" \
+            -H "Content-Type: application/json" \
+            --data '{"clone_url": "https://github.com/TheCreateGM/mvgal.git"}'
