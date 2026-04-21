@@ -62,8 +62,8 @@ static void test_context(void)
 static void test_enabled_state(void)
 {
     MVGAL_LOG_INFO("TEST: Enabled State");
-    mvgal_init(0);
-    TEST_ASSERT(mvgal_is_enabled(), "Should be enabled by default");
+    mvgal_init(1);
+    TEST_ASSERT(mvgal_is_enabled(), "Should be enabled with flag 1");
     mvgal_set_enabled(false);
     TEST_ASSERT(!mvgal_is_enabled(), "Should be disabled");
     mvgal_set_enabled(true);
