@@ -3,16 +3,18 @@ Version: 0.2.0
 Release: 1%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
-License: GPLv3
+License: GPL-3.0-only
 URL: https://github.com/TheCreateGM/mvgal
 Source0: mvgal-%{version}.tar.gz
 
 BuildRequires: gcc, make, cmake >= 3.20
 BuildRequires: libdrm-devel, systemd-devel
-BuildRequires: opencl-headers
 
 Requires: libdrm, systemd
-Requires: vulkan-loader, ocl-icd
+Requires: vulkan-loader
+
+Obsoletes: mvgallibs <= 0.1.0
+Provides: libmvgal = %{version}
 
 Prefix: /usr
 
@@ -45,11 +47,11 @@ make -j%{?_smp_ncpus:%{_smp_ncpus}}%{!?_smp_ncpus:1}
 %install
 rm -rf %{buildroot}
 
-# Libs
+# Libs (755 for shared libs, 644 for static)
 mkdir -p %{buildroot}%{_libdir}
-for lib in build/src/userspace/libmvgal.so* build/src/userspace/libmvgal_core.a build/src/userspace/libmvgal_vulkan_layer.so build/src/userspace/libmvgal_opencl.so; do
-    [ -f "$lib" ] && install -m 644 "$lib" %{buildroot}%{_libdir}/ || true
-done
+[ -f build/src/userspace/libmvgal.so ] && install -m 755 build/src/userspace/libmvgal.so %{buildroot}%{_libdir}/
+[ -f build/src/userspace/libmvgal_vulkan_layer.so ] && install -m 755 build/src/userspace/libmvgal_vulkan_layer.so %{buildroot}%{_libdir}/
+[ -f build/src/userspace/libmvgal_core.a ] && install -m 644 build/src/userspace/libmvgal_core.a %{buildroot}%{_libdir}/
 
 # Headers
 mkdir -p %{buildroot}%{_includedir}/mvgal
@@ -84,40 +86,33 @@ install -m 644 rpm/mvgal-daemon.service \
     %{buildroot}%{_unitdir}/mvgal-daemon.service
 
 %post
-# Create runtime directory
 mkdir -p /var/run/mvgal
-chmod 755 /var/run/mvgal
-
-# Create log directory
 mkdir -p /var/log/mvgal
-chmod 755 /var/log/mvgal
-
-# Update library cache
 /sbin/ldconfig
-
-# Reload systemd
 if [ -d /run/systemd/system ]; then
     systemctl daemon-reload > /dev/null 2>&1 || :
 fi
 
 %preun
-if [ -d /run/systemd/system ]; then
+if [ $1 -eq 0 ] && [ -d /run/systemd/system ]; then
     systemctl stop mvgal-daemon.service > /dev/null 2>&1 || :
 fi
 
 %postun
-if [ -d /run/systemd/system ]; then
+if [ $1 -eq 0 ] && [ -d /run/systemd/system ]; then
     systemctl daemon-reload > /dev/null 2>&1 || :
 fi
 
 %files
-%defattr(-,root,root,-)
-%{_libdir}/libmvgal.so*
+%defattr(-,root,root,755)
+%license LICENSE
+%doc README.md CONTRIBUTING.md
+%{_libdir}/libmvgal.so
 %{_libdir}/libmvgal_core.a
 %{_libdir}/libmvgal_vulkan_layer.so
-%{_includedir}/mvgal/*.h
+%{_includedir}/mvgal/
 %{_sbindir}/mvgal-daemon
-%{_sysconfdir}/mvgal/
+%config(noreplace) %{_sysconfdir}/mvgal/
 %{_datadir}/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json
 %{_unitdir}/mvgal-daemon.service
 
