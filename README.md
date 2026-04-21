@@ -13,6 +13,8 @@
 
 **Enable heterogeneous GPUs (AMD, NVIDIA, Intel, Moore Threads) to function as a single logical compute and rendering device.**
 
+**Version:** 0.2.0 "Health Monitor" | **Status:** ~92% Complete
+
 ---
 
 ## 📋 Overview
@@ -35,7 +37,7 @@ MVGAL (Multi-Vendor GPU Aggregation Layer) is a cutting-edge Linux system that c
 - ✅ **Real-Time Load Balancing**: Dynamic workload distribution across GPUs
 - ✅ **Comprehensive Statistics**: Detailed performance monitoring and metrics
 - ✅ **Modular Architecture**: Kernel module (optional) + userspace daemon + API interception
-- ✅ **GPU Health Monitoring**: NEW - Temperature, utilization, memory tracking with alerts
+- ✅ **GPU Health Monitoring**: NEW in v0.2.0 - Temperature, utilization, memory tracking with alerts
 
 ---
 
@@ -691,13 +693,14 @@ The MVGAL icon represents the core concept of **unified multi-GPU aggregation**:
 
 ```
 mvgal/
-├── CMakeLists.txt                    # Main CMake configuration
+├── CMakeLists.txt                    # Main CMake configuration (29 C source files)
 ├── LICENSE                          # GPLv3 License
 ├── README.md                        # This file
 ├── CHANGES_2025.md                  # 2025 Implementation log
 ├── PROGRESS.md                      # Development progress
 ├── QUICKSTART.md                    # Quick start guide
 ├── MISSING.md                       # Missing components tracker
+├── SECURITY.md                     # Security policy
 ├── build.sh                         # Build automation script
 │
 ├── assets/
@@ -819,4 +822,4 @@ Contributions are welcome! Please see:
 
 ---
 
-*© 2025 MVGAL Project. Version 0.2.0 "Health Monitor". All Rights Reserved.*
+*© 2026 MVGAL Project. Version 0.2.0 "Health Monitor". All Rights Reserved.*

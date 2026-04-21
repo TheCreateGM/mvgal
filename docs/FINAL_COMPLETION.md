@@ -491,5 +491,5 @@ The project is **100% complete** for the requested features. However, for future
 ---
 
 **AxoGM**  
-**Version 0.1.0**  
-**April 2025**
+**Version 0.2.0 "Health Monitor"**  
+**April 2026**
