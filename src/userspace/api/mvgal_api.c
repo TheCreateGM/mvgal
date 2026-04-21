@@ -34,6 +34,18 @@ typedef struct {
  */
 static mvgal_state_t g_mvgal_state = {0};
 
+// Internal subsystem entry points owned by daemon/gpu_manager.c.
+mvgal_error_t mvgal_gpu_manager_init(void);
+void mvgal_gpu_manager_shutdown(void);
+mvgal_error_t mvgal_memory_module_init(void);
+void mvgal_memory_module_shutdown(void);
+mvgal_error_t mvgal_scheduler_module_init(void);
+void mvgal_scheduler_module_shutdown(void);
+mvgal_error_t mvgal_execution_module_init(void);
+void mvgal_execution_module_shutdown(void);
+mvgal_error_t mvgal_execution_get_stats_internal(mvgal_stats_t *stats);
+void mvgal_execution_reset_stats_internal(void);
+
 /**
  * @brief Version numbers
  */
@@ -77,15 +89,44 @@ mvgal_error_t mvgal_init(uint32_t flags) {
         MVGAL_LOG_ERROR("Failed to initialize configuration: %d", err);
         return err;
     }
-    
-    // Initialize GPU manager
-    // Note: gpu_manager.c initializes on first use
-    
-    // Initialize memory manager
-    // Note: memory.c initializes on first use
-    
-    // Initialize scheduler
-    // Note: scheduler.c initializes on first use
+
+    err = mvgal_gpu_manager_init();
+    if (err != MVGAL_SUCCESS) {
+        MVGAL_LOG_ERROR("Failed to initialize GPU manager: %d", err);
+        mvgal_config_shutdown();
+        mvgal_log_shutdown();
+        return err;
+    }
+
+    err = mvgal_memory_module_init();
+    if (err != MVGAL_SUCCESS && err != MVGAL_ERROR_ALREADY_INITIALIZED) {
+        MVGAL_LOG_ERROR("Failed to initialize memory manager: %d", err);
+        mvgal_gpu_manager_shutdown();
+        mvgal_config_shutdown();
+        mvgal_log_shutdown();
+        return err;
+    }
+
+    err = mvgal_scheduler_module_init();
+    if (err != MVGAL_SUCCESS && err != MVGAL_ERROR_ALREADY_INITIALIZED) {
+        MVGAL_LOG_ERROR("Failed to initialize scheduler: %d", err);
+        mvgal_memory_module_shutdown();
+        mvgal_gpu_manager_shutdown();
+        mvgal_config_shutdown();
+        mvgal_log_shutdown();
+        return err;
+    }
+
+    err = mvgal_execution_module_init();
+    if (err != MVGAL_SUCCESS && err != MVGAL_ERROR_ALREADY_INITIALIZED) {
+        MVGAL_LOG_ERROR("Failed to initialize execution module: %d", err);
+        mvgal_scheduler_module_shutdown();
+        mvgal_memory_module_shutdown();
+        mvgal_gpu_manager_shutdown();
+        mvgal_config_shutdown();
+        mvgal_log_shutdown();
+        return err;
+    }
     
     g_mvgal_state.flags = flags;
     g_mvgal_state.initialized = true;
@@ -135,9 +176,11 @@ void mvgal_shutdown(void) {
         g_mvgal_state.current_context = NULL;
     }
     
-    // Shutdown subsystems
-    // Note: Individual subsystem shutdown functions not yet implemented
-    // They will be called through their respective modules
+    // Shutdown subsystems in reverse initialization order.
+    mvgal_execution_module_shutdown();
+    mvgal_scheduler_module_shutdown();
+    mvgal_memory_module_shutdown();
+    mvgal_gpu_manager_shutdown();
     mvgal_config_shutdown();
     mvgal_log_shutdown();
     
@@ -405,19 +448,36 @@ mvgal_error_t mvgal_wait_idle(mvgal_context_t context, uint32_t timeout_ms) {
  * @brief Get statistics
  */
 mvgal_error_t mvgal_get_stats(mvgal_context_t context, mvgal_stats_t *stats) {
-    (void)context;
-    
+    mvgal_scheduler_stats_t scheduler_stats;
+    mvgal_stats_t execution_stats;
+
     if (!g_mvgal_state.initialized || stats == NULL) {
         return MVGAL_ERROR_INVALID_ARGUMENT;
     }
-    
-    // Get scheduler stats
-    mvgal_scheduler_get_stats(context, (mvgal_scheduler_stats_t *)stats);
-    
-    // In a real implementation, this would aggregate stats from all subsystems
-    
+
+    memset(stats, 0, sizeof(*stats));
+
+    if (mvgal_execution_get_stats_internal(&execution_stats) == MVGAL_SUCCESS) {
+        *stats = execution_stats;
+    }
+
+    if (mvgal_scheduler_get_stats(context, &scheduler_stats) == MVGAL_SUCCESS) {
+        if (stats->frames_submitted == 0) {
+            stats->frames_submitted = scheduler_stats.workloads_submitted;
+        }
+        if (stats->frames_completed == 0) {
+            stats->frames_completed = scheduler_stats.workloads_completed;
+        }
+        if (stats->workloads_distributed == 0) {
+            stats->workloads_distributed = scheduler_stats.workloads_submitted;
+        } else if (scheduler_stats.workloads_submitted > stats->workloads_distributed) {
+            stats->workloads_distributed = scheduler_stats.workloads_submitted;
+        }
+        stats->errors += scheduler_stats.workloads_failed;
+    }
+
     MVGAL_LOG_DEBUG("Get stats called");
-    
+
     return MVGAL_SUCCESS;
 }
 
@@ -433,6 +493,7 @@ mvgal_error_t mvgal_reset_stats(mvgal_context_t context) {
     
     // Reset scheduler stats
     mvgal_scheduler_reset_stats(context);
+    mvgal_execution_reset_stats_internal();
     
     // In a real implementation, this would reset stats in all subsystems
     

@@ -23,6 +23,7 @@
 #include "mvgal_log.h"
 #include "mvgal_scheduler.h"
 #include "mvgal_memory.h"
+#include "mvgal_execution.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,6 +71,13 @@ extern "C" {
 
 // Maximum number of queues per device
 #define MVGAL_MAX_QUEUES_PER_DEVICE 32
+
+#define MVGAL_VK_INSTANCE_MAGIC 0x564B4931U
+#define MVGAL_VK_PHYSICAL_DEVICE_MAGIC 0x564B5031U
+#define MVGAL_VK_DEVICE_MAGIC 0x564B4431U
+#define MVGAL_VK_QUEUE_MAGIC 0x564B5131U
+#define MVGAL_VK_COMMAND_BUFFER_MAGIC 0x564B4331U
+#define MVGAL_VK_SYNC_MAGIC 0x564B5331U
 
 /**
  * @brief Environment variable names
@@ -180,6 +188,61 @@ typedef void (VKAPI_CALL *PFN_vkUnmapMemory)(VkDevice, VkDeviceMemory);
 typedef PFN_vkVoidFunction (VKAPI_CALL *PFN_vkGetInstanceProcAddr)(VkInstance, const char*);
 typedef PFN_vkVoidFunction (VKAPI_CALL *PFN_vkGetDeviceProcAddr)(VkDevice, const char*);
 
+typedef struct mvgal_vk_instance_handle mvgal_vk_instance_handle_t;
+typedef struct mvgal_vk_physical_device_handle mvgal_vk_physical_device_handle_t;
+typedef struct mvgal_vk_device_handle mvgal_vk_device_handle_t;
+typedef struct mvgal_vk_queue_handle mvgal_vk_queue_handle_t;
+typedef struct mvgal_vk_command_buffer_handle mvgal_vk_command_buffer_handle_t;
+typedef struct mvgal_vk_sync_handle mvgal_vk_sync_handle_t;
+
+struct mvgal_vk_instance_handle {
+    uint32_t magic;
+    uint64_t id;
+};
+
+struct mvgal_vk_physical_device_handle {
+    uint32_t magic;
+    bool logical;
+    uint32_t gpu_count;
+    uint32_t gpu_indices[MVGAL_EXECUTION_MAX_GPUS];
+};
+
+struct mvgal_vk_queue_handle;
+
+struct mvgal_vk_device_handle {
+    uint32_t magic;
+    mvgal_context_t mvgal_context;
+    void *logical_device;
+    mvgal_logical_device_descriptor_t descriptor;
+    mvgal_distribution_strategy_t strategy;
+    mvgal_vk_queue_handle_t *queues[MVGAL_MAX_QUEUES_PER_DEVICE];
+    uint32_t queue_count;
+};
+
+struct mvgal_vk_queue_handle {
+    uint32_t magic;
+    mvgal_vk_device_handle_t *device;
+    uint32_t queue_family_index;
+    uint32_t queue_index;
+    VkQueueFlags flags;
+    uint64_t current_frame_id;
+    mvgal_execution_plan_t last_plan;
+};
+
+struct mvgal_vk_command_buffer_handle {
+    uint32_t magic;
+    mvgal_vk_device_handle_t *device;
+    bool recording;
+    mvgal_workload_type_t workload_type;
+    uint32_t operation_count;
+    size_t estimated_bytes;
+};
+
+struct mvgal_vk_sync_handle {
+    uint32_t magic;
+    bool signaled;
+};
+
 /**
  * @brief MVGAL Vulkan layer state
  */
@@ -249,7 +312,7 @@ typedef struct {
 } mvgal_vk_layer_state_t;
 
 // Global layer state
-static mvgal_vk_layer_state_t g_layer_state = {0};
+extern mvgal_vk_layer_state_t g_layer_state;
 
 // Logging helpers
 static inline void mvgal_vk_log_call(const char *func_name) {

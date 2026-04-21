@@ -91,7 +91,7 @@ mvgal_error_t mvgal_memory_allocate_simple(
     mvgal_memory_alloc_info_t alloc_info = {
         .size = size,
         .alignment = 0,
-        .flags = flags,
+        .flags = flags | MVGAL_MEMORY_FLAG_HOST_VALID,
         .memory_type = MVGAL_MEMORY_TYPE_SRAM,
         .sharing_mode = MVGAL_MEMORY_SHARING_NONE,
         .access = MVGAL_MEMORY_ACCESS_READ_WRITE,
@@ -610,13 +610,37 @@ mvgal_error_t mvgal_memory_copy_gpu(
     mvgal_fence_t fence
 ) {
     (void)context;
-    (void)fence;
-    (void)src_gpu_index;
-    (void)dst_gpu_index;
-    
-    // In a real implementation, this would use GPU-specific copy commands
-    // For now, fall back to CPU copy
-    
+
+    if (src_buffer == NULL || dst_buffer == NULL) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (size == 0) {
+        return MVGAL_SUCCESS;
+    }
+
+    struct mvgal_buffer *src = (struct mvgal_buffer *)src_buffer;
+    struct mvgal_buffer *dst = (struct mvgal_buffer *)dst_buffer;
+    mvgal_memory_copy_method_t method = mvgal_dmabuf_get_copy_method(src_gpu_index, dst_gpu_index);
+
+    if (method != MVGAL_MEMORY_COPY_CPU) {
+        mvgal_error_t err = mvgal_dmabuf_copy_gpu_to_gpu(
+            src,
+            src_offset,
+            dst,
+            dst_offset,
+            size,
+            src_gpu_index,
+            dst_gpu_index
+        );
+        if (err == MVGAL_SUCCESS) {
+            if (fence != NULL) {
+                mvgal_fence_signal_with_status(fence, MVGAL_SUCCESS);
+            }
+            return MVGAL_SUCCESS;
+        }
+    }
+
     mvgal_memory_copy_region_t region = {
         .src_buffer = src_buffer,
         .src_offset = src_offset,
@@ -624,8 +648,12 @@ mvgal_error_t mvgal_memory_copy_gpu(
         .dst_offset = dst_offset,
         .size = size
     };
-    
-    return mvgal_memory_copy(context, &region, 1, fence);
+
+    mvgal_error_t err = mvgal_memory_copy(context, &region, 1, fence);
+    if (err == MVGAL_SUCCESS && fence != NULL) {
+        mvgal_fence_signal_with_status(fence, MVGAL_SUCCESS);
+    }
+    return err;
 }
 
 // ============================================================================

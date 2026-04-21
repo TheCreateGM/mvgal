@@ -266,6 +266,27 @@ mvgal_error_t mvgal_dmabuf_export(
 );
 
 /**
+ * @brief Copy between GPU-visible buffers.
+ */
+mvgal_error_t mvgal_dmabuf_copy_gpu_to_gpu(
+    struct mvgal_buffer *src_buffer,
+    uint64_t src_offset,
+    struct mvgal_buffer *dst_buffer,
+    uint64_t dst_offset,
+    size_t size,
+    uint32_t src_gpu_index,
+    uint32_t dst_gpu_index
+);
+
+/**
+ * @brief Select the preferred GPU copy method.
+ */
+mvgal_memory_copy_method_t mvgal_dmabuf_get_copy_method(
+    uint32_t src_gpu_index,
+    uint32_t dst_gpu_index
+);
+
+/**
  * @brief Map DMA-BUF to CPU address space
  */
 mvgal_error_t mvgal_dmabuf_map(int fd, size_t size, size_t offset, void **ptr_out);
@@ -274,6 +295,11 @@ mvgal_error_t mvgal_dmabuf_map(int fd, size_t size, size_t offset, void **ptr_ou
  * @brief Unmap DMA-BUF from CPU address space
  */
 void mvgal_dmabuf_unmap(int fd, void *ptr, size_t size);
+
+/**
+ * @brief Signal a fence with completion status.
+ */
+mvgal_error_t mvgal_fence_signal_with_status(mvgal_fence_t fence, mvgal_error_t status);
 
 /**
  * @brief Bind buffer to a GPU

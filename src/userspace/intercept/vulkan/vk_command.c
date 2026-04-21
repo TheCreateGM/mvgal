@@ -25,15 +25,26 @@ VK_LAYER_EXPORT VkResult VKAPI_CALL vkAllocateCommandBuffers(
     const void *pAllocateInfo,
     VkCommandBuffer *pCommandBuffers
 ) {
-    // Stub implementation - return NULL command buffers
-    if (pCommandBuffers) {
-        // Would allocate and return command buffer objects in full implementation
-        // For now just zero them out
-        uint32_t count = 1; // Would get this from pAllocateInfo
-        for (uint32_t i = 0; i < count; i++) {
-            pCommandBuffers[i] = NULL;
-        }
+    mvgal_vk_device_handle_t *device_handle = (mvgal_vk_device_handle_t *)device;
+    mvgal_vk_command_buffer_handle_t *command_buffer;
+
+    (void)pAllocateInfo;
+
+    if (pCommandBuffers == NULL || device_handle == NULL ||
+        device_handle->magic != MVGAL_VK_DEVICE_MAGIC) {
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
+
+    command_buffer = calloc(1, sizeof(*command_buffer));
+    if (command_buffer == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    command_buffer->magic = MVGAL_VK_COMMAND_BUFFER_MAGIC;
+    command_buffer->device = device_handle;
+    command_buffer->workload_type = MVGAL_WORKLOAD_GRAPHICS;
+    pCommandBuffers[0] = (VkCommandBuffer)command_buffer;
+
     return VK_SUCCESS;
 }
 
@@ -47,11 +58,21 @@ VK_LAYER_EXPORT void VKAPI_CALL vkFreeCommandBuffers(
     uint32_t commandBufferCount,
     const VkCommandBuffer *pCommandBuffers
 ) {
-    // Stub implementation
     (void)device;
     (void)commandPool;
-    (void)commandBufferCount;
-    (void)pCommandBuffers;
+
+    if (pCommandBuffers == NULL) {
+        return;
+    }
+
+    for (uint32_t i = 0; i < commandBufferCount; i++) {
+        mvgal_vk_command_buffer_handle_t *command_buffer =
+            (mvgal_vk_command_buffer_handle_t *)pCommandBuffers[i];
+        if (command_buffer != NULL &&
+            command_buffer->magic == MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+            free(command_buffer);
+        }
+    }
 }
 
 // =============================================================================
@@ -62,9 +83,20 @@ VK_LAYER_EXPORT VkResult VKAPI_CALL vkBeginCommandBuffer(
     VkCommandBuffer commandBuffer,
     const void *pBeginInfo
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
     (void)pBeginInfo;
+
+    if (command_buffer_handle == NULL ||
+        command_buffer_handle->magic != MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    command_buffer_handle->recording = true;
+    command_buffer_handle->operation_count = 0;
+    command_buffer_handle->estimated_bytes = 0;
+    command_buffer_handle->workload_type = MVGAL_WORKLOAD_GRAPHICS;
     return VK_SUCCESS;
 }
 
@@ -75,8 +107,15 @@ VK_LAYER_EXPORT VkResult VKAPI_CALL vkBeginCommandBuffer(
 VK_LAYER_EXPORT VkResult VKAPI_CALL vkEndCommandBuffer(
     VkCommandBuffer commandBuffer
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
+    if (command_buffer_handle == NULL ||
+        command_buffer_handle->magic != MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    command_buffer_handle->recording = false;
     return VK_SUCCESS;
 }
 
@@ -88,9 +127,20 @@ VK_LAYER_EXPORT void VKAPI_CALL vkResetCommandBuffer(
     VkCommandBuffer commandBuffer,
     uint32_t flags
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
     (void)flags;
+
+    if (command_buffer_handle == NULL ||
+        command_buffer_handle->magic != MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        return;
+    }
+
+    command_buffer_handle->recording = false;
+    command_buffer_handle->operation_count = 0;
+    command_buffer_handle->estimated_bytes = 0;
+    command_buffer_handle->workload_type = MVGAL_WORKLOAD_GRAPHICS;
 }
 
 // =============================================================================
@@ -109,8 +159,9 @@ VK_LAYER_EXPORT void VKAPI_CALL vkCmdPipelineBarrier(
     uint32_t imageMemoryBarrierCount,
     const void *pImageMemoryBarriers
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
     (void)srcStageMask;
     (void)dstStageMask;
     (void)dependencyFlags;
@@ -120,6 +171,12 @@ VK_LAYER_EXPORT void VKAPI_CALL vkCmdPipelineBarrier(
     (void)pBufferMemoryBarriers;
     (void)imageMemoryBarrierCount;
     (void)pImageMemoryBarriers;
+
+    if (command_buffer_handle != NULL &&
+        command_buffer_handle->magic == MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        command_buffer_handle->operation_count++;
+        command_buffer_handle->estimated_bytes += 65536U;
+    }
 }
 
 // =============================================================================
@@ -198,12 +255,19 @@ VK_LAYER_EXPORT void VKAPI_CALL vkCmdCopyBuffer(
     uint32_t regionCount,
     const void *pRegions
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
     (void)srcBuffer;
     (void)dstBuffer;
-    (void)regionCount;
     (void)pRegions;
+
+    if (command_buffer_handle != NULL &&
+        command_buffer_handle->magic == MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        command_buffer_handle->operation_count += regionCount;
+        command_buffer_handle->estimated_bytes += (size_t)regionCount * 1048576U;
+        command_buffer_handle->workload_type = MVGAL_WORKLOAD_TRANSFER;
+    }
 }
 
 // =============================================================================
@@ -219,14 +283,21 @@ VK_LAYER_EXPORT void VKAPI_CALL vkCmdCopyImage(
     uint32_t regionCount,
     const void *pRegions
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
     (void)srcImage;
     (void)srcImageLayout;
     (void)dstImage;
     (void)dstImageLayout;
-    (void)regionCount;
     (void)pRegions;
+
+    if (command_buffer_handle != NULL &&
+        command_buffer_handle->magic == MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        command_buffer_handle->operation_count += regionCount;
+        command_buffer_handle->estimated_bytes += (size_t)regionCount * 4194304U;
+        command_buffer_handle->workload_type = MVGAL_WORKLOAD_GRAPHICS;
+    }
 }
 
 // =============================================================================
@@ -243,15 +314,22 @@ VK_LAYER_EXPORT void VKAPI_CALL vkCmdBlitImage(
     const void *pRegions,
     VkFilter filter
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
     (void)srcImage;
     (void)srcImageLayout;
     (void)dstImage;
     (void)dstImageLayout;
-    (void)regionCount;
     (void)pRegions;
     (void)filter;
+
+    if (command_buffer_handle != NULL &&
+        command_buffer_handle->magic == MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        command_buffer_handle->operation_count += regionCount;
+        command_buffer_handle->estimated_bytes += (size_t)regionCount * 8388608U;
+        command_buffer_handle->workload_type = MVGAL_WORKLOAD_GRAPHICS;
+    }
 }
 
 // =============================================================================
@@ -266,13 +344,20 @@ VK_LAYER_EXPORT void VKAPI_CALL vkCmdCopyBufferToImage(
     uint32_t regionCount,
     const void *pRegions
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
     (void)srcBuffer;
     (void)dstImage;
     (void)dstImageLayout;
-    (void)regionCount;
     (void)pRegions;
+
+    if (command_buffer_handle != NULL &&
+        command_buffer_handle->magic == MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        command_buffer_handle->operation_count += regionCount;
+        command_buffer_handle->estimated_bytes += (size_t)regionCount * 2097152U;
+        command_buffer_handle->workload_type = MVGAL_WORKLOAD_TRANSFER;
+    }
 }
 
 // =============================================================================
@@ -287,13 +372,20 @@ VK_LAYER_EXPORT void VKAPI_CALL vkCmdCopyImageToBuffer(
     uint32_t regionCount,
     const void *pRegions
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
     (void)srcImage;
     (void)srcImageLayout;
     (void)dstBuffer;
-    (void)regionCount;
     (void)pRegions;
+
+    if (command_buffer_handle != NULL &&
+        command_buffer_handle->magic == MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        command_buffer_handle->operation_count += regionCount;
+        command_buffer_handle->estimated_bytes += (size_t)regionCount * 2097152U;
+        command_buffer_handle->workload_type = MVGAL_WORKLOAD_TRANSFER;
+    }
 }
 
 // =============================================================================
@@ -307,12 +399,19 @@ VK_LAYER_EXPORT void VKAPI_CALL vkCmdFillBuffer(
     VkDeviceSize size,
     uint32_t data
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
     (void)dstBuffer;
     (void)dstOffset;
-    (void)size;
     (void)data;
+
+    if (command_buffer_handle != NULL &&
+        command_buffer_handle->magic == MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        command_buffer_handle->operation_count++;
+        command_buffer_handle->estimated_bytes += (size_t)size;
+        command_buffer_handle->workload_type = MVGAL_WORKLOAD_TRANSFER;
+    }
 }
 
 // =============================================================================
@@ -326,12 +425,19 @@ VK_LAYER_EXPORT void VKAPI_CALL vkCmdUpdateBuffer(
     VkDeviceSize dataSize,
     const void *pData
 ) {
-    // Stub implementation
-    (void)commandBuffer;
+    mvgal_vk_command_buffer_handle_t *command_buffer_handle =
+        (mvgal_vk_command_buffer_handle_t *)commandBuffer;
+
     (void)dstBuffer;
     (void)dstOffset;
-    (void)dataSize;
     (void)pData;
+
+    if (command_buffer_handle != NULL &&
+        command_buffer_handle->magic == MVGAL_VK_COMMAND_BUFFER_MAGIC) {
+        command_buffer_handle->operation_count++;
+        command_buffer_handle->estimated_bytes += (size_t)dataSize;
+        command_buffer_handle->workload_type = MVGAL_WORKLOAD_TRANSFER;
+    }
 }
 
 /** @} */ // end of VulkanLayer

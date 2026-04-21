@@ -6,6 +6,7 @@
  */
 
 #include "mvgal.h"
+#include "mvgal_execution.h"
 #include "mvgal_gpu.h"
 #include "mvgal_scheduler.h"
 #include <inttypes.h>
@@ -13,6 +14,7 @@
 #include "mvgal_log.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static int test_passed = 0;
 static int test_failed = 0;
@@ -104,6 +106,26 @@ int main(void)
         TEST_ASSERT(err == MVGAL_SUCCESS, "GPU selection");
         MVGAL_LOG_INFO("Selected GPU: %s (ID: %d)", selected.name, selected.id);
     }
+
+    // Test logical device aggregation
+    if (gpu_count >= 1) {
+        uint32_t logical_gpu_count = gpu_count >= 2 ? 2U : 1U;
+        uint32_t gpu_indices[2] = {0, 1};
+        void *logical_device = NULL;
+        mvgal_logical_device_descriptor_t logical_desc;
+
+        err = mvgal_device_create(logical_gpu_count, gpu_indices, &logical_device);
+        TEST_ASSERT(err == MVGAL_SUCCESS, "Logical device creation");
+        TEST_ASSERT(logical_device != NULL, "Logical device is not NULL");
+
+        err = mvgal_device_get_descriptor(logical_device, &logical_desc);
+        TEST_ASSERT(err == MVGAL_SUCCESS, "Logical device descriptor");
+        TEST_ASSERT(logical_desc.gpu_count == logical_gpu_count, "Logical device GPU count");
+        TEST_ASSERT(logical_desc.descriptor.type == MVGAL_GPU_TYPE_VIRTUAL,
+                    "Logical device type");
+
+        mvgal_device_destroy(logical_device);
+    }
     
     // Test stats
     mvgal_stats_t stats;
@@ -111,6 +133,39 @@ int main(void)
     TEST_ASSERT(err == MVGAL_SUCCESS, "Get stats");
     MVGAL_LOG_INFO("Stats: frames=%" PRIu64 ", workloads=%" PRIu64,
                   stats.frames_submitted, stats.workloads_distributed);
+
+    // Test execution plan generation
+    {
+        mvgal_execution_frame_begin_info_t begin_info = {
+            .api = MVGAL_API_VULKAN,
+            .requested_strategy = MVGAL_STRATEGY_HYBRID,
+            .application_name = "integration-vulkan",
+            .steam_mode = false,
+            .proton_mode = false,
+            .low_latency = false
+        };
+        mvgal_execution_submit_info_t submit_info;
+        mvgal_execution_plan_t exec_plan;
+        uint64_t frame_id = 0;
+
+        err = mvgal_execution_begin_frame(context, &begin_info, &frame_id);
+        TEST_ASSERT(err == MVGAL_SUCCESS, "Execution frame begin");
+
+        memset(&submit_info, 0, sizeof(submit_info));
+        submit_info.frame_id = frame_id;
+        submit_info.api = MVGAL_API_VULKAN;
+        submit_info.requested_strategy = MVGAL_STRATEGY_HYBRID;
+        submit_info.telemetry.type = MVGAL_WORKLOAD_GRAPHICS;
+        submit_info.telemetry.step_name = "vkQueueSubmit";
+        submit_info.telemetry.data_size = 4U * 1024U * 1024U;
+        submit_info.resource_bytes = 8U * 1024U * 1024U;
+        submit_info.command_buffer_count = 1;
+        submit_info.queue_family_flags = 0x1U;
+
+        err = mvgal_execution_submit(context, &submit_info, &exec_plan);
+        TEST_ASSERT(err == MVGAL_SUCCESS, "Execution workload submit");
+        TEST_ASSERT(exec_plan.selected_gpu_count >= 1, "Execution selected GPU");
+    }
     
     // Cleanup
     mvgal_workload_destroy(workload);
