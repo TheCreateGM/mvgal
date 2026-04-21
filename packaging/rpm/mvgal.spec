@@ -36,7 +36,7 @@ Features:
 mkdir -p build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release \
-    -DWITH_VULKAN=ON -DWITH_OPENCL=ON \
+    -DWITH_VULKAN=ON -DWITH_OPENCL=OFF \
     -DWITH_DAEMON=ON -DWITH_TESTS=OFF \
     -DWITH_BENCHMARKS=OFF -DWITH_DOCS=OFF \
     -DWITH_KERNEL_MODULE=OFF
@@ -114,7 +114,6 @@ fi
 %defattr(-,root,root,-)
 %{_libdir}/libmvgal.so*
 %{_libdir}/libmvgal_core.a
-%{_libdir}/libmvgal_opencl.so
 %{_libdir}/libmvgal_vulkan_layer.so
 %{_includedir}/mvgal/*.h
 %{_sbindir}/mvgal-daemon
