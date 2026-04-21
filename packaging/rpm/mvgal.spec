@@ -1,5 +1,5 @@
 Name: mvgal
-Version: 0.1.0
+Version: 0.2.0
 Release: 1%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
@@ -7,11 +7,11 @@ License: GPLv3
 URL: https://github.com/TheCreateGM/mvgal
 Source0: mvgal-%{version}.tar.gz
 
-BuildRequires: gcc, gcc-c++, make, cmake >= 3.20
-BuildRequires: libdrm-devel, libpciaccess-devel, systemd-devel
-BuildRequires: vulkan-devel, opencl-headers
+BuildRequires: gcc, make, cmake >= 3.20
+BuildRequires: libdrm-devel, systemd-devel
+BuildRequires: opencl-headers
 
-Requires: libdrm, libpciaccess, systemd
+Requires: libdrm, systemd
 Requires: vulkan-loader, ocl-icd
 
 Prefix: /usr
@@ -35,8 +35,11 @@ Features:
 %build
 mkdir -p build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_VULKAN=ON -DWITH_OPENCL=ON \
-    -DWITH_DAEMON=ON -DWITH_TESTS=OFF -DWITH_BENCHMARKS=OFF -DWITH_DOCS=OFF
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+    -DWITH_VULKAN=ON -DWITH_OPENCL=ON \
+    -DWITH_DAEMON=ON -DWITH_TESTS=OFF \
+    -DWITH_BENCHMARKS=OFF -DWITH_DOCS=OFF \
+    -DWITH_KERNEL_MODULE=OFF
 make -j%{?_smp_ncpus:%{_smp_ncpus}}%{!?_smp_ncpus:1}
 
 %install
@@ -120,6 +123,13 @@ fi
 %{_unitdir}/mvgal-daemon.service
 
 %changelog
+* Tue Apr 21 2026 AxoGM <creategm10@proton.me> - 0.2.0-1
+- Updated to version 0.2.0 "Health Monitor"
+- GPU health monitoring with temperature, utilization tracking
+- Comprehensive scheduler with 7 strategies
+- DMA-BUF based cross-GPU memory management
+- OpenCL interception layer
+
 * Sun Apr 19 2026 AxoGM <creategm10@proton.me> - 0.1.0-1
 - Initial release
 - GPU detection, scheduler, memory manager
