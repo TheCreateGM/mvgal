@@ -12,8 +12,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger COPR build
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
         run: |
-          curl -X POST "https://copr.fedorainfracloud.org/webhooks/custom/axogm/mvgal/" \
-            -H "Content-Type: application/json" \
-            --data '{"clone_url": "https://github.com/TheCreateGM/mvgal.git", "ref": "${{ github.event.inputs.branch }}"}'
+          sudo apt-get update
+          sudo apt-get install -y rpm copr-cli
+
+      - name: Configure COPR
+        run: |
+          mkdir -p ~/.config
+          echo "[copr-cli]
+          login = ${{ secrets.COPR_LOGIN }}
+          username = axogm
+          token = ${{ secrets.COPR_TOKEN }}
+          copr_url = https://copr.fedorainfracloud.org" > ~/.config/copr
+
+      - name: Build SRPM
+        run: |
+          VERSION=$(grep "^Version:" pkg/rpm/mvgal.spec | awk '{print $2}')
+          git archive --prefix=mvgal-${VERSION}/ -o mvgal-${VERSION}.tar.gz HEAD
+          rpmbuild -bs pkg/rpm/mvgal.spec --define "_sourcedir $(pwd)" --define "_srcrpmdir $(pwd)"
+
+      - name: Submit to COPR
+        run: |
+          copr-cli build axogm/mvgal mvgal-*.src.rpm
