@@ -334,7 +334,7 @@ void mvgal_memory_unmap(mvgal_buffer_t buffer) {
             mvgal_dmabuf_unmap(buf->dmabuf_fd, buf->host_ptr, buf->size);
         }
         buf->host_ptr = NULL;
-        buf->state &= ~MVGAL_BUFFER_STATE_MAPPED;
+        buf->state &= (uint32_t)~MVGAL_BUFFER_STATE_MAPPED;
     }
 }
 
@@ -783,9 +783,9 @@ mvgal_error_t mvgal_memory_set_access(
     
     // Update GPU mask
     if (access != 0) {
-        buf->gpu_mask |= (1 << gpu_index);
+        buf->gpu_mask |= (uint32_t)(1U << gpu_index);
     } else {
-        buf->gpu_mask &= ~(1 << gpu_index);
+        buf->gpu_mask &= (uint32_t)~(1U << gpu_index);
     }
     
     // Update binding

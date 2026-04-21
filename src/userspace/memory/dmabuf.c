@@ -488,8 +488,8 @@ mvgal_error_t mvgal_dmabuf_copy_gpu_to_gpu(
         MVGAL_LOG_DEBUG("P2P not supported between GPU %u and %u, falling back to CPU copy",
                        src_gpu_index, dst_gpu_index);
         // Fall back to CPU copy
-        void *src_ptr = src_buffer->host_ptr + src_offset;
-        void *dst_ptr = dst_buffer->host_ptr + dst_offset;
+        unsigned char *src_ptr = (unsigned char *)src_buffer->host_ptr + src_offset;
+        unsigned char *dst_ptr = (unsigned char *)dst_buffer->host_ptr + dst_offset;
         memcpy(dst_ptr, src_ptr, size);
         return MVGAL_SUCCESS;
     }
@@ -507,8 +507,8 @@ mvgal_error_t mvgal_dmabuf_copy_gpu_to_gpu(
         
         // For now, fall back to CPU copy
         // In production, this would use GPU-specific APIs
-        void *src_ptr = src_buffer->host_ptr + src_offset;
-        void *dst_ptr = dst_buffer->host_ptr + dst_offset;
+        unsigned char *src_ptr = (unsigned char *)src_buffer->host_ptr + src_offset;
+        unsigned char *dst_ptr = (unsigned char *)dst_buffer->host_ptr + dst_offset;
         memcpy(dst_ptr, src_ptr, size);
         
         return MVGAL_SUCCESS;
@@ -534,8 +534,8 @@ mvgal_error_t mvgal_dmabuf_copy_gpu_to_gpu(
     
     // Fall back to CPU copy
     MVGAL_LOG_DEBUG("P2P copy: falling back to CPU copy");
-    void *src_ptr = src_buffer->host_ptr + src_offset;
-    void *dst_ptr = dst_buffer->host_ptr + dst_offset;
+    unsigned char *src_ptr = (unsigned char *)src_buffer->host_ptr + src_offset;
+    unsigned char *dst_ptr = (unsigned char *)dst_buffer->host_ptr + dst_offset;
     memcpy(dst_ptr, src_ptr, size);
     
     return MVGAL_SUCCESS;

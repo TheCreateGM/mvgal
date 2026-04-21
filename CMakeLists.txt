@@ -168,8 +168,11 @@ add_compile_options(
     -Wconversion
     -Wsign-conversion
     -Wformat=2
-    -Wno-unused-command-line-argument
 )
+
+if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wno-unused-command-line-argument)
+endif()
 
 # Debug build flags
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR WITH_DEBUG)

@@ -23,3 +23,27 @@ target_link_libraries(test_multi_gpu
 )
 
 add_test(NAME test_multi_gpu COMMAND test_multi_gpu)
+
+if(WITH_VULKAN AND Vulkan_FOUND)
+    add_executable(test_vulkan_layer_submit
+        test_vulkan_layer_submit.c
+    )
+
+    target_link_libraries(test_vulkan_layer_submit
+        PRIVATE
+            ${Vulkan_LIBRARIES}
+    )
+
+    target_include_directories(test_vulkan_layer_submit
+        PRIVATE
+            ${Vulkan_INCLUDE_DIRS}
+    )
+
+    target_compile_definitions(test_vulkan_layer_submit
+        PRIVATE
+            MVGAL_TEST_LAYER_DIR="$<TARGET_FILE_DIR:mvgal_vulkan_layer>"
+            MVGAL_TEST_VK_ICD_PATH="/usr/share/vulkan/icd.d/lvp_icd.x86_64.json"
+    )
+
+    add_test(NAME test_vulkan_layer_submit COMMAND test_vulkan_layer_submit)
+endif()

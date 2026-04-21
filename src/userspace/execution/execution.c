@@ -848,7 +848,7 @@ mvgal_error_t mvgal_execution_get_steam_profile(
         profile->env_block,
         sizeof(profile->env_block),
         "MVGAL_ENABLED=1\n"
-        "MVGAL_VULKAN_ENABLED=%d\n"
+        "MVGAL_VULKAN_ENABLE=%d\n"
         "MVGAL_STRATEGY=%s\n"
         "MVGAL_GPUS=%s\n"
         "MVGAL_LOW_LATENCY=%d\n"
@@ -862,19 +862,18 @@ mvgal_error_t mvgal_execution_get_steam_profile(
         profile->low_latency ? 1 : 0,
         profile->steam_mode ? 1 : 0,
         profile->proton_mode ? 1 : 0,
-        request->enable_vulkan_layer ? "VK_LAYER_PATH=/usr/lib\n" : "",
+        request->enable_vulkan_layer ? "MVGAL_VULKAN_DEBUG=0\n" : "",
         request->enable_d3d_wrapper ? "MVGAL_D3D_ENABLED=1\n" : ""
     );
 
     snprintf(
         profile->launch_options,
         sizeof(profile->launch_options),
-        "MVGAL_ENABLED=1 MVGAL_VULKAN_ENABLED=%d MVGAL_STRATEGY=%s MVGAL_GPUS=%s MVGAL_LOW_LATENCY=%d%s%s %%command%%",
+        "MVGAL_ENABLED=1 MVGAL_VULKAN_ENABLE=%d MVGAL_STRATEGY=%s MVGAL_GPUS=%s MVGAL_LOW_LATENCY=%d%s %%command%%",
         request->enable_vulkan_layer ? 1 : 0,
         strategy_to_string(strategy),
         gpu_list,
         profile->low_latency ? 1 : 0,
-        request->enable_vulkan_layer ? " VK_LAYER_PATH=/usr/lib" : "",
         request->enable_d3d_wrapper ? " MVGAL_D3D_ENABLED=1" : ""
     );
 

@@ -77,10 +77,6 @@ target_link_libraries(mvgal
 if(WITH_VULKAN AND Vulkan_FOUND)
     add_library(mvgal_vulkan_layer SHARED
         intercept/vulkan/vk_layer.c
-        intercept/vulkan/vk_instance.c
-        intercept/vulkan/vk_device.c
-        intercept/vulkan/vk_queue.c
-        intercept/vulkan/vk_command.c
     )
 
     target_include_directories(mvgal_vulkan_layer
@@ -88,42 +84,64 @@ if(WITH_VULKAN AND Vulkan_FOUND)
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/../..
             ${Vulkan_INCLUDE_DIRS}
-            ${MVGAL_INCLUDE_DIRS}
+    )
+
+    set_target_properties(mvgal_vulkan_layer PROPERTIES
+        OUTPUT_NAME "VK_LAYER_MVGAL"
+    )
+
+    target_link_options(mvgal_vulkan_layer
+        PRIVATE
+            -Wl,-Bsymbolic-functions
     )
 
     target_link_libraries(mvgal_vulkan_layer
         PRIVATE
-            mvgal_core
-            ${Vulkan_LIBRARIES}
             Threads::Threads
     )
 
-    # Install Vulkan layer
+    file(GENERATE
+        OUTPUT "$<TARGET_FILE_DIR:mvgal_vulkan_layer>/VK_LAYER_MVGAL.json"
+        CONTENT [=[
+{
+  "file_format_version": "1.0.0",
+  "layer": {
+    "name": "VK_LAYER_MVGAL",
+    "type": "GLOBAL",
+    "library_path": "$<TARGET_FILE:mvgal_vulkan_layer>",
+    "api_version": "1.3.0",
+    "implementation_version": "1",
+    "description": "Milestone 1 Vulkan submit interception layer for MVGAL/UMGAL",
+    "functions": {
+      "vkNegotiateLoaderLayerInterfaceVersion": "vkNegotiateLoaderLayerInterfaceVersion"
+    },
+    "enable_environment": {
+      "MVGAL_VULKAN_ENABLE": "1"
+    },
+    "disable_environment": {
+      "MVGAL_VULKAN_DISABLE": "1"
+    }
+  }
+}
+]=]
+    )
+
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/intercept/vulkan/manifest.json.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/VK_LAYER_MVGAL.json"
+        @ONLY
+    )
+
     install(
         TARGETS mvgal_vulkan_layer
-        LIBRARY DESTINATION lib/vulkan
+        LIBRARY DESTINATION lib
         COMPONENT runtime
-    )
-
-    # Install Vulkan layer manifest
-    install(
-        FILES intercept/vulkan/manifest.json
-        DESTINATION share/vulkan/explicit_layer.d
-        COMPONENT runtime
-        RENAME VK_LAYER_MVGAL.json
-    )
-
-    # Generate ICD loader json
-    configure_file(
-        "${CMAKE_CURRENT_SOURCE_DIR}/intercept/vulkan/mvgal_icd.json.in"
-        "${CMAKE_CURRENT_BINARY_DIR}/mvgal_icd.json"
     )
 
     install(
-        FILES "${CMAKE_CURRENT_BINARY_DIR}/mvgal_icd.json"
-        DESTINATION share/vulkan/icd.d
+        FILES "${CMAKE_CURRENT_BINARY_DIR}/VK_LAYER_MVGAL.json"
+        DESTINATION share/vulkan/implicit_layer.d
         COMPONENT runtime
-        RENAME mvgal_icd.json
     )
 endif()
 

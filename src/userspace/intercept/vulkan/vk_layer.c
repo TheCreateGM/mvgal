@@ -1,341 +1,426 @@
-/**
- * @file vk_layer.c
- * @brief Vulkan Layer Implementation
- *
- * Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
- *
- * This file implements the Vulkan layer that intercepts Vulkan API calls
- * and distributes workloads across multiple GPUs.
- *
- * When Vulkan SDK is not available, this provides minimal stub implementations
- * to allow compilation without Vulkan headers.
- */
-
 #include "vk_layer.h"
 
-// Standard includes
+#include <inttypes.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
+#include <strings.h>
 
-mvgal_vk_layer_state_t g_layer_state = {0};
+mvgal_layer_state_t g_mvgal_layer_state = {
+    .lock = PTHREAD_MUTEX_INITIALIZER,
+    .instances = NULL,
+    .devices = NULL,
+    .queues = NULL,
+    .physical_devices = NULL,
+    .submit_count = 0,
+};
 
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkCreateInstance(
-    const void *pCreateInfo,
-    const void *pAllocator,
-    VkInstance *pInstance
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(
-    uint32_t *pPropertyCount,
-    VkLayerProperties *pProperties
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumerateDeviceLayerProperties(
-    VkPhysicalDevice physicalDevice,
-    uint32_t *pPropertyCount,
-    VkLayerProperties *pProperties
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkDestroyInstance(
-    VkInstance instance,
-    const void *pAllocator
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumeratePhysicalDevices(
-    VkInstance instance,
-    uint32_t *pPhysicalDeviceCount,
-    VkPhysicalDevice *pPhysicalDevices
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumerateInstanceExtensionProperties(
-    const char *pLayerName,
-    uint32_t *pPropertyCount,
-    char *pPropertyNames
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(
-    VkPhysicalDevice physicalDevice,
-    const char *pLayerName,
-    uint32_t *pPropertyCount,
-    char *pPropertyNames
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkGetPhysicalDeviceProperties(
-    VkPhysicalDevice physicalDevice,
-    void *pProperties
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkGetPhysicalDeviceFeatures(
-    VkPhysicalDevice physicalDevice,
-    void *pFeatures
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkGetPhysicalDeviceQueueFamilyProperties(
-    VkPhysicalDevice physicalDevice,
-    uint32_t *pQueueFamilyPropertyCount,
-    VkQueueFamilyProperties *pQueueFamilyProperties
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkGetPhysicalDeviceQueueFamilyProperties2(
-    VkPhysicalDevice physicalDevice,
-    uint32_t *pQueueFamilyPropertyCount,
-    VkQueueFamilyProperties2 *pQueueFamilyProperties
-);
-VK_LAYER_EXPORT PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(
-    VkInstance instance,
-    const char *pName
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkCreateDevice(
-    VkPhysicalDevice physicalDevice,
-    const void *pCreateInfo,
-    const void *pAllocator,
-    VkDevice *pDevice
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkDestroyDevice(
-    VkDevice device,
-    const void *pAllocator
-);
-VK_LAYER_EXPORT PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(
-    VkDevice device,
-    const char *pName
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkGetDeviceQueue(
-    VkDevice device,
-    uint32_t queueFamilyIndex,
-    uint32_t queueIndex,
-    VkQueue *pQueue
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkQueueSubmit(
-    VkQueue queue,
-    uint32_t submitCount,
-    const void *pSubmits,
-    VkFence fence
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkQueuePresentKHR(
-    VkQueue queue,
-    const void *pPresentInfo
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkQueueWaitIdle(
-    VkQueue queue
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkCreateFence(
-    VkDevice device,
-    const void *pCreateInfo,
-    const void *pAllocator,
-    VkFence *pFence
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkDestroyFence(
-    VkDevice device,
-    VkFence fence,
-    const void *pAllocator
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkWaitForFences(
-    VkDevice device,
-    uint32_t fenceCount,
-    const VkFence *pFences,
-    VkBool32 waitAll,
-    uint64_t timeout
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkCreateSemaphore(
-    VkDevice device,
-    const void *pCreateInfo,
-    const void *pAllocator,
-    VkSemaphore *pSemaphore
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkDestroySemaphore(
-    VkDevice device,
-    VkSemaphore semaphore,
-    const void *pAllocator
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkAllocateCommandBuffers(
-    VkDevice device,
-    const void *pAllocateInfo,
-    VkCommandBuffer *pCommandBuffers
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkFreeCommandBuffers(
-    VkDevice device,
-    VkCommandPool commandPool,
-    uint32_t commandBufferCount,
-    const VkCommandBuffer *pCommandBuffers
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkBeginCommandBuffer(
-    VkCommandBuffer commandBuffer,
-    const void *pBeginInfo
-);
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkEndCommandBuffer(
-    VkCommandBuffer commandBuffer
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkCmdPipelineBarrier(
-    VkCommandBuffer commandBuffer,
-    uint32_t srcStageMask,
-    uint32_t dstStageMask,
-    uint32_t dependencyFlags,
-    uint32_t memoryBarrierCount,
-    const void *pMemoryBarriers,
-    uint32_t bufferMemoryBarrierCount,
-    const void *pBufferMemoryBarriers,
-    uint32_t imageMemoryBarrierCount,
-    const void *pImageMemoryBarriers
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkCmdCopyBuffer(
-    VkCommandBuffer commandBuffer,
-    VkBuffer srcBuffer,
-    VkBuffer dstBuffer,
-    uint32_t regionCount,
-    const void *pRegions
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkCmdCopyImage(
-    VkCommandBuffer commandBuffer,
-    VkImage srcImage,
-    VkImageLayout srcImageLayout,
-    VkImage dstImage,
-    VkImageLayout dstImageLayout,
-    uint32_t regionCount,
-    const void *pRegions
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkCmdBlitImage(
-    VkCommandBuffer commandBuffer,
-    VkImage srcImage,
-    VkImageLayout srcImageLayout,
-    VkImage dstImage,
-    VkImageLayout dstImageLayout,
-    uint32_t regionCount,
-    const void *pRegions,
-    VkFilter filter
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkCmdCopyBufferToImage(
-    VkCommandBuffer commandBuffer,
-    VkBuffer srcBuffer,
-    VkImage dstImage,
-    VkImageLayout dstImageLayout,
-    uint32_t regionCount,
-    const void *pRegions
-);
-VK_LAYER_EXPORT void VKAPI_CALL vkCmdCopyImageToBuffer(
-    VkCommandBuffer commandBuffer,
-    VkImage srcImage,
-    VkImageLayout srcImageLayout,
-    VkBuffer dstBuffer,
-    uint32_t regionCount,
-    const void *pRegions
-);
+static bool env_truthy(const char *name)
+{
+    const char *value = getenv(name);
 
-static void refresh_layer_gpu_inventory(void) {
-    g_layer_state.gpu_count = 0;
-    memset(g_layer_state.gpus, 0, sizeof(g_layer_state.gpus));
-
-    int32_t gpu_count = mvgal_gpu_enumerate(g_layer_state.gpus, MVGAL_MAX_PHYSICAL_DEVICES);
-    if (gpu_count > 0) {
-        g_layer_state.gpu_count = (uint32_t)gpu_count;
+    if (value == NULL || value[0] == '\0') {
+        return false;
     }
+
+    if (strcmp(value, "0") == 0 || strcasecmp(value, "false") == 0 ||
+        strcasecmp(value, "off") == 0 || strcasecmp(value, "no") == 0) {
+        return false;
+    }
+
+    return true;
 }
 
-static void rebuild_logical_physical_device(void) {
-    mvgal_vk_physical_device_handle_t *physical_handle;
-    uint32_t logical_gpu_count = 0;
+bool mvgal_vk_layer_debug_enabled(void)
+{
+    return env_truthy("MVGAL_VULKAN_DEBUG") || env_truthy("UMGAL_VULKAN_DEBUG");
+}
 
-    if (g_layer_state.mvgal_physical_device != NULL) {
-        free((void *)g_layer_state.mvgal_physical_device);
-        g_layer_state.mvgal_physical_device = NULL;
-    }
+void mvgal_vk_layer_log(const char *fmt, ...)
+{
+    FILE *stream = stderr;
+    const char *log_path = getenv("MVGAL_VULKAN_LOG_PATH");
+    va_list ap;
 
-    physical_handle = calloc(1, sizeof(*physical_handle));
-    if (physical_handle == NULL) {
+    if (!mvgal_vk_layer_debug_enabled() && log_path == NULL) {
         return;
     }
 
-    physical_handle->magic = MVGAL_VK_PHYSICAL_DEVICE_MAGIC;
-    physical_handle->logical = true;
+    if (log_path != NULL && log_path[0] != '\0') {
+        stream = fopen(log_path, "a");
+        if (stream == NULL) {
+            stream = stderr;
+        }
+    }
 
-    for (uint32_t i = 0; i < g_layer_state.gpu_count && logical_gpu_count < MVGAL_EXECUTION_MAX_GPUS; i++) {
-        if (!g_layer_state.gpus[i].enabled || !g_layer_state.gpus[i].available) {
+    fprintf(stream, "[mvgal-vk-layer] ");
+    va_start(ap, fmt);
+    vfprintf(stream, fmt, ap);
+    va_end(ap);
+    fputc('\n', stream);
+    fflush(stream);
+
+    if (stream != stderr) {
+        fclose(stream);
+    }
+}
+
+void mvgal_vk_layer_note_submit(const char *entrypoint, uint32_t submit_count)
+{
+    uint64_t total = atomic_fetch_add_explicit(
+        &g_mvgal_layer_state.submit_count,
+        1U,
+        memory_order_relaxed
+    ) + 1U;
+
+    mvgal_vk_layer_log(
+        "%s submit_count=%u total_submissions=%" PRIu64,
+        entrypoint,
+        submit_count,
+        total
+    );
+}
+
+static void fill_layer_properties(VkLayerProperties *properties)
+{
+    memset(properties, 0, sizeof(*properties));
+    snprintf(properties->layerName, sizeof(properties->layerName), "%s",
+             MVGAL_VK_LAYER_NAME);
+    properties->specVersion = VK_API_VERSION_1_3;
+    properties->implementationVersion = 1;
+    snprintf(properties->description, sizeof(properties->description), "%s",
+             MVGAL_VK_LAYER_DESCRIPTION);
+}
+
+static bool layer_name_matches(const char *layer_name)
+{
+    return layer_name != NULL &&
+           strcmp(layer_name, MVGAL_VK_LAYER_NAME) == 0;
+}
+
+static void remove_queues_for_device_locked(mvgal_device_dispatch_t *device_dispatch)
+{
+    mvgal_queue_dispatch_t **cursor = &g_mvgal_layer_state.queues;
+
+    while (*cursor != NULL) {
+        if ((*cursor)->device_dispatch == device_dispatch) {
+            mvgal_queue_dispatch_t *victim = *cursor;
+
+            *cursor = victim->next;
+            free(victim);
             continue;
         }
-        physical_handle->gpu_indices[logical_gpu_count++] = i;
-    }
 
-    if (logical_gpu_count == 0 && g_layer_state.gpu_count > 0) {
-        physical_handle->gpu_indices[0] = 0;
-        logical_gpu_count = 1;
+        cursor = &(*cursor)->next;
     }
-
-    physical_handle->gpu_count = logical_gpu_count;
-    g_layer_state.mvgal_physical_device = (VkPhysicalDevice)physical_handle;
 }
 
-static PFN_vkVoidFunction mvgal_vk_lookup_instance_proc(const char *pName) {
-    if (pName == NULL) {
-        return NULL;
+static void remove_physical_devices_for_instance_locked(VkInstance instance)
+{
+    mvgal_physical_device_dispatch_t **cursor = &g_mvgal_layer_state.physical_devices;
+
+    while (*cursor != NULL) {
+        if ((*cursor)->instance == instance) {
+            mvgal_physical_device_dispatch_t *victim = *cursor;
+
+            *cursor = victim->next;
+            free(victim);
+            continue;
+        }
+
+        cursor = &(*cursor)->next;
+    }
+}
+
+mvgal_instance_dispatch_t *mvgal_vk_find_instance_dispatch(VkInstance instance)
+{
+    mvgal_instance_dispatch_t *dispatch;
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    dispatch = g_mvgal_layer_state.instances;
+    while (dispatch != NULL && dispatch->instance != instance) {
+        dispatch = dispatch->next;
+    }
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+
+    return dispatch;
+}
+
+mvgal_device_dispatch_t *mvgal_vk_find_device_dispatch(VkDevice device)
+{
+    mvgal_device_dispatch_t *dispatch;
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    dispatch = g_mvgal_layer_state.devices;
+    while (dispatch != NULL && dispatch->device != device) {
+        dispatch = dispatch->next;
+    }
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+
+    return dispatch;
+}
+
+mvgal_queue_dispatch_t *mvgal_vk_find_queue_dispatch(VkQueue queue)
+{
+    mvgal_queue_dispatch_t *dispatch;
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    dispatch = g_mvgal_layer_state.queues;
+    while (dispatch != NULL && dispatch->queue != queue) {
+        dispatch = dispatch->next;
+    }
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+
+    return dispatch;
+}
+
+mvgal_physical_device_dispatch_t *mvgal_vk_find_physical_device_dispatch(
+    VkPhysicalDevice physical_device
+)
+{
+    mvgal_physical_device_dispatch_t *dispatch;
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    dispatch = g_mvgal_layer_state.physical_devices;
+    while (dispatch != NULL && dispatch->physical_device != physical_device) {
+        dispatch = dispatch->next;
+    }
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+
+    return dispatch;
+}
+
+VkResult mvgal_vk_register_instance(
+    VkInstance instance,
+    PFN_vkGetInstanceProcAddr next_gipa,
+    PFN_GetPhysicalDeviceProcAddr next_gpipa
+)
+{
+    mvgal_instance_dispatch_t *dispatch;
+
+    dispatch = calloc(1, sizeof(*dispatch));
+    if (dispatch == NULL) {
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
     }
 
-    if (strcmp(pName, "vkGetInstanceProcAddr") == 0) return (PFN_vkVoidFunction)vkGetInstanceProcAddr;
-    if (strcmp(pName, "vkCreateInstance") == 0) return (PFN_vkVoidFunction)vkCreateInstance;
-    if (strcmp(pName, "vkDestroyInstance") == 0) return (PFN_vkVoidFunction)vkDestroyInstance;
-    if (strcmp(pName, "vkEnumerateInstanceLayerProperties") == 0) return (PFN_vkVoidFunction)vkEnumerateInstanceLayerProperties;
-    if (strcmp(pName, "vkEnumerateDeviceLayerProperties") == 0) return (PFN_vkVoidFunction)vkEnumerateDeviceLayerProperties;
-    if (strcmp(pName, "vkEnumeratePhysicalDevices") == 0) return (PFN_vkVoidFunction)vkEnumeratePhysicalDevices;
-    if (strcmp(pName, "vkEnumerateInstanceExtensionProperties") == 0) return (PFN_vkVoidFunction)vkEnumerateInstanceExtensionProperties;
-    if (strcmp(pName, "vkEnumerateDeviceExtensionProperties") == 0) return (PFN_vkVoidFunction)vkEnumerateDeviceExtensionProperties;
-    if (strcmp(pName, "vkGetPhysicalDeviceProperties") == 0) return (PFN_vkVoidFunction)vkGetPhysicalDeviceProperties;
-    if (strcmp(pName, "vkGetPhysicalDeviceFeatures") == 0) return (PFN_vkVoidFunction)vkGetPhysicalDeviceFeatures;
-    if (strcmp(pName, "vkGetPhysicalDeviceQueueFamilyProperties") == 0) return (PFN_vkVoidFunction)vkGetPhysicalDeviceQueueFamilyProperties;
-    if (strcmp(pName, "vkGetPhysicalDeviceQueueFamilyProperties2") == 0) return (PFN_vkVoidFunction)vkGetPhysicalDeviceQueueFamilyProperties2;
-    if (strcmp(pName, "vkCreateDevice") == 0) return (PFN_vkVoidFunction)vkCreateDevice;
-    if (strcmp(pName, "vkGetDeviceProcAddr") == 0) return (PFN_vkVoidFunction)vkGetDeviceProcAddr;
+    dispatch->instance = instance;
+    dispatch->next_gipa = next_gipa;
+    dispatch->next_gpipa = next_gpipa;
+    dispatch->destroy_instance =
+        (PFN_vkDestroyInstance)next_gipa(instance, "vkDestroyInstance");
+    dispatch->create_device =
+        (PFN_vkCreateDevice)next_gipa(instance, "vkCreateDevice");
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    dispatch->next = g_mvgal_layer_state.instances;
+    g_mvgal_layer_state.instances = dispatch;
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+
+    return VK_SUCCESS;
+}
+
+VkResult mvgal_vk_register_device(
+    VkDevice device,
+    PFN_vkGetDeviceProcAddr next_gdpa
+)
+{
+    mvgal_device_dispatch_t *dispatch;
+
+    dispatch = calloc(1, sizeof(*dispatch));
+    if (dispatch == NULL) {
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
+    }
+
+    dispatch->device = device;
+    dispatch->next_gdpa = next_gdpa;
+    dispatch->destroy_device =
+        (PFN_vkDestroyDevice)next_gdpa(device, "vkDestroyDevice");
+    dispatch->get_device_queue =
+        (PFN_vkGetDeviceQueue)next_gdpa(device, "vkGetDeviceQueue");
+    dispatch->get_device_queue2 =
+        (PFN_vkGetDeviceQueue2)next_gdpa(device, "vkGetDeviceQueue2");
+    dispatch->queue_submit =
+        (PFN_vkQueueSubmit)next_gdpa(device, "vkQueueSubmit");
+    dispatch->queue_submit2 =
+        (PFN_vkQueueSubmit2)next_gdpa(device, "vkQueueSubmit2");
+    dispatch->queue_submit2_khr =
+        (PFN_vkQueueSubmit2KHR)next_gdpa(device, "vkQueueSubmit2KHR");
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    dispatch->next = g_mvgal_layer_state.devices;
+    g_mvgal_layer_state.devices = dispatch;
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+
+    return VK_SUCCESS;
+}
+
+VkResult mvgal_vk_register_queue(
+    VkQueue queue,
+    mvgal_device_dispatch_t *device_dispatch
+)
+{
+    mvgal_queue_dispatch_t *dispatch;
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    dispatch = g_mvgal_layer_state.queues;
+    while (dispatch != NULL) {
+        if (dispatch->queue == queue) {
+            dispatch->device_dispatch = device_dispatch;
+            pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+            return VK_SUCCESS;
+        }
+        dispatch = dispatch->next;
+    }
+
+    dispatch = calloc(1, sizeof(*dispatch));
+    if (dispatch == NULL) {
+        pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
+    }
+
+    dispatch->queue = queue;
+    dispatch->device_dispatch = device_dispatch;
+    dispatch->next = g_mvgal_layer_state.queues;
+    g_mvgal_layer_state.queues = dispatch;
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+
+    return VK_SUCCESS;
+}
+
+VkResult mvgal_vk_register_physical_devices(
+    VkInstance instance,
+    mvgal_instance_dispatch_t *instance_dispatch,
+    uint32_t physical_device_count,
+    const VkPhysicalDevice *physical_devices
+)
+{
+    uint32_t i;
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    for (i = 0; i < physical_device_count; ++i) {
+        mvgal_physical_device_dispatch_t *dispatch =
+            g_mvgal_layer_state.physical_devices;
+
+        while (dispatch != NULL) {
+            if (dispatch->physical_device == physical_devices[i]) {
+                dispatch->instance = instance;
+                dispatch->instance_dispatch = instance_dispatch;
+                break;
+            }
+            dispatch = dispatch->next;
+        }
+
+        if (dispatch == NULL) {
+            dispatch = calloc(1, sizeof(*dispatch));
+            if (dispatch == NULL) {
+                pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+                return VK_ERROR_OUT_OF_HOST_MEMORY;
+            }
+
+            dispatch->physical_device = physical_devices[i];
+            dispatch->instance = instance;
+            dispatch->instance_dispatch = instance_dispatch;
+            dispatch->next = g_mvgal_layer_state.physical_devices;
+            g_mvgal_layer_state.physical_devices = dispatch;
+        }
+    }
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+
+    return VK_SUCCESS;
+}
+
+void mvgal_vk_unregister_instance(VkInstance instance)
+{
+    mvgal_instance_dispatch_t **cursor;
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    cursor = &g_mvgal_layer_state.instances;
+    while (*cursor != NULL) {
+        if ((*cursor)->instance == instance) {
+            mvgal_instance_dispatch_t *victim = *cursor;
+
+            *cursor = victim->next;
+            remove_physical_devices_for_instance_locked(instance);
+            free(victim);
+            break;
+        }
+        cursor = &(*cursor)->next;
+    }
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+}
+
+void mvgal_vk_unregister_device(VkDevice device)
+{
+    mvgal_device_dispatch_t **cursor;
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    cursor = &g_mvgal_layer_state.devices;
+    while (*cursor != NULL) {
+        if ((*cursor)->device == device) {
+            mvgal_device_dispatch_t *victim = *cursor;
+
+            *cursor = victim->next;
+            remove_queues_for_device_locked(victim);
+            free(victim);
+            break;
+        }
+        cursor = &(*cursor)->next;
+    }
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+}
+
+VkLayerInstanceCreateInfo *mvgal_vk_find_instance_layer_info(
+    const VkInstanceCreateInfo *create_info,
+    VkLayerFunction function
+)
+{
+    VkLayerInstanceCreateInfo *info;
+
+    info = (VkLayerInstanceCreateInfo *)create_info->pNext;
+    while (info != NULL) {
+        if (info->sType == VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO &&
+            info->function == function) {
+            return info;
+        }
+
+        info = (VkLayerInstanceCreateInfo *)info->pNext;
+    }
+
     return NULL;
 }
 
-static PFN_vkVoidFunction mvgal_vk_lookup_device_proc(const char *pName) {
-    if (pName == NULL) {
-        return NULL;
+VkLayerDeviceCreateInfo *mvgal_vk_find_device_layer_info(
+    const VkDeviceCreateInfo *create_info,
+    VkLayerFunction function
+)
+{
+    VkLayerDeviceCreateInfo *info;
+
+    info = (VkLayerDeviceCreateInfo *)create_info->pNext;
+    while (info != NULL) {
+        if (info->sType == VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO &&
+            info->function == function) {
+            return info;
+        }
+
+        info = (VkLayerDeviceCreateInfo *)info->pNext;
     }
 
-    if (strcmp(pName, "vkGetDeviceProcAddr") == 0) return (PFN_vkVoidFunction)vkGetDeviceProcAddr;
-    if (strcmp(pName, "vkDestroyDevice") == 0) return (PFN_vkVoidFunction)vkDestroyDevice;
-    if (strcmp(pName, "vkGetDeviceQueue") == 0) return (PFN_vkVoidFunction)vkGetDeviceQueue;
-    if (strcmp(pName, "vkQueueSubmit") == 0) return (PFN_vkVoidFunction)vkQueueSubmit;
-    if (strcmp(pName, "vkQueuePresentKHR") == 0) return (PFN_vkVoidFunction)vkQueuePresentKHR;
-    if (strcmp(pName, "vkQueueWaitIdle") == 0) return (PFN_vkVoidFunction)vkQueueWaitIdle;
-    if (strcmp(pName, "vkCreateFence") == 0) return (PFN_vkVoidFunction)vkCreateFence;
-    if (strcmp(pName, "vkDestroyFence") == 0) return (PFN_vkVoidFunction)vkDestroyFence;
-    if (strcmp(pName, "vkWaitForFences") == 0) return (PFN_vkVoidFunction)vkWaitForFences;
-    if (strcmp(pName, "vkCreateSemaphore") == 0) return (PFN_vkVoidFunction)vkCreateSemaphore;
-    if (strcmp(pName, "vkDestroySemaphore") == 0) return (PFN_vkVoidFunction)vkDestroySemaphore;
-    if (strcmp(pName, "vkAllocateCommandBuffers") == 0) return (PFN_vkVoidFunction)vkAllocateCommandBuffers;
-    if (strcmp(pName, "vkFreeCommandBuffers") == 0) return (PFN_vkVoidFunction)vkFreeCommandBuffers;
-    if (strcmp(pName, "vkBeginCommandBuffer") == 0) return (PFN_vkVoidFunction)vkBeginCommandBuffer;
-    if (strcmp(pName, "vkEndCommandBuffer") == 0) return (PFN_vkVoidFunction)vkEndCommandBuffer;
-    if (strcmp(pName, "vkCmdPipelineBarrier") == 0) return (PFN_vkVoidFunction)vkCmdPipelineBarrier;
-    if (strcmp(pName, "vkCmdCopyBuffer") == 0) return (PFN_vkVoidFunction)vkCmdCopyBuffer;
-    if (strcmp(pName, "vkCmdCopyImage") == 0) return (PFN_vkVoidFunction)vkCmdCopyImage;
-    if (strcmp(pName, "vkCmdBlitImage") == 0) return (PFN_vkVoidFunction)vkCmdBlitImage;
-    if (strcmp(pName, "vkCmdCopyBufferToImage") == 0) return (PFN_vkVoidFunction)vkCmdCopyBufferToImage;
-    if (strcmp(pName, "vkCmdCopyImageToBuffer") == 0) return (PFN_vkVoidFunction)vkCmdCopyImageToBuffer;
     return NULL;
 }
 
-/**
- * @addtogroup VulkanLayer
- * @{
- */
-
-// =============================================================================
-// Layer Discovery Functions
-// These functions are called by the Vulkan loader to discover available layers
-// =============================================================================
-
-/**
- * @brief Exported function for layer discovery
- *
- * This function is called by the Vulkan loader to get layer properties.
- * It should not be called by applications directly.
- */
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(
     uint32_t *pPropertyCount,
     VkLayerProperties *pProperties
-) {
-    // Static layer properties
-    static const VkLayerProperties layerProps = {
-        .layerName = MVGAL_VK_LAYER_NAME,
-        .specVersion = MVGAL_VK_API_VERSION,
-        .implementationVersion = MVGAL_VK_LAYER_VERSION,
-        .description = MVGAL_VK_LAYER_DESCRIPTION
-    };
+)
+{
+    if (pPropertyCount == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
 
     if (pProperties == NULL) {
-        *pPropertyCount = 1; // We have one layer
+        *pPropertyCount = 1;
         return VK_SUCCESS;
     }
 
@@ -343,109 +428,522 @@ VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(
         return VK_INCOMPLETE;
     }
 
-    // Return our layer properties
+    fill_layer_properties(&pProperties[0]);
     *pPropertyCount = 1;
-    pProperties[0].layerName[0] = '\0';
-    strncpy((char*)pProperties[0].layerName, layerProps.layerName, sizeof(layerProps.layerName) - 1);
-    pProperties[0].specVersion = layerProps.specVersion;
-    pProperties[0].implementationVersion = layerProps.implementationVersion;
-    strncpy((char*)pProperties[0].description, layerProps.description, sizeof(layerProps.description) - 1);
-
     return VK_SUCCESS;
 }
 
-/**
- * @brief Exported function for device layer properties
- *
- * Currently we only provide instance layers, not device layers.
- */
-VK_LAYER_EXPORT VkResult VKAPI_CALL vkEnumerateDeviceLayerProperties(
-    VkPhysicalDevice physicalDevice,
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceLayerProperties(
+    VkPhysicalDevice physical_device,
     uint32_t *pPropertyCount,
     VkLayerProperties *pProperties
-) {
-    // We don't provide device-specific layers
-    if (pPropertyCount) {
+)
+{
+    (void)physical_device;
+    return vkEnumerateInstanceLayerProperties(pPropertyCount, pProperties);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceExtensionProperties(
+    const char *pLayerName,
+    uint32_t *pPropertyCount,
+    VkExtensionProperties *pProperties
+)
+{
+    if (!layer_name_matches(pLayerName)) {
+        return VK_ERROR_LAYER_NOT_PRESENT;
+    }
+
+    if (pPropertyCount != NULL) {
         *pPropertyCount = 0;
     }
+    (void)pProperties;
     return VK_SUCCESS;
 }
 
-// =============================================================================
-// ProcAddr Functions
-// These functions are called to get function pointers for Vulkan API calls
-// =============================================================================
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(
+    VkPhysicalDevice physical_device,
+    const char *pLayerName,
+    uint32_t *pPropertyCount,
+    VkExtensionProperties *pProperties
+)
+{
+    mvgal_physical_device_dispatch_t *dispatch;
+    PFN_vkEnumerateDeviceExtensionProperties next_enumerate;
 
-/**
- * @brief Get instance procedure address
- *
- * This function is called by vkGetInstanceProcAddr to get function pointers.
- */
-VK_LAYER_EXPORT PFN_vkVoidFunction VKAPI_CALL vk_layerGetInstanceProcAddr(
+    if (layer_name_matches(pLayerName)) {
+        if (pPropertyCount != NULL) {
+            *pPropertyCount = 0;
+        }
+        (void)pProperties;
+        return VK_SUCCESS;
+    }
+
+    dispatch = mvgal_vk_find_physical_device_dispatch(physical_device);
+    if (dispatch == NULL || dispatch->instance_dispatch == NULL ||
+        dispatch->instance_dispatch->next_gipa == NULL) {
+        return VK_ERROR_LAYER_NOT_PRESENT;
+    }
+
+    next_enumerate = (PFN_vkEnumerateDeviceExtensionProperties)
+        dispatch->instance_dispatch->next_gipa(
+            dispatch->instance,
+            "vkEnumerateDeviceExtensionProperties"
+        );
+    if (next_enumerate == NULL) {
+        return VK_ERROR_LAYER_NOT_PRESENT;
+    }
+
+    return next_enumerate(
+        physical_device,
+        pLayerName,
+        pPropertyCount,
+        pProperties
+    );
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceVersion(uint32_t *pApiVersion)
+{
+    if (pApiVersion == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    *pApiVersion = VK_API_VERSION_1_3;
+    return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(
+    const VkInstanceCreateInfo *pCreateInfo,
+    const VkAllocationCallbacks *pAllocator,
+    VkInstance *pInstance
+)
+{
+    VkLayerInstanceCreateInfo *layer_info;
+    PFN_vkGetInstanceProcAddr next_gipa;
+    PFN_GetPhysicalDeviceProcAddr next_gpipa;
+    PFN_vkCreateInstance next_create_instance;
+    VkResult result;
+
+    layer_info = mvgal_vk_find_instance_layer_info(
+        pCreateInfo,
+        VK_LAYER_LINK_INFO
+    );
+    if (layer_info == NULL || layer_info->u.pLayerInfo == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    next_gipa = layer_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;
+    next_gpipa = layer_info->u.pLayerInfo->pfnNextGetPhysicalDeviceProcAddr;
+    layer_info->u.pLayerInfo = layer_info->u.pLayerInfo->pNext;
+
+    next_create_instance =
+        (PFN_vkCreateInstance)next_gipa(VK_NULL_HANDLE, "vkCreateInstance");
+    if (next_create_instance == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    result = next_create_instance(pCreateInfo, pAllocator, pInstance);
+    if (result != VK_SUCCESS) {
+        return result;
+    }
+
+    result = mvgal_vk_register_instance(*pInstance, next_gipa, next_gpipa);
+    if (result != VK_SUCCESS) {
+        mvgal_instance_dispatch_t *dispatch = mvgal_vk_find_instance_dispatch(*pInstance);
+        if (dispatch != NULL && dispatch->destroy_instance != NULL) {
+            dispatch->destroy_instance(*pInstance, pAllocator);
+        }
+        return result;
+    }
+
+    mvgal_vk_layer_log("created instance=%p", (void *)*pInstance);
+    return VK_SUCCESS;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkDestroyInstance(
+    VkInstance instance,
+    const VkAllocationCallbacks *pAllocator
+)
+{
+    mvgal_instance_dispatch_t *dispatch = mvgal_vk_find_instance_dispatch(instance);
+
+    if (dispatch != NULL && dispatch->destroy_instance != NULL) {
+        dispatch->destroy_instance(instance, pAllocator);
+    }
+
+    mvgal_vk_unregister_instance(instance);
+    mvgal_vk_layer_log("destroyed instance=%p", (void *)instance);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(
+    VkPhysicalDevice physicalDevice,
+    const VkDeviceCreateInfo *pCreateInfo,
+    const VkAllocationCallbacks *pAllocator,
+    VkDevice *pDevice
+)
+{
+    VkLayerDeviceCreateInfo *layer_info;
+    PFN_vkGetInstanceProcAddr next_gipa;
+    PFN_vkGetDeviceProcAddr next_gdpa;
+    PFN_vkCreateDevice next_create_device;
+    VkResult result;
+
+    layer_info = mvgal_vk_find_device_layer_info(
+        pCreateInfo,
+        VK_LAYER_LINK_INFO
+    );
+    if (layer_info == NULL || layer_info->u.pLayerInfo == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    next_gipa = layer_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;
+    next_gdpa = layer_info->u.pLayerInfo->pfnNextGetDeviceProcAddr;
+    layer_info->u.pLayerInfo = layer_info->u.pLayerInfo->pNext;
+
+    next_create_device =
+        (PFN_vkCreateDevice)next_gipa(VK_NULL_HANDLE, "vkCreateDevice");
+    if (next_create_device == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    result = next_create_device(physicalDevice, pCreateInfo, pAllocator, pDevice);
+    if (result != VK_SUCCESS) {
+        return result;
+    }
+
+    result = mvgal_vk_register_device(*pDevice, next_gdpa);
+    if (result != VK_SUCCESS) {
+        return result;
+    }
+
+    mvgal_vk_layer_log("created device=%p", (void *)*pDevice);
+    return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDevices(
+    VkInstance instance,
+    uint32_t *pPhysicalDeviceCount,
+    VkPhysicalDevice *pPhysicalDevices
+)
+{
+    mvgal_instance_dispatch_t *dispatch = mvgal_vk_find_instance_dispatch(instance);
+    PFN_vkEnumeratePhysicalDevices next_enumerate;
+    VkResult result;
+
+    if (dispatch == NULL || dispatch->next_gipa == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    next_enumerate = (PFN_vkEnumeratePhysicalDevices)
+        dispatch->next_gipa(instance, "vkEnumeratePhysicalDevices");
+    if (next_enumerate == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    result = next_enumerate(instance, pPhysicalDeviceCount, pPhysicalDevices);
+    if ((result == VK_SUCCESS || result == VK_INCOMPLETE) &&
+        pPhysicalDeviceCount != NULL &&
+        pPhysicalDevices != NULL) {
+        VkResult map_result = mvgal_vk_register_physical_devices(
+            instance,
+            dispatch,
+            *pPhysicalDeviceCount,
+            pPhysicalDevices
+        );
+        if (map_result != VK_SUCCESS) {
+            return map_result;
+        }
+    }
+
+    return result;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkDestroyDevice(
+    VkDevice device,
+    const VkAllocationCallbacks *pAllocator
+)
+{
+    mvgal_device_dispatch_t *dispatch = mvgal_vk_find_device_dispatch(device);
+
+    if (dispatch != NULL && dispatch->destroy_device != NULL) {
+        dispatch->destroy_device(device, pAllocator);
+    }
+
+    mvgal_vk_unregister_device(device);
+    mvgal_vk_layer_log("destroyed device=%p", (void *)device);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetDeviceQueue(
+    VkDevice device,
+    uint32_t queueFamilyIndex,
+    uint32_t queueIndex,
+    VkQueue *pQueue
+)
+{
+    mvgal_device_dispatch_t *dispatch = mvgal_vk_find_device_dispatch(device);
+
+    if (dispatch == NULL || dispatch->get_device_queue == NULL) {
+        if (pQueue != NULL) {
+            *pQueue = VK_NULL_HANDLE;
+        }
+        return;
+    }
+
+    dispatch->get_device_queue(device, queueFamilyIndex, queueIndex, pQueue);
+    if (pQueue != NULL && *pQueue != VK_NULL_HANDLE) {
+        (void)mvgal_vk_register_queue(*pQueue, dispatch);
+    }
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetDeviceQueue2(
+    VkDevice device,
+    const VkDeviceQueueInfo2 *pQueueInfo,
+    VkQueue *pQueue
+)
+{
+    mvgal_device_dispatch_t *dispatch = mvgal_vk_find_device_dispatch(device);
+
+    if (dispatch == NULL || dispatch->get_device_queue2 == NULL) {
+        if (pQueue != NULL) {
+            *pQueue = VK_NULL_HANDLE;
+        }
+        return;
+    }
+
+    dispatch->get_device_queue2(device, pQueueInfo, pQueue);
+    if (pQueue != NULL && *pQueue != VK_NULL_HANDLE) {
+        (void)mvgal_vk_register_queue(*pQueue, dispatch);
+    }
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
+    VkQueue queue,
+    uint32_t submitCount,
+    const VkSubmitInfo *pSubmits,
+    VkFence fence
+)
+{
+    mvgal_queue_dispatch_t *queue_dispatch = mvgal_vk_find_queue_dispatch(queue);
+
+    if (queue_dispatch == NULL ||
+        queue_dispatch->device_dispatch == NULL ||
+        queue_dispatch->device_dispatch->queue_submit == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    mvgal_vk_layer_note_submit("vkQueueSubmit", submitCount);
+    return queue_dispatch->device_dispatch->queue_submit(
+        queue,
+        submitCount,
+        pSubmits,
+        fence
+    );
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit2(
+    VkQueue queue,
+    uint32_t submitCount,
+    const VkSubmitInfo2 *pSubmits,
+    VkFence fence
+)
+{
+    mvgal_queue_dispatch_t *queue_dispatch = mvgal_vk_find_queue_dispatch(queue);
+
+    if (queue_dispatch == NULL ||
+        queue_dispatch->device_dispatch == NULL ||
+        queue_dispatch->device_dispatch->queue_submit2 == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    mvgal_vk_layer_note_submit("vkQueueSubmit2", submitCount);
+    return queue_dispatch->device_dispatch->queue_submit2(
+        queue,
+        submitCount,
+        pSubmits,
+        fence
+    );
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit2KHR(
+    VkQueue queue,
+    uint32_t submitCount,
+    const VkSubmitInfo2 *pSubmits,
+    VkFence fence
+)
+{
+    mvgal_queue_dispatch_t *queue_dispatch = mvgal_vk_find_queue_dispatch(queue);
+
+    if (queue_dispatch == NULL ||
+        queue_dispatch->device_dispatch == NULL ||
+        queue_dispatch->device_dispatch->queue_submit2_khr == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    mvgal_vk_layer_note_submit("vkQueueSubmit2KHR", submitCount);
+    return queue_dispatch->device_dispatch->queue_submit2_khr(
+        queue,
+        submitCount,
+        pSubmits,
+        fence
+    );
+}
+
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_layerGetPhysicalDeviceProcAddr(
     VkInstance instance,
     const char *pName
-) {
-    (void)instance;
-    return mvgal_vk_lookup_instance_proc(pName);
+)
+{
+    mvgal_instance_dispatch_t *dispatch = mvgal_vk_find_instance_dispatch(instance);
+
+    (void)pName;
+    if (dispatch == NULL || dispatch->next_gpipa == NULL) {
+        return NULL;
+    }
+
+    return dispatch->next_gpipa(instance, pName);
 }
 
-/**
- * @brief Get device procedure address
- *
- * This function is called by vkGetDeviceProcAddr to get function pointers.
- */
-VK_LAYER_EXPORT PFN_vkVoidFunction VKAPI_CALL vk_layerGetDeviceProcAddr(
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(
     VkDevice device,
     const char *pName
-) {
-    (void)device;
-    return mvgal_vk_lookup_device_proc(pName);
-}
+)
+{
+    mvgal_device_dispatch_t *dispatch;
 
-/**
- * @brief Initialize layer state
- */
-void mvgal_vk_layer_init(void) {
-    if (g_layer_state.initialized) return;
-    
-    pthread_mutex_init(&g_layer_state.mutex, NULL);
-    g_layer_state.enabled = true;
-    g_layer_state.initialized = true;
-    g_layer_state.strategy = mvgal_vk_get_strategy();
-    
-    // Initialize MVGAL context
-    mvgal_init(1);
-    mvgal_context_create(&g_layer_state.mvgal_context);
-    mvgal_context_set_current(g_layer_state.mvgal_context);
-    mvgal_set_strategy(g_layer_state.mvgal_context, g_layer_state.strategy);
-    refresh_layer_gpu_inventory();
-    rebuild_logical_physical_device();
-    
-    MVGAL_LOG_INFO("MVGAL Vulkan Layer initialized");
-}
-
-/**
- * @brief Shutdown layer state
- */
-void mvgal_vk_layer_shutdown(void) {
-    if (!g_layer_state.initialized) return;
-
-    if (g_layer_state.mvgal_physical_device != NULL) {
-        free((void *)g_layer_state.mvgal_physical_device);
-        g_layer_state.mvgal_physical_device = NULL;
+    if (pName == NULL) {
+        return NULL;
     }
-    
-    // Cleanup MVGAL context
-    if (g_layer_state.mvgal_context) {
-        mvgal_context_destroy(g_layer_state.mvgal_context);
+
+    if (strcmp(pName, "vkGetDeviceProcAddr") == 0) {
+        return (PFN_vkVoidFunction)vkGetDeviceProcAddr;
     }
-    mvgal_shutdown();
-    
-    pthread_mutex_destroy(&g_layer_state.mutex);
-    g_layer_state.initialized = false;
-    g_layer_state.enabled = false;
-    
-    MVGAL_LOG_INFO("MVGAL Vulkan Layer shutdown");
+    if (strcmp(pName, "vkDestroyDevice") == 0) {
+        return (PFN_vkVoidFunction)vkDestroyDevice;
+    }
+    if (strcmp(pName, "vkGetDeviceQueue") == 0) {
+        return (PFN_vkVoidFunction)vkGetDeviceQueue;
+    }
+    if (strcmp(pName, "vkGetDeviceQueue2") == 0) {
+        return (PFN_vkVoidFunction)vkGetDeviceQueue2;
+    }
+    if (strcmp(pName, "vkQueueSubmit") == 0) {
+        return (PFN_vkVoidFunction)vkQueueSubmit;
+    }
+    if (strcmp(pName, "vkQueueSubmit2") == 0) {
+        return (PFN_vkVoidFunction)vkQueueSubmit2;
+    }
+    if (strcmp(pName, "vkQueueSubmit2KHR") == 0) {
+        return (PFN_vkVoidFunction)vkQueueSubmit2KHR;
+    }
+
+    dispatch = mvgal_vk_find_device_dispatch(device);
+    if (dispatch == NULL || dispatch->next_gdpa == NULL) {
+        return NULL;
+    }
+
+    return dispatch->next_gdpa(device, pName);
 }
 
-/** @} */ // end of VulkanLayer
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(
+    VkInstance instance,
+    const char *pName
+)
+{
+    mvgal_instance_dispatch_t *dispatch;
+
+    if (pName == NULL) {
+        return NULL;
+    }
+
+    if (strcmp(pName, "vkGetInstanceProcAddr") == 0) {
+        return (PFN_vkVoidFunction)vkGetInstanceProcAddr;
+    }
+    if (strcmp(pName, "vkGetDeviceProcAddr") == 0) {
+        return (PFN_vkVoidFunction)vkGetDeviceProcAddr;
+    }
+    if (strcmp(pName, "vkNegotiateLoaderLayerInterfaceVersion") == 0) {
+        return (PFN_vkVoidFunction)vkNegotiateLoaderLayerInterfaceVersion;
+    }
+    if (strcmp(pName, "vk_layerGetPhysicalDeviceProcAddr") == 0) {
+        return (PFN_vkVoidFunction)vk_layerGetPhysicalDeviceProcAddr;
+    }
+    if (strcmp(pName, "vkEnumerateInstanceLayerProperties") == 0) {
+        return (PFN_vkVoidFunction)vkEnumerateInstanceLayerProperties;
+    }
+    if (strcmp(pName, "vkEnumerateDeviceLayerProperties") == 0) {
+        return (PFN_vkVoidFunction)vkEnumerateDeviceLayerProperties;
+    }
+    if (strcmp(pName, "vkEnumerateInstanceExtensionProperties") == 0) {
+        return (PFN_vkVoidFunction)vkEnumerateInstanceExtensionProperties;
+    }
+    if (strcmp(pName, "vkEnumerateDeviceExtensionProperties") == 0) {
+        return (PFN_vkVoidFunction)vkEnumerateDeviceExtensionProperties;
+    }
+    if (strcmp(pName, "vkEnumerateInstanceVersion") == 0) {
+        return (PFN_vkVoidFunction)vkEnumerateInstanceVersion;
+    }
+    if (strcmp(pName, "vkCreateInstance") == 0) {
+        return (PFN_vkVoidFunction)vkCreateInstance;
+    }
+    if (strcmp(pName, "vkDestroyInstance") == 0) {
+        return (PFN_vkVoidFunction)vkDestroyInstance;
+    }
+    if (strcmp(pName, "vkCreateDevice") == 0) {
+        return (PFN_vkVoidFunction)vkCreateDevice;
+    }
+    if (strcmp(pName, "vkEnumeratePhysicalDevices") == 0) {
+        return (PFN_vkVoidFunction)vkEnumeratePhysicalDevices;
+    }
+    if (strcmp(pName, "vkDestroyDevice") == 0) {
+        return (PFN_vkVoidFunction)vkDestroyDevice;
+    }
+    if (strcmp(pName, "vkGetDeviceQueue") == 0) {
+        return (PFN_vkVoidFunction)vkGetDeviceQueue;
+    }
+    if (strcmp(pName, "vkGetDeviceQueue2") == 0) {
+        return (PFN_vkVoidFunction)vkGetDeviceQueue2;
+    }
+    if (strcmp(pName, "vkQueueSubmit") == 0) {
+        return (PFN_vkVoidFunction)vkQueueSubmit;
+    }
+    if (strcmp(pName, "vkQueueSubmit2") == 0) {
+        return (PFN_vkVoidFunction)vkQueueSubmit2;
+    }
+    if (strcmp(pName, "vkQueueSubmit2KHR") == 0) {
+        return (PFN_vkVoidFunction)vkQueueSubmit2KHR;
+    }
+
+    dispatch = mvgal_vk_find_instance_dispatch(instance);
+    if (dispatch == NULL || dispatch->next_gipa == NULL) {
+        return NULL;
+    }
+
+    return dispatch->next_gipa(instance, pName);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(
+    VkNegotiateLayerInterface *pVersionStruct
+)
+{
+    if (pVersionStruct == NULL ||
+        pVersionStruct->sType != LAYER_NEGOTIATE_INTERFACE_STRUCT) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    if (pVersionStruct->loaderLayerInterfaceVersion >
+        CURRENT_LOADER_LAYER_INTERFACE_VERSION) {
+        pVersionStruct->loaderLayerInterfaceVersion =
+            CURRENT_LOADER_LAYER_INTERFACE_VERSION;
+    }
+
+    if (pVersionStruct->loaderLayerInterfaceVersion <
+        MIN_SUPPORTED_LOADER_LAYER_INTERFACE_VERSION) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    pVersionStruct->pfnGetInstanceProcAddr = vkGetInstanceProcAddr;
+    pVersionStruct->pfnGetDeviceProcAddr = vkGetDeviceProcAddr;
+    pVersionStruct->pfnGetPhysicalDeviceProcAddr =
+        vk_layerGetPhysicalDeviceProcAddr;
+
+    return VK_SUCCESS;
+}
