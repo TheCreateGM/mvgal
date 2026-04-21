@@ -1,13 +1,30 @@
 # MVGAL Build and Test Guide
 
-## Quick Start
+![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)
+![Language](https://img.shields.io/badge/Language-C11-%23A8B9CC.svg?style=for-the-badge&logo=c&logoColor=white)
+![Platform](https://img.shields.io/badge/Platform-Linux-%23FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)
+
+**Project:** Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
+**Version:** 0.2.0 "Health Monitor"
+**Last Updated:** April 21, 2026
+
+---
+
+## 🚀 Quick Start
 
 ```bash
 # Clone or extract MVGAL
 cd mvgal
 
-# Build everything
-make all
+# Build everything (uses CMake)
+mkdir -p build && cd build
+cmake -DWITH_VULKAN=OFF -DWITH_TESTS=ON ..
+make -j$(nproc)
+
+# Or use the build script (alternative)
+cd mvgal
+./build.sh
+=======
 
 # Run benchmarks
 make benchmarks

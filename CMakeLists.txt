@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.20)
 # Main CMake configuration file
 
 project(MVGAL
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "Multi-Vendor GPU Aggregation Layer for Linux"
     HOMEPAGE_URL "https://github.com/TheCreateGM/mvgal"
     LANGUAGES C CXX
@@ -27,11 +27,11 @@ option(WITH_EXCEPTIONS "Enable C++ exceptions" ON)
 option(WITH_RTTI "Enable C++ RTTI" ON)
 
 if(NOT WITH_EXCEPTIONS)
-    add_compile_options(-fno-exceptions)
+  add_compile_options(-fno-exceptions)
 endif()
 
 if(NOT WITH_RTTI)
-    add_compile_options(-fno-rtti)
+  add_compile_options(-fno-rtti)
 endif()
 
 # =============================================================================
@@ -65,18 +65,18 @@ set(INSTALL_PREFIX "/usr/local" CACHE PATH "Installation prefix")
 # =============================================================================
 
 if(WITH_ASAN)
-    add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
-    add_link_options(-fsanitize=address)
+  add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=address)
 endif()
 
 if(WITH_UBSAN)
-    add_compile_options(-fsanitize=undefined -fno-omit-frame-pointer)
-    add_link_options(-fsanitize=undefined)
+  add_compile_options(-fsanitize=undefined -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=undefined)
 endif()
 
 if(WITH_TSAN)
-    add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
-    add_link_options(-fsanitize=thread)
+  add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=thread)
 endif()
 
 # =============================================================================
@@ -84,11 +84,11 @@ endif()
 # =============================================================================
 
 if(WITH_CCACHE)
-    find_program(CCACHE_PROGRAM ccache)
-    if(CCACHE_PROGRAM)
-        set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
-        set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
-    endif()
+  find_program(CCACHE_PROGRAM ccache)
+  if(CCACHE_PROGRAM)
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+  endif()
 endif()
 
 # =============================================================================
@@ -100,34 +100,34 @@ find_package(Threads REQUIRED)
 
 # Optional dependencies
 if(WITH_VULKAN)
-    find_package(Vulkan)
-    if(NOT Vulkan_FOUND)
-        message(WARNING "Vulkan not found, Vulkan layer will not be built")
-        set(WITH_VULKAN OFF)
-    endif()
+  find_package(Vulkan)
+  if(NOT Vulkan_FOUND)
+    message(WARNING "Vulkan not found, Vulkan layer will not be built")
+    set(WITH_VULKAN OFF)
+  endif()
 endif()
 
 if(WITH_OPENCL)
-    find_package(OpenCL)
-    if(NOT OpenCL_FOUND)
-        message(WARNING "OpenCL not found, OpenCL interception will not be built")
-        set(WITH_OPENCL OFF)
-    endif()
+  find_package(OpenCL)
+  if(NOT OpenCL_FOUND)
+    message(WARNING "OpenCL not found, OpenCL interception will not be built")
+    set(WITH_OPENCL OFF)
+  endif()
 endif()
 
 if(WITH_CUDA)
-    find_package(CUDAToolkit REQUIRED)
-    if(NOT CUDAToolkit_FOUND)
-        message(WARNING "CUDA not found, CUDA wrapper will not be built")
-        set(WITH_CUDA OFF)
-    endif()
+  find_package(CUDAToolkit REQUIRED)
+  if(NOT CUDAToolkit_FOUND)
+    message(WARNING "CUDA not found, CUDA wrapper will not be built")
+    set(WITH_CUDA OFF)
+  endif()
 endif()
 
 # libdrm for DRM interactions
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(DRM QUIET IMPORTED_TARGET libdrm)
 if(NOT DRM_FOUND)
-    message(FATAL_ERROR "libdrm development package is required. Install libdrm-dev (Debian) or libdrm-devel (Fedora/centos)")
+  message(FATAL_ERROR "libdrm development package is required. Install libdrm-dev (Debian) or libdrm-devel (Fedora/centos)")
 endif()
 
 # libpci for PCI bus access (called pciaccess on Fedora/Arch, libpci on others)
@@ -135,24 +135,24 @@ find_package(PkgConfig REQUIRED)
 # Try multiple names for libpci
 pkg_check_modules(PCI QUIET IMPORTED_TARGET libpci)
 if(NOT PCI_FOUND)
-    pkg_check_modules(PCI QUIET IMPORTED_TARGET pciaccess)
+  pkg_check_modules(PCI QUIET IMPORTED_TARGET pciaccess)
 endif()
 if(NOT PCI_FOUND)
-    pkg_check_modules(PCI QUIET IMPORTED_TARGET pci)
+  pkg_check_modules(PCI QUIET IMPORTED_TARGET pci)
 endif()
 if(NOT PCI_FOUND)
-    message(WARNING "libpci not found - PCI functionality will be limited")
-    set(PCI_IMPORTED_TARGET "")
+  message(WARNING "libpci not found - PCI functionality will be limited")
+  set(PCI_IMPORTED_TARGET "")
 endif()
 
 # libudev for device detection
 pkg_check_modules(UDEV QUIET IMPORTED_TARGET libudev)
 if(NOT UDEV_FOUND)
-    pkg_check_modules(UDEV QUIET IMPORTED_TARGET udev)
+  pkg_check_modules(UDEV QUIET IMPORTED_TARGET udev)
 endif()
 if(NOT UDEV_FOUND)
-    message(WARNING "libudev not found - device detection may be limited")
-    set(UDEV_IMPORTED_TARGET "")
+  message(WARNING "libudev not found - device detection may be limited")
+  set(UDEV_IMPORTED_TARGET "")
 endif()
 
 # =============================================================================
@@ -173,15 +173,15 @@ add_compile_options(
 
 # Debug build flags
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR WITH_DEBUG)
-    add_compile_options(
+  add_compile_options(
         -g3
         -O0
         -DDEBUG
         -D_GLIBCXX_DEBUG
     )
-    add_definitions(-DDEBUG=1)
+  add_definitions(-DDEBUG=1)
 else()
-    add_compile_options(
+  add_compile_options(
         -O3
         -DNDEBUG
     )
@@ -189,17 +189,17 @@ endif()
 
 # Release build flags
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_compile_options(
+  add_compile_options(
         -O3
         -DNDEBUG
         -flto
     )
-    add_link_options(-flto)
+  add_link_options(-flto)
 endif()
 
 # Platform-specific flags
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    add_compile_options(
+  add_compile_options(
         -D_GNU_SOURCE
         -D_FILE_OFFSET_BITS=64
     )
@@ -227,11 +227,11 @@ set(MVGAL_INCLUDE_DIRS
 )
 
 if(Vulkan_FOUND)
-    list(APPEND MVGAL_INCLUDE_DIRS ${Vulkan_INCLUDE_DIRS})
+  list(APPEND MVGAL_INCLUDE_DIRS ${Vulkan_INCLUDE_DIRS})
 endif()
 
 if(OpenCL_FOUND)
-    list(APPEND MVGAL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIRS})
+  list(APPEND MVGAL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIRS})
 endif()
 
 # =============================================================================
@@ -280,28 +280,28 @@ add_subdirectory(src/userspace)
 
 # Kernel module (optional)
 if(WITH_KERNEL_MODULE)
-    add_subdirectory(src/kernel)
+  add_subdirectory(src/kernel)
 endif()
 
 # Tests
 if(WITH_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/tests/CMakeLists.txt")
-    enable_testing()
-    add_subdirectory(test/tests)
+  enable_testing()
+  add_subdirectory(test/tests)
 endif()
 
 # Benchmarks
 if(WITH_BENCHMARKS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/CMakeLists.txt")
-    add_subdirectory(benchmarks)
+  add_subdirectory(benchmarks)
 endif()
 
 # Documentation
 if(WITH_DOCS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs/CMakeLists.txt")
-    add_subdirectory(docs)
+  add_subdirectory(docs)
 endif()
 
 # Packaging
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CMakeLists.txt")
-    add_subdirectory(packaging)
+  add_subdirectory(packaging)
 endif()
 
 # =============================================================================
@@ -343,8 +343,8 @@ install(
 
 # Generate package config (only if cmake directory exists)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/MVGALConfig.cmake.in")
-    include(CMakePackageConfigHelpers)
-    configure_package_config_file(
+  include(CMakePackageConfigHelpers)
+  configure_package_config_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/MVGALConfig.cmake.in"
         "${CMAKE_CURRENT_BINARY_DIR}/MVGALConfig.cmake"
         INSTALL_DESTINATION lib/cmake/MVGAL

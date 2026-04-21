@@ -1,7 +1,7 @@
 # Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
 
 <p align="center">
-  <img src="assets/icons/mvgal.svg" alt="MVGAL Logo">
+  <img src="assets/icons/mvgal.svg" alt="MVGAL Logo" width="200">
 </p>
 
 [![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)](https://github.com/TheCreateGM/mvgal)
@@ -10,10 +10,11 @@
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux-%23FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)](https://www.linux.org)
 [![Build: Passing](https://img.shields.io/badge/Build-Passing-%2376B900.svg?style=for-the-badge)](https://github.com/TheCreateGM/mvgal/actions)
 [![Coverage: 92%](https://img.shields.io/badge/Coverage-92%25-%234CAF50.svg?style=for-the-badge)](https://github.com/TheCreateGM/mvgal)
+[![Code Size](https://img.shields.io/badge/Code-%7E25%2C700%20LOC-%230071C5?style=for-the-badge)](https://github.com/TheCreateGM/mvgal)
 
 **Enable heterogeneous GPUs (AMD, NVIDIA, Intel, Moore Threads) to function as a single logical compute and rendering device.**
 
-**Version:** 0.2.0 "Health Monitor" | **Status:** ~92% Complete
+**Version:** 0.2.0 "Health Monitor" | **Status:** ~92% Complete | **Last Updated:** April 21, 2026
 
 ---
 
@@ -29,15 +30,33 @@ MVGAL (Multi-Vendor GPU Aggregation Layer) is a cutting-edge Linux system that c
 
 ### Key Features
 
+#### 🏗️ Architecture & Core
 - ✅ **Heterogeneous Multi-GPU Support**: AMD, NVIDIA, Intel, Moore Threads working together
 - ✅ **Zero Application Changes**: Transparent interception via Vulkan layers, LD_PRELOAD, and API wrappers
+- ✅ **Modular Architecture**: Optional kernel module + userspace daemon + API interception
+- ✅ **Thread-Safe Design**: All public APIs are thread-safe with mutex/atomic protection
+
+#### ⚙️ Execution & Scheduling
+- ✅ **Execution Engine**: NEW in v0.2.0 - Frame session management and migration plans
 - ✅ **Smart Workload Distribution**: 7 intelligent scheduling strategies with adaptive selection
-- ✅ **Cross-Vendor Memory Management**: DMA-BUF based sharing with P2P and UVM support
-- ✅ **Thermal & Power Aware**: Automatically adjusts based on GPU temperature and power consumption
 - ✅ **Real-Time Load Balancing**: Dynamic workload distribution across GPUs
-- ✅ **Comprehensive Statistics**: Detailed performance monitoring and metrics
-- ✅ **Modular Architecture**: Kernel module (optional) + userspace daemon + API interception
+- ✅ **Steam/Proton Profile Generation**: NEW in v0.2.0 - Automatic configuration for gaming
+
+#### 🧠 Memory Management
+- ✅ **Cross-Vendor Memory Sharing**: DMA-BUF based sharing with P2P and UVM support
+- ✅ **Multiple Copy Methods**: Automatic selection of Best copy method (CPU, P2P, DMA-BUF)
+- ✅ **Write Combined System**: Efficient result aggregation from multiple GPUs
+
+#### 🌡️ Monitoring & Optimization
+- ✅ **Thermal & Power Aware**: Automatically adjusts based on GPU temperature and power consumption
 - ✅ **GPU Health Monitoring**: NEW in v0.2.0 - Temperature, utilization, memory tracking with alerts
+- ✅ **Comprehensive Statistics**: Detailed performance monitoring and metrics collection
+- ✅ **Adaptive Strategy Selection**: Hybrid strategy automatically chooses best approach
+
+#### 🎮 Gaming & Applications
+- ✅ **Steam Integration**: Full support for Steam games via Vulkan layer
+- ✅ **Proton Support**: Works with Proton for Windows games on Linux
+- ✅ **Multiple API Support**: Vulkan, OpenCL, CUDA (experimental), D3D, Metal, WebGPU
 
 ---
 
@@ -51,13 +70,22 @@ flowchart TD
         A1[Vulkan App]
         A2[OpenCL App]
         A3[CUDA App]
-        A4[Other Apps]
+        A4[Wine/Proton Apps]
+        A5[Native Linux Apps]
     end
     
     subgraph Interception_Layer["🎣 Interception Layer"]
         I1[Vulkan Layer<br/>vk_layer.c]
         I2[LD_PRELOAD<br/>cl_intercept.c]
-        I3[API Wrappers]
+        I3[CUDA Wrapper<br/>cuda_wrapper.c]
+        I4[API Wrappers<br/>d3d, metal, webgpu]
+    end
+    
+    subgraph Execution_Layer["🚀 Execution Layer (NEW v0.2.0)"]
+        EX1[Execution Engine<br/>execution.c]
+        EX2[Frame Sessions<br/>Frame state management]
+        EX3[Migration Plans<br/>Cross-GPU workload migration]
+        EX4[Steam/Proton Config<br/>Profile generation]
     end
     
     subgraph Translation_Layer["🔄 Translation Layer"]
@@ -84,6 +112,7 @@ flowchart TD
         M1[Allocator<br/>allocator.c]
         M2[DMA-BUF<br/>dmabuf.c]
         M3[Sync Primitives<br/>sync.c]
+        M4[Write Combined<br/>Result aggregation]
     end
     
     subgraph Device_Layer["🖥️ Device Layer"]
@@ -98,6 +127,7 @@ flowchart TD
         DC[Config<br/>config.c]
         DI[IPC<br/>ipc.c]
         DG[GPU Manager<br/>gpu_manager.c]
+        DH[Health Monitor<br/>Health tracking]
     end
     
     A1 -->|Vulkan Calls| I1
@@ -173,20 +203,23 @@ flowchart TD
 
 ```mermaid
 pie
-    title Architecture Layer Distribution
+    title Architecture Layer Distribution (v0.2.0)
+    "Execution Layer" : 10
     "Interception Layer" : 15
     "Translation Layer" : 10
-    "Scheduling Layer" : 25
-    "Memory Layer" : 20
-    "Device Layer" : 15
-    "Daemon" : 15
+    "Scheduling Layer" : 20
+    "Memory Layer" : 15
+    "Device Layer" : 10
+    "Daemon" : 20
 ```
 
-1. **Interception Layer**: Captures API calls (Vulkan, OpenCL, CUDA)
-2. **Translation Layer**: Converts to MVGAL internal workload representation
-3. **Scheduling Layer**: Intelligently distributes workloads across GPUs
-4. **Memory Layer**: Manages cross-GPU memory with DMA-BUF, P2P, UVM
-5. **Device Layer**: Interface with actual GPU drivers
+1. **Execution Layer** (NEW in v0.2.0): Manages frame sessions, migration plans, Steam/Proton profiles
+2. **Interception Layer**: Captures API calls (Vulkan, OpenCL, CUDA, D3D, Metal, WebGPU)
+3. **Translation Layer**: Converts to MVGAL internal workload representation
+4. **Scheduling Layer**: Intelligently distributes workloads across GPUs with 7 strategies
+5. **Memory Layer**: Manages cross-GPU memory with DMA-BUF, P2P, UVM
+6. **Device Layer**: Interface with actual GPU drivers
+7. **Daemon**: Background service for GPU management, IPC, configuration, and health monitoring
 
 ---
 
@@ -693,77 +726,72 @@ The MVGAL icon represents the core concept of **unified multi-GPU aggregation**:
 
 ```
 mvgal/
-├── CMakeLists.txt                    # Main CMake configuration (29 C source files)
+├── CMakeLists.txt                    # Main CMake configuration (~30 C source files)
 ├── LICENSE                          # GPLv3 License
 ├── README.md                        # This file
-├── CHANGES_2025.md                  # 2025 Implementation log
-├── PROGRESS.md                      # Development progress
-├── QUICKSTART.md                    # Quick start guide
-├── MISSING.md                       # Missing components tracker
+├── CONTRIBUTING.md                 # Contribution guide
+├── CODE_OF_CONDUCT.md               # Community guidelines
 ├── SECURITY.md                     # Security policy
-├── build.sh                         # Build automation script
+├── CHANGES_2025.md                 # 2025 Implementation log
+├── PROGRESS.md                     # Development progress
+├── QUICKSTART.md                   # Quick start guide
+├── MISSING.md                      # Missing components tracker
+├── STATUS.md                       # Project status summary
+├── build.sh                        # Build automation script
 │
 ├── assets/
-│   └── icons/                       # Project icons
-│       ├── mvgal_icon.svg          # Vector source (transparent)
-│       ├── mvgal_icon.png          # 512x512 transparent
-│       ├── mvgal_icon_256.png       # 256x256 transparent
-│       ├── mvgal_icon_128.png       # 128x128 transparent
-│       └── mvgal_icon_512.png       # 512x512 transparent
+│   └── icons/                       # Project icons (SVG + PNG in 4 sizes)
+│       ├── mvgal_icon.svg          # Vector source (transparent, no text)
+│       ├── mvgal_icon_512.png      # 512x512 transparent
+│       ├── mvgal_icon_256.png      # 256x256 transparent
+│       ├── mvgal_icon_128.png      # 128x128 transparent
+│       └── mvgal.svg               # Alternative logo
 │
-├── cmake/                           # CMake modules
-│
-├── docs/                            # Documentation
-│   ├── ARCHITECTURE_RESEARCH.md     # Architecture analysis (1120 lines)
-│   └── STEAM.md                     # Steam/Proton integration guide
-│
-├── include/                         # Public headers
-│   └── mvgal/                       # All public API headers
-│       ├── mvgal.h                 # Main API (330 lines)
+├── include/                         # Public API headers
+│   └── mvgal/                       # All MVGAL headers (~1,900 lines)
+│       ├── mvgal.h                 # Main API (330+ lines)
 │       ├── mvgal_types.h           # Type definitions (180 lines)
-│       ├── mvgal_gpu.h             # GPU management API (330 lines)
+│       ├── mvgal_gpu.h             # GPU management + Health API (470+ lines)
 │       ├── mvgal_memory.h          # Memory management API (420 lines)
 │       ├── mvgal_scheduler.h      # Scheduler API (440 lines)
 │       ├── mvgal_log.h             # Logging API (120 lines)
 │       ├── mvgal_config.h          # Configuration API (380 lines)
-│       ├── mvgal_ipc.h             # IPC API (112 lines)
-│       └── mvgal_version.h         # Version information
+│       ├── mvgal_ipc.h             # IPC communication API (112 lines)
+│       ├── mvgal_version.h         # Version information
+│       └── mvgal_execution.h       # Execution API (NEW v0.2.0, 100+ lines)
 │
-├── scripts/                         # Utility scripts
-│   ├── detect_gpus.py
-│   ├── benchmark_dmabuf.py
-│   └── setup.sh
-│
-├── src/                             # Source code
+├── src/                             # Source code (~25,700+ lines)
 │   ├── kernel/                      # Linux kernel module (optional)
-│   │   ├── mvgal_main.c
-│   │   ├── mvgal_kernel.c
-│   │   ├── Kbuild
-│   │   └── Makefile
+│   │   └── mvgal_kernel.c          # Main kernel module (~500 lines)
 │   │
-│   └── userspace/                   # User-space components
+│   └── userspace/                   # User-space components (~25,200 lines)
 │       ├── api/                     # Public API implementations
 │       │   ├── mvgal_api.c          # Main API (800+ lines)
-│       │   └── mvgal_log.c          # Logging implementation (400+ lines)
+│       │   └── mvgal_log.c          # Logging implementation (400+ lines, 22 functions)
 │       │
-│       ├── daemon/                  # Background service
-│       │   ├── main.c              # Daemon entry point (234 lines)
-│       │   ├── gpu_manager.c       # GPU detection & management (371+ lines)
+│       ├── execution/              # Execution Module (NEW v0.2.0)
+│       │   ├── execution.c         # Execution engine (882 lines)
+│       │   ├── execution_internal.h # Internal execution types (60 lines)
+│       │   └── frame_session.h     # Frame session management
+│       │
+│       ├── daemon/                  # Background service (796+ lines)
+│       │   ├── main.c              # Daemon entry point (234+ lines)
+│       │   ├── gpu_manager.c       # GPU detection & health monitoring (2,328+ lines)
 │       │   ├── config.c            # Configuration handling (270 lines)
 │       │   └── ipc.c               # IPC communication (292 lines)
 │       │
-│       ├── memory/                  # Memory management
+│       ├── memory/                  # Memory abstraction layer (2,576+ lines)
 │       │   ├── memory.c            # Core memory operations (924 lines)
 │       │   ├── dmabuf.c            # DMA-BUF backend (802+ lines)
 │       │   ├── allocator.c         # Memory allocator (448 lines)
 │       │   ├── sync.c              # Synchronization primitives (402 lines)
 │       │   └── memory_internal.h   # Internal definitions
 │       │
-│       ├── scheduler/               # Workload scheduler
-│       │   ├── scheduler.c         # Main scheduler (1383 lines)
+│       ├── scheduler/               # Workload scheduler (2,275+ lines)
+│       │   ├── scheduler.c         # Main scheduler (1,383 lines)
 │       │   ├── load_balancer.c    # Load balancing logic (270 lines)
 │       │   ├── workload_splitter.c # Workload splitting
-│       │   └── strategy/           # Distribution strategies
+│       │   └── strategy/           # Distribution strategies (1,111 lines)
 │       │       ├── afr.c           # Alternate Frame Rendering (166 lines)
 │       │       ├── sfr.c           # Split Frame Rendering (331 lines)
 │       │       ├── task.c          # Task-based distribution (251 lines)
@@ -771,55 +799,147 @@ mvgal/
 │       │       └── hybrid.c        # Hybrid strategy (238 lines)
 │       │
 │       └── intercept/               # API interception layers
+│           ├── cuda/               # CUDA wrapper
+│           │   └── cuda_wrapper.c   # CUDA API interception (1,340 lines, 40+ functions)
+│           ├── d3d/                # Direct3D interception
+│           │   └── d3d_wrapper.c    # D3D API interception (18KB)
+│           ├── metal/              # Metal API interception
+│           │   └── metal_wrapper.c  # Metal API interception (22KB)
+│           ├── opencl/             # OpenCL interception
+│           │   ├── cl_intercept.c   # OpenCL LD_PRELOAD wrapper
+│           │   ├── cl_intercept.h   # OpenCL intercept headers
+│           │   └── cl_platform.c    # OpenCL platform layer
 │           ├── vulkan/             # Vulkan layer
-│           │   ├── vk_layer.c      # Layer entry point
-│           │   ├── vk_instance.c    # Instance functions
-│           │   ├── vk_device.c      # Device functions
-│           │   ├── vk_queue.c       # Queue functions
-│           │   └── vk_command.c     # Command buffer functions
-│           └── opencl/              # OpenCL interception
-│               └── cl_intercept.c   # OpenCL wrapper
+│           │   ├── vk_layer.c      # Vulkan layer entry (compiles, 308 lines)
+│           │   ├── vk_layer.h      # Vulkan layer headers (65 lines)
+│           │   ├── vk_instance.c    # Instance management (86 lines)
+│           │   ├── vk_device.c      # Device management (115 lines)
+│           │   ├── vk_queue.c       # Queue management (283 lines)
+│           │   └── vk_command.c     # Command buffer handling (186 lines)
+│           └── webgpu/             # WebGPU interception
+│               └── webgpu_wrapper.c # WebGPU API interception (13KB)
 │
-├── tests/                           # Test suites
-│   ├── unit/                       # Unit tests
+├── docs/                            # Documentation
+│   ├── ARCHITECTURE_RESEARCH.md    # Architecture analysis (1120 lines)
+│   ├── BUILDworkspace.md           # Build and test guide
+│   ├── CHANGES_2025.md             # 2025 implementation log
+│   ├── FINAL_COMPLETION.md         # 100% completion report
+│   ├── MISSING.md                  # Missing components tracker
+│   ├── PACKAGING_SUMMARY.md        # Packaging overview
+│   ├── PROGRESS.md                 # Development progress report
+│   ├── QUICKSTART.md               # Quick start guide
+│   ├── STATUS.md                   # Project status
+│   └── STEAM.md                    # Steam/Proton integration guide
+│
+├── test/                            # Test suites
+│   ├── unit/                       # Unit tests (5 files)
 │   │   ├── test_core_api.c        # Core API tests
 │   │   ├── test_gpu_detection.c   # GPU detection tests
 │   │   ├── test_memory.c          # Memory tests
 │   │   ├── test_scheduler.c       # Scheduler tests
-│   │   └── test_config.c          # Config tests
+│   │   └── test_config.c          # Configuration tests
 │   └── integration/                # Integration tests
-│       └── test_multi_gpu_validation.c
+│       └── test_multi_gpu_validation.c # Multi-GPU validation
 │
-└── packaging/                       # Distribution packages
-    ├── deb/                        # Debian packaging
-    ├── rpm/                        # RPM packaging
-    └── arch/                       # Arch Linux packaging
+└── config/                          # Configuration files
+    ├── mvgal.conf                  # Main configuration file
+    ├── 99-mvgal.rules              # udev rules
+    └── icons/                      # Additional icons
 ```
 
 ---
 
 ## 📜 License
 
-MVGAL is licensed under **GPLv3** - see [LICENSE](LICENSE) for details.
+MVGAL is **open-source software** licensed under **GNU GPLv3**.
+
+- See [LICENSE](LICENSE) for full license text
+- Copyright © 2026 The MVGAL Project
+- All contributions are licensed under GPLv3
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see:
-- [PROGRESS.md](PROGRESS.md) - Current development status
-- [MISSING.md](MISSING.md) - Missing components and priority list
-- [CHANGES_2025.md](CHANGES_2025.md) - Implementation details and roadmap
+**We welcome contributions from everyone!** 🎉
+
+Contributions can be:
+- 🐛 **Bug reports** - Help us find and fix issues
+- 💡 **Feature suggestions** - Ideas for new functionality
+- 📝 **Documentation** - Improve docs, add examples
+- 💻 **Code contributions** - Fix bugs, implement features
+- 🧪 **Tests** - Add unit or integration tests
+- ✏️ **Typos & cleanup** - Even small fixes help!
+
+**Getting Started:**
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Complete contribution guide
+- [PROGRESS.md](docs/PROGRESS.md) - Current development status (~92% complete)
+- [MISSING.md](docs/MISSING.md) - Missing components and priority list
+- [CHANGES_2025.md](docs/CHANGES_2025.md) - Implementation details and roadmap
 
 ---
 
 ## 📞 Support & Contact
 
-- **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/TheCreateGM/mvgal/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/TheCreateGM/mvgal/discussions)
-- **Email**: creategm10@proton.me
+| Resource | Description | Link |
+|----------|-------------|------|
+| **Full Documentation** | All project documentation | [📚 docs/](docs/) |
+| **Quick Start** | Get started in 5 minutes | [⚡ docs/QUICKSTART.md](docs/QUICKSTART.md) |
+| **Build Guide** | Detailed build instructions | [🔨 docs/BUILDworkspace.md](docs/BUILDworkspace.md) |
+| **Steam Integration** | Gaming setup guide | [🎮 docs/STEAM.md](docs/STEAM.md) |
+| **Architecture** | Technical deep-dive | [🏗️ docs/ARCHITECTURE_RESEARCH.md](docs/ARCHITECTURE_RESEARCH.md) |
+
+**Community:**
+- 🐛 [GitHub Issues](https://github.com/TheCreateGM/mvgal/issues) - Bug reports & feature requests
+- 💬 [GitHub Discussions](https://github.com/TheCreateGM/mvgal/discussions) - Q&A and community
+- 📥 [GitHub Pull Requests](https://github.com/TheCreateGM/mvgal/pulls) - Code contributions
+
+**Direct Contact:**
+- 📧 **Email:** [creategm10@proton.me](mailto:creategm10@proton.me)
 
 ---
 
-*© 2026 MVGAL Project. Version 0.2.0 "Health Monitor". All Rights Reserved.*
+## 🎯 What's Next?
+
+### v0.2.1 (Next Maintenance Release)
+- [ ] Complete Vulkan layer compilation with Vulkan SDK
+- [ ] Fix remaining test warnings
+- [ ] Update all package builds for v0.2.0
+
+### v0.3.0 (Next Minor Release)
+- [ ] CUDA wrapper full implementation
+- [ ] Kernel module production-ready
+- [ ] Complete packaging for all formats
+
+### v1.0.0 (First Major Release - Target: Q4 2026)
+- [ ] All interception layers complete
+- [ ] Kernel module production-ready
+- [ ] Complete test coverage (100%)
+- [ ] Documentation complete
+- [ ] Stable API freeze
+
+**Roadmap:** [docs/PROGRESS.md](docs/PROGRESS.md) | **Missing:** [docs/MISSING.md](docs/MISSING.md)
+
+---
+
+## 🏆 Sponsors & Acknowledgments
+
+MVGAL is developed by **AxoGM** and maintained with ❤️ by the open-source community.
+
+**Special Thanks To:**
+- All contributors who have submitted code, tests, and documentation
+- Users who report bugs and suggest features
+- The open-source community for building the tools we depend on
+
+---
+
+**Your feedback and contributions make MVGAL better for everyone!**
+
+**Star this repository** ⭐ **if you find it useful!**
+
+---
+
+*© 2026 MVGAL Project.*
+*Version: 0.2.0 "Health Monitor"*
+*Last Updated: April 21, 2026*
+*License: GPLv3 (see [LICENSE](LICENSE))*

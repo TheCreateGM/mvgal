@@ -1,14 +1,44 @@
 # MVGAL Code of Conduct
 
-Like the technical community as a whole, the MVGAL team and community is made up of a mixture of professionals and volunteers from all over the world, working on every aspect of the mission - including mentorship, teaching, and connecting people.
+![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)
+![Community](https://img.shields.io/badge/community-Welcoming-%234CAF50?style=for-the-badge)
 
-Diversity is one of our huge strengths, but it can also lead to communication issues and unhappiness. To that end, we have a few ground rules that we ask people to adhere to. This code applies equally to founders, mentors and those seeking help and guidance.
+**Project:** Multi-Vendor GPU Aggregation Layer for Linux
+**Version:** 0.2.0 "Health Monitor"
+**Last Updated:** April 21, 2026
 
-This isn’t an exhaustive list of things that you can’t do. Rather, take it in the spirit in which it’s intended - a guide to make it easier to enrich all of us and the technical communities in which we participate.
+---
 
-This code of conduct applies to all spaces managed by the MVGAL project or AxoGM. This includes IRC, the mailing lists, the issue tracker, DSF events, and any other forums created by the project team which the community uses for communication. In addition, violations of this code outside these spaces may affect a person's ability to participate within them.
+Like the technical community as a whole, the MVGAL team and community is made up of a mixture of professionals and volunteers from all over the world, working on every aspect of the mission - including mentorship, teaching, connecting people, and building amazing multi-GPU technology.
 
-If you believe someone is violating the code of conduct, we ask that you report it by emailing [creategm10@proton.me](mailto:creategm10@proton.me). For more details please see our [Reporting guidelines](https://github.com/TheCreateGM/mvgal/tree/main/docs)
+**Diversity is one of our huge strengths**, but it can also lead to communication issues and unhappiness. To that end, we have a few ground rules that we ask people to adhere to. This code applies equally to founders, maintainers, contributors, and those seeking help and guidance.
+
+> **This isn't an exhaustive list of things that you can't do.** Rather, take it in the spirit in which it's intended - **a guide to make it easier to enrich all of us and the technical communities in which we participate.**
+
+---
+
+## 📜 Where This Applies
+
+This code of conduct applies to **all spaces managed by the MVGAL project or AxoGM**, including:
+
+- ⚡ GitHub repository (issues, discussions, pull requests)
+- 💬 Discord server (if applicable)
+- 📧 Mailing lists
+- 🐧 IRC/Matrix channels
+- 🎤 Conference talks and events
+- 🌐 Any other forums created by the project team
+
+> In addition, violations of this code **outside** these spaces may affect a person's ability to participate **within** them.
+
+---
+
+## ⚠️ Reporting Violations
+
+If you believe someone is violating the code of conduct, **we ask that you report it** by emailing:
+
+📧 **[creategm10@proton.me](mailto:creategm10@proton.me)**
+
+For more details, please see our [Reporting Guidelines](https://github.com/TheCreateGM/mvgal/security/policies).
 
 - **Be friendly and patient.**
 - **Be welcoming.** We strive to be a community that welcomes and supports people of all backgrounds and identities. This includes, but is not limited to members of any race, ethnicity, culture, national origin, colour, immigration status, social and economic class, educational level, sex, sexual orientation, gender identity and expression, age, size, family status, political belief, religion, and mental and physical ability.
@@ -29,4 +59,17 @@ Original text courtesy of the [Speak Up! project](http://web.archive.org/web/201
 
 ## Questions?
 
-If you have questions, please see [Faq](https://github.com/TheCreateGM/mvgal/discussions). If that doesn't answer your questions, feel free to [contact us](mailto:creategm10@proton.me).
+If you have questions, please see [Frequently Asked Questions](https://github.com/TheCreateGM/mvgal/discussions). If that doesn't answer your questions, feel free to **[contact us](mailto:creategm10@proton.me)**.
+
+---
+
+## 📚 Related Documents
+
+- [README.md](README.md) - Project overview
+- [CONTRIBUTING.md](CONTRIBUTING.md) - How to contribute
+- [SECURITY.md](SECURITY.md) - Security policy
+- [LICENSE](LICENSE) - GPLv3 license
+
+---
+
+*© 2026 MVGAL Project. Version 0.2.0 "Health Monitor". All Rights Reserved.*
