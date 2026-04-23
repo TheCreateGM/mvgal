@@ -11,8 +11,8 @@ echo "MVGAL Compilation Test"
 echo "=========================================="
 echo ""
 
-CFLAGS="-Iinclude -Iinclude/mvgal -D_GNU_SOURCE -std=c11 -Wall -Wextra -Werror -O2"
-BASE_DIR="/home/axogm/Documents/Driver/mvgal"
+CFLAGS="-D_GNU_SOURCE -std=c11 -Wall -Wextra -Werror -O2"
+BASE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 TMP_DIR="/tmp/mvgal_test"
 
 mkdir -p "$TMP_DIR"
@@ -30,7 +30,7 @@ test_file() {
     total=$((total + 1))
     echo -n "[$total] $name... "
 
-    if cc $CFLAGS -c "$file" -o "$output" 2>&1; then
+    if cc $CFLAGS -I"$BASE_DIR/include" -I"$BASE_DIR/include/mvgal" -c "$file" -o "$output" 2>&1; then
         echo "✅ PASS"
         passed=$((passed + 1))
         return 0

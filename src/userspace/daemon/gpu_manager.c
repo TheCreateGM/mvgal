@@ -29,7 +29,7 @@
 #define PCI_VENDOR_ID_AMD           0x1002U
 #define PCI_VENDOR_ID_NVIDIA        0x10DEU
 #define PCI_VENDOR_ID_INTEL         0x8086U
-#define PCI_VENDOR_ID_MOORE_THREADS 0x1EACU
+#define PCI_VENDOR_ID_MOORE_THREADS 0x1ED5U
 
 #define MAX_GPUS 16U
 #define MAX_GPU_CALLBACKS 8U
@@ -206,11 +206,17 @@ static bool normalize_node_path(const char *path, char *normalized, size_t norma
     }
 
     if (realpath(path, resolved) != NULL) {
-        (void)snprintf(normalized, normalized_size, "%s", resolved);
-        return true;
+        path = resolved;
     }
 
-    (void)snprintf(normalized, normalized_size, "%s", path);
+    {
+        size_t len = strlen(path);
+        if (len >= normalized_size) {
+            return false;
+        }
+        memcpy(normalized, path, len + 1U);
+    }
+
     return true;
 }
 
@@ -229,7 +235,38 @@ static bool read_link_basename(const char *path, char *buffer, size_t buffer_siz
 
     basename = strrchr(resolved, '/');
     basename = basename == NULL ? resolved : basename + 1;
-    (void)snprintf(buffer, buffer_size, "%s", basename);
+
+    {
+        size_t len = strlen(basename);
+        if (len >= buffer_size) {
+            return false;
+        }
+        memcpy(buffer, basename, len + 1U);
+    }
+
+    return true;
+}
+
+static bool build_path_suffix(char *buffer,
+                              size_t buffer_size,
+                              const char *base,
+                              const char *suffix)
+{
+    size_t base_len;
+    size_t suffix_len;
+
+    if (buffer == NULL || buffer_size == 0U || base == NULL || suffix == NULL) {
+        return false;
+    }
+
+    base_len = strlen(base);
+    suffix_len = strlen(suffix);
+    if ((base_len + suffix_len) >= buffer_size) {
+        return false;
+    }
+
+    memcpy(buffer, base, base_len);
+    memcpy(buffer + base_len, suffix, suffix_len + 1U);
     return true;
 }
 
@@ -819,14 +856,18 @@ static mvgal_error_t scan_drm_devices_locked(void)
                                           gpu->drm_render_node,
                                           sizeof(gpu->drm_render_node));
 
-        (void)snprintf(path, sizeof(path), "%s/vendor", device_link);
-        (void)read_file_u16(path, &gpu->vendor_id);
-        (void)snprintf(path, sizeof(path), "%s/device", device_link);
-        (void)read_file_u16(path, &gpu->device_id);
-        (void)snprintf(path, sizeof(path), "%s/subsystem_vendor", device_link);
-        (void)read_file_u16(path, &gpu->subsystem_vendor_id);
-        (void)snprintf(path, sizeof(path), "%s/subsystem_device", device_link);
-        (void)read_file_u16(path, &gpu->subsystem_id);
+        if (build_path_suffix(path, sizeof(path), device_link, "/vendor")) {
+            (void)read_file_u16(path, &gpu->vendor_id);
+        }
+        if (build_path_suffix(path, sizeof(path), device_link, "/device")) {
+            (void)read_file_u16(path, &gpu->device_id);
+        }
+        if (build_path_suffix(path, sizeof(path), device_link, "/subsystem_vendor")) {
+            (void)read_file_u16(path, &gpu->subsystem_vendor_id);
+        }
+        if (build_path_suffix(path, sizeof(path), device_link, "/subsystem_device")) {
+            (void)read_file_u16(path, &gpu->subsystem_id);
+        }
 
         (void)parse_pci_address(device_realpath,
                                 &gpu->pci_domain,
@@ -834,13 +875,12 @@ static mvgal_error_t scan_drm_devices_locked(void)
                                 &gpu->pci_device,
                                 &gpu->pci_function);
 
-        (void)snprintf(path, sizeof(path), "%s/current_link_speed", device_link);
-        if (read_file_trimmed(path, link_speed, sizeof(link_speed))) {
+        if (build_path_suffix(path, sizeof(path), device_link, "/current_link_speed") &&
+            read_file_trimmed(path, link_speed, sizeof(link_speed))) {
             gpu->pcie_gen = parse_pcie_generation(link_speed);
         }
 
-        (void)snprintf(path, sizeof(path), "%s/current_link_width", device_link);
-        {
+        if (build_path_suffix(path, sizeof(path), device_link, "/current_link_width")) {
             uint64_t lanes = 0;
             if (read_file_u64(path, &lanes) && lanes <= UINT8_MAX) {
                 gpu->pcie_lanes = (uint8_t)lanes;
@@ -859,8 +899,9 @@ static mvgal_error_t scan_drm_devices_locked(void)
                                    MVGAL_ARRAY_LEN(used_candidates));
         gpu->vram_used = used_vram;
 
-        (void)snprintf(path, sizeof(path), "%s/driver", device_link);
-        (void)read_link_basename(path, gpu->driver_name, sizeof(gpu->driver_name));
+        if (build_path_suffix(path, sizeof(path), device_link, "/driver")) {
+            (void)read_link_basename(path, gpu->driver_name, sizeof(gpu->driver_name));
+        }
 
         if (gpu->vendor_id == PCI_VENDOR_ID_AMD && path_exists("/dev/kfd")) {
             (void)snprintf(gpu->kfd_node, sizeof(gpu->kfd_node), "/dev/kfd");
