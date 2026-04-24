@@ -7,15 +7,15 @@ License:        GPL-3.0-only
 URL:            https://github.com/TheCreateGM/mvgal
 Source0:        %{name}-%{version}.tar.gz
 
-BuildRequires:  gcc, gcc-c++, make, cmake >= 3.20
+BuildRequires:  gcc, gcc-c++, make, cmake
 BuildRequires:  libdrm-devel, libpciaccess-devel, systemd-devel, libudev-devel
 BuildRequires:  vulkan-devel, opencl-headers, ocl-icd-devel
 
-Requires:      libdrm, libpciaccess, systemd, libudev
-Requires:      vulkan-loader, ocl-icd
+Requires:       libdrm, libpciaccess, systemd, libudev
+Requires:       vulkan-loader, ocl-icd
 
 Obsoletes:      mvgallibs <= 0.1.0
-Provides:      libmvgal = %{version}
+Provides:       libmvgal = %{version}
 
 %description
 MVGAL (Multi-Vendor GPU Aggregation Layer) enables heterogeneous GPUs
@@ -34,54 +34,25 @@ Features:
 %setup -q
 
 %build
-mkdir -p build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_VULKAN=ON -DWITH_OPENCL=ON \
-    -DWITH_DAEMON=ON -DWITH_TESTS=OFF -DWITH_BENCHMARKS=OFF -DWITH_DOCS=OFF
-make -j%{?_smp_ncpus:%{_smp_ncpus}}%{!?_smp_ncpus:1}
+%cmake -DWITH_VULKAN=ON -DWITH_OPENCL=ON -DWITH_DAEMON=ON \
+    -DWITH_TESTS=OFF -DWITH_BENCHMARKS=OFF -DWITH_DOCS=OFF \
+    -DWITH_KERNEL_MODULE=OFF -DWITH_CUDA=OFF
+%cmake_build
 
 %install
-rm -rf %{buildroot}
+%cmake_install
 
-# Libs  
-mkdir -p %{buildroot}%{_libdir}
-for lib in build/src/userspace/libmvgal.so* build/src/userspace/libmvgal_core.a build/src/userspace/libVK_LAYER_MVGAL.so build/src/userspace/libmvgal_opencl.so; do
-    [ -f "$lib" ] && install -m 644 "$lib" %{buildroot}%{_libdir}/ || true
-done
-
-# Headers
-mkdir -p %{buildroot}%{_includedir}/mvgal
-install -m 644 include/mvgal/mvgal.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_types.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_gpu.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_memory.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_scheduler.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_log.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_config.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_ipc.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_execution.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_version.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_intercept.h %{buildroot}%{_includedir}/mvgal/
-
-# Daemon
-mkdir -p %{buildroot}%{_sbindir}
-install -m 755 build/src/userspace/mvgal-daemon %{buildroot}%{_sbindir}/
-
-# Config
-mkdir -p %{buildroot}%{_sysconfdir}/mvgal
+# Install udev rules if exists
 mkdir -p %{buildroot}%{_udevrulesdir}
-install -m 644 config/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf
-install -m 644 config/99-mvgal.rules %{buildroot}%{_udevrulesdir}/99-mvgal.rules
+install -m 644 config/99-mvgal.rules %{buildroot}%{_udevrulesdir}/99-mvgal.rules || true
 
-# Vulkan
-mkdir -p %{buildroot}%{_datadir}/vulkan/explicit_layer.d
-install -m 644 build/src/userspace/VK_LAYER_MVGAL.json \
-    %{buildroot}%{_datadir}/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json
-
-# Systemd service
+# Install systemd service
 mkdir -p %{buildroot}%{_unitdir}
-install -m 644 rpm/mvgal-daemon.service \
-    %{buildroot}%{_unitdir}/mvgal-daemon.service || true
+install -m 644 rpm/mvgal-daemon.service %{buildroot}%{_unitdir}/mvgal-daemon.service || true
+
+# Install config file
+mkdir -p %{buildroot}%{_sysconfdir}/mvgal
+install -m 644 rpm/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf || true
 
 %post
 mkdir -p /var/run/mvgal
@@ -104,14 +75,13 @@ if [ $1 -eq 0 ] && [ -d /run/systemd/system ]; then
 fi
 
 %files
-%defattr(-,root,root,-)
 %license LICENSE
 %doc README.md CONTRIBUTING.md
 %{_libdir}/libmvgal.so*
 %{_libdir}/libmvgal_core.a
 %{_libdir}/libVK_LAYER_MVGAL.so
 %{_libdir}/libmvgal_opencl.so
-%{_includedir}/mvgal/*.h
+%{_includedir}/mvgal/
 %{_sbindir}/mvgal-daemon
 %{_sysconfdir}/mvgal/
 %{_udevrulesdir}/99-mvgal.rules

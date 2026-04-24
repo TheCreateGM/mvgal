@@ -321,9 +321,10 @@ install(
 
 # Install config files
 install(
-    DIRECTORY etc
+    DIRECTORY config
     DESTINATION etc/mvgal
     COMPONENT runtime
+    PATTERN ".git" EXCLUDE
 )
 
 # Install scripts
