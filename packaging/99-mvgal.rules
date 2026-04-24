@@ -1,0 +1,9 @@
+# udev rule for MVGAL device node
+# Ensures /dev/mvgal0 is owned by root:video with mode 0660
+#
+# Place this file under packaging/ or an appropriate udev rules dir so that
+# when the mvgal kernel module creates the character device node, it will
+# have the correct permissions and group for video users.
+#
+# Match the kernel device name exactly and restrict to character devices.
+KERNEL=="mvgal0", SUBSYSTEM=="char", OWNER="root", GROUP="video", MODE="0660"

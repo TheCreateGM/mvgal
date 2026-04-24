@@ -277,6 +277,13 @@ mvgal_error_t mvgal_scheduler_distribute_task(
 );
 
 /**
+ * @brief Distribute workload using compute offload strategy
+ */
+mvgal_error_t mvgal_scheduler_distribute_compute_offload(
+    struct mvgal_workload *workload
+);
+
+/**
  * @brief Mark workload as completed
  */
 void mvgal_workload_complete(
