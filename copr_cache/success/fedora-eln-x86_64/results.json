@@ -1,0 +1,32 @@
+{
+    "packages": [
+        {
+            "name": "mvgal",
+            "epoch": null,
+            "version": "0.2.0",
+            "release": "1.eln156",
+            "arch": "src"
+        },
+        {
+            "name": "mvgal-debugsource",
+            "epoch": null,
+            "version": "0.2.0",
+            "release": "1.eln156",
+            "arch": "x86_64"
+        },
+        {
+            "name": "mvgal-debuginfo",
+            "epoch": null,
+            "version": "0.2.0",
+            "release": "1.eln156",
+            "arch": "x86_64"
+        },
+        {
+            "name": "mvgal",
+            "epoch": null,
+            "version": "0.2.0",
+            "release": "1.eln156",
+            "arch": "x86_64"
+        }
+    ]
+}
