@@ -255,13 +255,22 @@ cd mvgal
 #### Fedora/RHEL
 ```bash
 sudo dnf install -y git gcc gcc-c++ cmake make pkgconfig \
-    libdrm-devel libpci-devel systemd-devel \
+    libdrm-devel libpciaccess-devel systemd-devel \
     vulkan-devel opencl-headers ocl-icd-devel
 
 cd /opt
 git clone https://github.com/TheCreateGM/mvgal.git
 cd mvgal
 ./build.sh
+```
+
+#### Fedora COPR (Recommended)
+```bash
+# Enable the COPR repository
+sudo dnf copr enable axogm/mvgal
+
+# Install the latest build
+sudo dnf install -y mvgal
 ```
 
 #### Arch Linux
