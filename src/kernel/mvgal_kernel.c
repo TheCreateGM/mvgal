@@ -105,8 +105,38 @@ static void mvgal_fill_link_info(struct pci_dev *pdev, struct mvgal_gpu_info *in
         return;
     }
 
-    info->pcie_link_gen = link_status & PCI_EXP_LNKSTA_CLS;
-    info->pcie_link_width = (link_status & PCI_EXP_LNKSTA_NLW) >> 4;
+    /*
+     * The PCIe LNKSTA register encodes the negotiated link speed and width.
+     * Defensive clamps are applied here before exposing values to userspace:
+     *  - link generation: clamp to [1, 6] (practical PCIe Gen1..Gen6 range)
+     *  - link width: clamp to [1, 16] (common max lanes per slot)
+     *
+     * This avoids exposing obviously invalid values produced by malformed
+     * registers or vendor quirks (e.g., very large integers).
+     */
+    {
+        u16 raw_gen = link_status & PCI_EXP_LNKSTA_CLS;
+        u16 gen = raw_gen;
+
+        if (gen < 1)
+            gen = 1;
+        else if (gen > 6)
+            gen = 6;
+
+        info->pcie_link_gen = gen;
+    }
+
+    {
+        u16 raw_width = (link_status & PCI_EXP_LNKSTA_NLW) >> 4;
+        u16 width = raw_width;
+
+        if (width < 1)
+            width = 1;
+        else if (width > 16)
+            width = 16;
+
+        info->pcie_link_width = width;
+    }
 }
 
 static void mvgal_fill_bar_info(struct pci_dev *pdev, struct mvgal_gpu_info *info)

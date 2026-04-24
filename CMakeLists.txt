@@ -288,14 +288,14 @@ if(WITH_KERNEL_MODULE)
 endif()
 
 # Tests
-if(WITH_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/tests/CMakeLists.txt")
+if(WITH_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/tests/tests/CMakeLists.txt")
   enable_testing()
-  add_subdirectory(test/tests)
+  add_subdirectory(src/tests/tests)
 endif()
 
 # Benchmarks
-if(WITH_BENCHMARKS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/CMakeLists.txt")
-  add_subdirectory(benchmarks)
+if(WITH_BENCHMARKS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/misc/benchmarks/CMakeLists.txt")
+  add_subdirectory(misc/benchmarks)
 endif()
 
 # Documentation
