@@ -11,7 +11,7 @@ BuildRequires:  gcc, gcc-c++, make, cmake >= 3.20
 BuildRequires:  libdrm-devel, libpciaccess-devel, systemd-devel, libudev-devel
 BuildRequires:  vulkan-devel, opencl-headers, ocl-icd-devel
 
-Requires:      libdrm, libpciaccess, systemd, libudev
+Requires:      libdrm, libpciaccess, systemd, systemd-libs
 Requires:      vulkan-loader, ocl-icd
 
 Prefix:        /usr
