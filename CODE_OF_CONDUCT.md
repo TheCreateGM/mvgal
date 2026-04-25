@@ -22,7 +22,7 @@ Like the technical community as a whole, the MVGAL team and community is made up
 This code of conduct applies to **all spaces managed by the MVGAL project or AxoGM**, including:
 
 - ⚡ GitHub repository (issues, discussions, pull requests)
-- 💬 Discord server (if applicable)
+- 💬 Discord server ([click here](https://discord.gg/vau6x5GDZE))
 - 📧 Mailing lists
 - 🐧 IRC/Matrix channels
 - 🎤 Conference talks and events
