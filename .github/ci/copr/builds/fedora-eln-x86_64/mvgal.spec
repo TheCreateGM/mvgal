@@ -3,19 +3,18 @@ Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Multi-Vendor GPU Aggregation Layer for Linux
 
-License:        GPL-3.0-only
+License:        GPLv3
 URL:            https://github.com/TheCreateGM/mvgal
 Source0:        %{name}-%{version}.tar.gz
 
-BuildRequires:  gcc, gcc-c++, make, cmake
+BuildRequires:  gcc, gcc-c++, make, cmake >= 3.20
 BuildRequires:  libdrm-devel, libpciaccess-devel, systemd-devel, libudev-devel
 BuildRequires:  vulkan-devel, opencl-headers, ocl-icd-devel
 
-Requires:       libdrm, libpciaccess, systemd, libudev
-Requires:       vulkan-loader, ocl-icd
+Requires:      libdrm, libpciaccess, systemd, libudev
+Requires:      vulkan-loader, ocl-icd
 
-Obsoletes:      mvgallibs <= 0.1.0
-Provides:       libmvgal = %{version}
+Prefix:        /usr
 
 %description
 MVGAL (Multi-Vendor GPU Aggregation Layer) enables heterogeneous GPUs
@@ -34,54 +33,90 @@ Features:
 %setup -q
 
 %build
-%cmake -DWITH_VULKAN=ON -DWITH_OPENCL=ON -DWITH_DAEMON=ON \
-    -DWITH_TESTS=OFF -DWITH_BENCHMARKS=OFF -DWITH_DOCS=OFF \
-    -DWITH_KERNEL_MODULE=OFF -DWITH_CUDA=OFF
-%cmake_build
+mkdir -p build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_VULKAN=ON -DWITH_OPENCL=ON \
+    -DWITH_DAEMON=ON -DWITH_TESTS=OFF -DWITH_BENCHMARKS=OFF -DWITH_DOCS=OFF
+make -j%{?_smp_ncpus:%{_smp_ncpus}}%{!?_smp_ncpus:1}
 
 %install
-%cmake_install
+rm -rf %{buildroot}
 
-# Install udev rules if exists
-mkdir -p %{buildroot}%{_udevrulesdir}
-install -m 644 config/99-mvgal.rules %{buildroot}%{_udevrulesdir}/99-mvgal.rules || true
+# Libs
+mkdir -p %{buildroot}%{_libdir}
+for lib in build/src/userspace/libmvgal.so* build/src/userspace/libmvgal_core.a build/src/userspace/libVK_LAYER_MVGAL.so build/src/userspace/libmvgal_opencl.so; do
+    [ -f "$lib" ] && install -m 644 "$lib" %{buildroot}%{_libdir}/ || true
+done
 
-# Install systemd service
-mkdir -p %{buildroot}%{_unitdir}
-install -m 644 rpm/mvgal-daemon.service %{buildroot}%{_unitdir}/mvgal-daemon.service || true
+# Headers
+mkdir -p %{buildroot}%{_includedir}/mvgal
+install -m 644 include/mvgal/mvgal.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_types.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_gpu.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_memory.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_scheduler.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_log.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_config.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_ipc.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_execution.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_version.h %{buildroot}%{_includedir}/mvgal/
+install -m 644 include/mvgal/mvgal_intercept.h %{buildroot}%{_includedir}/mvgal/
 
-# Install config file
+# Daemon
+mkdir -p %{buildroot}%{_sbindir}
+install -m 755 build/src/userspace/mvgal-daemon %{buildroot}%{_sbindir}/
+
+# Config
 mkdir -p %{buildroot}%{_sysconfdir}/mvgal
-install -m 644 rpm/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf || true
+mkdir -p %{buildroot}%{_udevrulesdir}
+install -m 644 config/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf
+install -m 644 config/99-mvgal.rules %{buildroot}%{_udevrulesdir}/99-mvgal.rules
+
+# Vulkan
+mkdir -p %{buildroot}%{_datadir}/vulkan/explicit_layer.d
+mkdir -p %{buildroot}%{_datadir}/vulkan/icd.d
+install -m 644 build/src/userspace/VK_LAYER_MVGAL.json \
+    %{buildroot}%{_datadir}/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json
+
+# Systemd
+mkdir -p %{buildroot}%{_unitdir}
+install -m 644 pkg/systemd/mvgal-dbus.service \
+    %{buildroot}%{_unitdir}/mvgal-daemon.service
 
 %post
+# Create runtime directory
 mkdir -p /var/run/mvgal
-chmod 755 /var/run/mvgal 2>/dev/null || true
+chmod 755 /var/run/mvgal
+
+# Create log directory
 mkdir -p /var/log/mvgal
-chmod 755 /var/log/mvgal 2>/dev/null || true
+chmod 755 /var/log/mvgal
+
+# Update library cache
 /sbin/ldconfig
+
+# Reload systemd
 if [ -d /run/systemd/system ]; then
     systemctl daemon-reload > /dev/null 2>&1 || :
 fi
 
 %preun
-if [ $1 -eq 0 ] && [ -d /run/systemd/system ]; then
+if [ -d /run/systemd/system ]; then
     systemctl stop mvgal-daemon.service > /dev/null 2>&1 || :
 fi
 
 %postun
-if [ $1 -eq 0 ] && [ -d /run/systemd/system ]; then
+if [ -d /run/systemd/system ]; then
     systemctl daemon-reload > /dev/null 2>&1 || :
 fi
 
 %files
-%license LICENSE
-%doc README.md CONTRIBUTING.md
+%defattr(-,root,root,-)
 %{_libdir}/libmvgal.so*
 %{_libdir}/libmvgal_core.a
 %{_libdir}/libVK_LAYER_MVGAL.so
 %{_libdir}/libmvgal_opencl.so
-%{_includedir}/mvgal/
+%{_includedir}/mvgal/*.h
 %{_sbindir}/mvgal-daemon
 %{_sysconfdir}/mvgal/
 %{_udevrulesdir}/99-mvgal.rules
@@ -89,14 +124,7 @@ fi
 %{_unitdir}/mvgal-daemon.service
 
 %changelog
-* Wed Apr 22 2026 AxoGM <creategm10@proton.me> - 0.2.0-1
-- Updated to version 0.2.0 "Health Monitor"
-- GPU health monitoring with temperature, utilization tracking
-- Comprehensive scheduler with 7 strategies
-- DMA-BUF based cross-GPU memory management
-- OpenCL interception layer
-
-* Sun Apr 19 2026 AxoGM <creategm10@proton.me> - 0.1.0-1
+* Mon Apr 20 2026 AxoGM <creategm10@proton.me> - 0.1.0-1
 - Initial release
 - GPU detection, scheduler, memory manager
 - Vulkan layer, CUDA wrapper
