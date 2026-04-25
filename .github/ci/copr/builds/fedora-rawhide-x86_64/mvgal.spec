@@ -11,7 +11,7 @@ BuildRequires:  gcc, gcc-c++, make, cmake >= 3.20
 BuildRequires:  libdrm-devel, libpciaccess-devel, systemd-devel
 BuildRequires:  vulkan-devel, opencl-headers, ocl-icd-devel
 
-Requires:      libdrm, libpciaccess, systemd, systemd-libs
+Requires:      libdrm, libpciaccess, systemd
 Requires:      vulkan-loader, ocl-icd
 
 Prefix:        /usr
@@ -36,7 +36,8 @@ Features:
 mkdir -p build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_VULKAN=ON -DWITH_OPENCL=ON \
-    -DWITH_DAEMON=ON -DWITH_TESTS=OFF -DWITH_BENCHMARKS=OFF -DWITH_DOCS=OFF
+    -DWITH_DAEMON=ON -DWITH_TESTS=OFF -DWITH_BENCHMARKS=OFF -DWITH_DOCS=OFF \
+    -DWITH_KERNEL_MODULE=OFF -DWITH_CUDA=OFF
 make -j%{?_smp_ncpus:%{_smp_ncpus}}%{!?_smp_ncpus:1}
 
 %install
@@ -50,82 +51,71 @@ done
 
 # Headers
 mkdir -p %{buildroot}%{_includedir}/mvgal
-install -m 644 include/mvgal/mvgal.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_types.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_gpu.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_memory.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_scheduler.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_log.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_config.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_ipc.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_execution.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_version.h %{buildroot}%{_includedir}/mvgal/
-install -m 644 include/mvgal/mvgal_intercept.h %{buildroot}%{_includedir}/mvgal/
+for hdr in include/mvgal/*.h; do
+    [ -f "$hdr" ] && install -m 644 "$hdr" %{buildroot}%{_includedir}/mvgal/ || true
+done
 
 # Daemon
 mkdir -p %{buildroot}%{_sbindir}
-install -m 755 build/src/userspace/mvgal-daemon %{buildroot}%{_sbindir}/
+[ -f build/src/userspace/mvgal-daemon ] && install -m 755 build/src/userspace/mvgal-daemon %{buildroot}%{_sbindir}/ || true
 
 # Config
 mkdir -p %{buildroot}%{_sysconfdir}/mvgal
+[ -f config/mvgal.conf ] && install -m 644 config/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf || true
+
+# udev rules
 mkdir -p %{buildroot}%{_udevrulesdir}
-install -m 644 config/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf
-install -m 644 config/99-mvgal.rules %{buildroot}%{_udevrulesdir}/99-mvgal.rules
+[ -f config/99-mvgal.rules ] && install -m 644 config/99-mvgal.rules %{buildroot}%{_udevrulesdir}/99-mvgal.rules || true
 
-# Vulkan
+# Vulkan layer manifest
 mkdir -p %{buildroot}%{_datadir}/vulkan/explicit_layer.d
-mkdir -p %{buildroot}%{_datadir}/vulkan/icd.d
-install -m 644 build/src/userspace/VK_LAYER_MVGAL.json \
-    %{buildroot}%{_datadir}/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json
+for manifest in build/src/userspace/VK_LAYER_MVGAL.json build/src/userspace/vulkan/VK_LAYER_MVGAL.json; do
+    [ -f "$manifest" ] && install -m 644 "$manifest" %{buildroot}%{_datadir}/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json && break || true
+done
 
-# Systemd
+# Systemd service
 mkdir -p %{buildroot}%{_unitdir}
-install -m 644 pkg/systemd/mvgal-dbus.service \
-    %{buildroot}%{_unitdir}/mvgal-daemon.service
+[ -f src/pkg/systemd/mvgal-dbus.service ] && install -m 644 src/pkg/systemd/mvgal-dbus.service %{buildroot}%{_unitdir}/mvgal-daemon.service || true
 
 %post
-# Create runtime directory
 mkdir -p /var/run/mvgal
-chmod 755 /var/run/mvgal
-
-# Create log directory
+chmod 755 /var/run/mvgal 2>/dev/null || true
 mkdir -p /var/log/mvgal
-chmod 755 /var/log/mvgal
-
-# Update library cache
+chmod 755 /var/log/mvgal 2>/dev/null || true
 /sbin/ldconfig
-
-# Reload systemd
 if [ -d /run/systemd/system ]; then
     systemctl daemon-reload > /dev/null 2>&1 || :
 fi
 
 %preun
-if [ -d /run/systemd/system ]; then
+if [ $1 -eq 0 ] && [ -d /run/systemd/system ]; then
     systemctl stop mvgal-daemon.service > /dev/null 2>&1 || :
 fi
 
 %postun
-if [ -d /run/systemd/system ]; then
+if [ $1 -eq 0 ] && [ -d /run/systemd/system ]; then
     systemctl daemon-reload > /dev/null 2>&1 || :
 fi
 
 %files
 %defattr(-,root,root,-)
+%license LICENSE
+%doc README.md CONTRIBUTING.md
 %{_libdir}/libmvgal.so*
 %{_libdir}/libmvgal_core.a
 %{_libdir}/libVK_LAYER_MVGAL.so
 %{_libdir}/libmvgal_opencl.so
-%{_includedir}/mvgal/*.h
+%{_includedir}/mvgal/
 %{_sbindir}/mvgal-daemon
 %{_sysconfdir}/mvgal/
 %{_udevrulesdir}/99-mvgal.rules
-%{_datadir}/vulkan/explicit_layer.d/VK_LAYER_MVGAL.json
+%{_datadir}/vulkan/explicit_layer.d/
 %{_unitdir}/mvgal-daemon.service
 
 %changelog
-* Mon Apr 20 2026 AxoGM <creategm10@proton.me> - 0.1.0-1
-- Initial release
-- GPU detection, scheduler, memory manager
-- Vulkan layer, CUDA wrapper
-- Daemon for background GPU management
+* Thu Apr 23 2026 AxoGM <creategm10@proton.me> - 0.2.0-2
+- Fix systemd service path
+- Add graceful handling for optional files
+
+* Wed Apr 22 2026 AxoGM <creategm10@proton.me> - 0.2.0-1
+- Updated to version 0.2.0 "Health Monitor"
