@@ -1037,6 +1037,9 @@ Contributions can be:
 - Flatpak: `flatpak install org.mvgal.MVGAL`
 - Snap: `snap install mvgal`
 
+> #### Note
+> For Ubuntu/Debian, Arch Linux, Flatpak, Snap it not have yet for package, at this time it only has Fedora via COPR
+
 ---
 
 ## 📞 Support & Contact
