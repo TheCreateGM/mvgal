@@ -9,10 +9,10 @@ Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  gcc, gcc-c++, make, cmake >= 3.20
 BuildRequires:  libdrm-devel, libpciaccess-devel, systemd-devel
-BuildRequires:  vulkan-devel, opencl-headers, ocl-icd-devel
+BuildRequires:  vulkan-devel
 
 Requires:      libdrm, libpciaccess, systemd
-Requires:      vulkan-loader, ocl-icd
+Requires:      vulkan-loader
 
 Prefix:        /usr
 
@@ -35,7 +35,7 @@ Features:
 %build
 mkdir -p build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_VULKAN=ON -DWITH_OPENCL=ON \
+cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_VULKAN=ON -DWITH_OPENCL=OFF \
     -DWITH_DAEMON=ON -DWITH_TESTS=OFF -DWITH_BENCHMARKS=OFF -DWITH_DOCS=OFF \
     -DWITH_KERNEL_MODULE=OFF -DWITH_CUDA=OFF
 make -j%{?_smp_ncpus:%{_smp_ncpus}}%{!?_smp_ncpus:1}
@@ -45,7 +45,7 @@ rm -rf %{buildroot}
 
 # Libs
 mkdir -p %{buildroot}%{_libdir}
-for lib in build/src/userspace/libmvgal.so* build/src/userspace/libmvgal_core.a build/src/userspace/libVK_LAYER_MVGAL.so build/src/userspace/libmvgal_opencl.so; do
+for lib in build/src/userspace/libmvgal.so* build/src/userspace/libmvgal_core.a build/src/userspace/libVK_LAYER_MVGAL.so; do
     [ -f "$lib" ] && install -m 644 "$lib" %{buildroot}%{_libdir}/ || true
 done
 
@@ -104,7 +104,6 @@ fi
 %{_libdir}/libmvgal.so*
 %{_libdir}/libmvgal_core.a
 %{_libdir}/libVK_LAYER_MVGAL.so
-%{_libdir}/libmvgal_opencl.so
 %{_includedir}/mvgal/
 %{_sbindir}/mvgal-daemon
 %{_sysconfdir}/mvgal/
