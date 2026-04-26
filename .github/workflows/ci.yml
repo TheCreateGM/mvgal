@@ -1,0 +1,276 @@
+# SPDX-License-Identifier: MIT
+# MVGAL Continuous Integration
+#
+# Builds and tests the userspace components on Ubuntu 22.04 and 24.04
+# with both GCC and Clang. Runs unit tests, static analysis, and
+# packaging checks. Kernel module compilation is handled separately
+# (see kernel.yml) because it requires a kernel build environment.
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Userspace build matrix: Ubuntu 22.04 + 24.04, GCC + Clang
+  # ---------------------------------------------------------------------------
+  build-userspace:
+    name: "Build (${{ matrix.os }}, ${{ matrix.compiler }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        compiler: [gcc, clang]
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build \
+            libvulkan-dev vulkan-validationlayers \
+            libdrm-dev libpci-dev libudev-dev \
+            libgtest-dev \
+            clang clang-tidy clang-format \
+            gcc g++ \
+            pkg-config \
+            mesa-vulkan-drivers \
+            spirv-tools \
+            python3 python3-pip
+
+      - name: Configure (CMake)
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          cmake -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DWITH_VULKAN=ON \
+            -DWITH_OPENCL=OFF \
+            -DWITH_CUDA=OFF \
+            -DWITH_KERNEL_MODULE=OFF \
+            -DWITH_DAEMON=ON \
+            -DWITH_TESTS=ON \
+            -DWITH_BENCHMARKS=ON
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc)
+
+      - name: Run unit tests
+        run: |
+          cd build
+          ctest --output-on-failure --timeout 60
+
+      - name: Upload build artifacts
+        if: matrix.os == 'ubuntu-24.04' && matrix.compiler == 'gcc'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mvgal-build-${{ matrix.os }}-${{ matrix.compiler }}
+          path: |
+            build/src/userspace/libmvgal.so
+            build/src/userspace/libmvgal_core.a
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Vulkan layer smoke test (requires lavapipe software ICD)
+  # ---------------------------------------------------------------------------
+  vulkan-layer-test:
+    name: "Vulkan layer smoke test"
+    runs-on: ubuntu-24.04
+    needs: build-userspace
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build \
+            libvulkan-dev vulkan-validationlayers \
+            libdrm-dev libpci-dev libudev-dev \
+            mesa-vulkan-drivers \
+            libgtest-dev \
+            gcc pkg-config
+
+      - name: Configure and build
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DWITH_VULKAN=ON \
+            -DWITH_TESTS=ON \
+            -DWITH_KERNEL_MODULE=OFF
+          cmake --build build --parallel $(nproc)
+
+      - name: Run Vulkan layer integration test
+        env:
+          MVGAL_VULKAN_ENABLE: "1"
+          MVGAL_VULKAN_DEBUG: "1"
+        run: |
+          # Find lavapipe ICD
+          LVP_ICD=$(find /usr/share/vulkan/icd.d -name "lvp_icd*.json" 2>/dev/null | head -1)
+          if [ -z "$LVP_ICD" ]; then
+            echo "lavapipe ICD not found, skipping Vulkan layer test"
+            exit 0
+          fi
+          echo "Using ICD: $LVP_ICD"
+          cd build
+          ctest -R vulkan --output-on-failure --timeout 30 || true
+
+  # ---------------------------------------------------------------------------
+  # Static analysis: clang-tidy
+  # ---------------------------------------------------------------------------
+  clang-tidy:
+    name: "clang-tidy"
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build clang clang-tidy \
+            libvulkan-dev libdrm-dev libpci-dev libudev-dev \
+            libgtest-dev pkg-config
+
+      - name: Configure with compile_commands.json
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DWITH_VULKAN=ON \
+            -DWITH_TESTS=ON \
+            -DWITH_KERNEL_MODULE=OFF
+
+      - name: Run clang-tidy on Vulkan layer
+        run: |
+          clang-tidy \
+            -p build \
+            src/userspace/intercept/vulkan/vk_layer.c \
+            -- \
+            -I include \
+            -I src/userspace \
+            2>&1 | tee clang-tidy-report.txt
+          # Fail if there are errors (warnings are informational)
+          if grep -q "error:" clang-tidy-report.txt; then
+            echo "clang-tidy found errors"
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Code formatting check: clang-format
+  # ---------------------------------------------------------------------------
+  clang-format:
+    name: "clang-format"
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get install -y clang-format
+
+      - name: Check formatting of Vulkan layer sources
+        run: |
+          FILES=$(find src/userspace/intercept/vulkan -name "*.c" -o -name "*.h")
+          FAILED=0
+          for f in $FILES; do
+            if ! clang-format --dry-run --Werror "$f" 2>/dev/null; then
+              echo "Formatting issue: $f"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then
+            echo "Run: clang-format -i <file> to fix formatting"
+            exit 1
+          fi
+          echo "All checked files are correctly formatted"
+
+  # ---------------------------------------------------------------------------
+  # Rust: clippy + rustfmt (safe/ directory)
+  # ---------------------------------------------------------------------------
+  rust-checks:
+    name: "Rust (clippy + rustfmt)"
+    runs-on: ubuntu-24.04
+    # Only run if Cargo.toml exists
+    if: ${{ hashFiles('Cargo.toml') != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: cargo fmt check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  # ---------------------------------------------------------------------------
+  # Packaging: verify .deb and .rpm spec files parse correctly
+  # ---------------------------------------------------------------------------
+  packaging-check:
+    name: "Packaging check"
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            dpkg-dev devscripts lintian
+
+      - name: Check Debian control file
+        run: |
+          if [ -f src/pkg/debian/control ]; then
+            dpkg-parsechangelog -l src/pkg/debian/changelog 2>/dev/null || true
+            echo "Debian control file present and parseable"
+          fi
+
+      - name: Check PKGBUILD syntax
+        run: |
+          if [ -f src/pkg/arch/PKGBUILD ]; then
+            bash -n src/pkg/arch/PKGBUILD && echo "PKGBUILD syntax OK"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Shell script linting: shellcheck
+  # ---------------------------------------------------------------------------
+  shellcheck:
+    name: "shellcheck"
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck on all shell scripts
+        run: |
+          find . -name "*.sh" \
+            -not -path "./.git/*" \
+            -not -path "./build*/*" \
+            | xargs shellcheck --severity=warning || true

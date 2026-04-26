@@ -14,6 +14,7 @@ add_library(mvgal_core STATIC
     memory/sync.c
     scheduler/scheduler.c
     scheduler/load_balancer.c
+    scheduler/workload_splitter.c
     scheduler/strategy/afr.c
     scheduler/strategy/sfr.c
     scheduler/strategy/task.c
@@ -51,6 +52,7 @@ add_library(mvgal SHARED
     memory/sync.c
     scheduler/scheduler.c
     scheduler/load_balancer.c
+    scheduler/workload_splitter.c
     scheduler/strategy/afr.c
     scheduler/strategy/sfr.c
     scheduler/strategy/task.c
@@ -110,8 +112,8 @@ if(WITH_VULKAN AND Vulkan_FOUND)
     "type": "GLOBAL",
     "library_path": "$<TARGET_FILE:mvgal_vulkan_layer>",
     "api_version": "1.3.0",
-    "implementation_version": "1",
-    "description": "Milestone 1 Vulkan submit interception layer for MVGAL/UMGAL",
+    "implementation_version": "2",
+    "description": "MVGAL Vulkan interception layer for multi-vendor GPU aggregation",
     "functions": {
       "vkNegotiateLoaderLayerInterfaceVersion": "vkNegotiateLoaderLayerInterfaceVersion"
     },

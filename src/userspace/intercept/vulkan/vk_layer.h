@@ -11,7 +11,10 @@
 
 #define MVGAL_VK_LAYER_NAME "VK_LAYER_MVGAL"
 #define MVGAL_VK_LAYER_DESCRIPTION \
-    "Milestone 1 Vulkan submit interception layer for MVGAL/UMGAL"
+    "MVGAL Vulkan interception layer for multi-vendor GPU aggregation"
+
+/* Maximum physical devices we track per instance */
+#define MVGAL_VK_MAX_PHYSICAL_DEVICES 32U
 
 typedef struct mvgal_instance_dispatch mvgal_instance_dispatch_t;
 typedef struct mvgal_device_dispatch mvgal_device_dispatch_t;
@@ -24,6 +27,14 @@ struct mvgal_instance_dispatch {
     PFN_GetPhysicalDeviceProcAddr next_gpipa;
     PFN_vkDestroyInstance destroy_instance;
     PFN_vkCreateDevice create_device;
+    PFN_vkEnumeratePhysicalDevices enumerate_physical_devices;
+    PFN_vkGetPhysicalDeviceProperties get_physical_device_properties;
+    PFN_vkGetPhysicalDeviceFeatures get_physical_device_features;
+    PFN_vkGetPhysicalDeviceMemoryProperties get_physical_device_memory_properties;
+    PFN_vkGetPhysicalDeviceQueueFamilyProperties get_physical_device_queue_family_properties;
+    PFN_vkGetPhysicalDeviceProperties2 get_physical_device_properties2;
+    PFN_vkGetPhysicalDeviceFeatures2 get_physical_device_features2;
+    PFN_vkGetPhysicalDeviceMemoryProperties2 get_physical_device_memory_properties2;
     mvgal_instance_dispatch_t *next;
 };
 
@@ -49,6 +60,9 @@ struct mvgal_physical_device_dispatch {
     VkPhysicalDevice physical_device;
     VkInstance instance;
     mvgal_instance_dispatch_t *instance_dispatch;
+    /* Cached properties for telemetry / future aggregation */
+    VkPhysicalDeviceProperties properties;
+    bool properties_cached;
     mvgal_physical_device_dispatch_t *next;
 };
 
@@ -59,6 +73,7 @@ typedef struct mvgal_layer_state {
     mvgal_queue_dispatch_t *queues;
     mvgal_physical_device_dispatch_t *physical_devices;
     atomic_uint_fast64_t submit_count;
+    atomic_uint_fast64_t physical_device_count;
 } mvgal_layer_state_t;
 
 extern mvgal_layer_state_t g_mvgal_layer_state;
@@ -103,6 +118,11 @@ VkLayerInstanceCreateInfo *mvgal_vk_find_instance_layer_info(
 VkLayerDeviceCreateInfo *mvgal_vk_find_device_layer_info(
     const VkDeviceCreateInfo *create_info,
     VkLayerFunction function
+);
+
+/* Physical device property caching */
+void mvgal_vk_cache_physical_device_properties(
+    mvgal_physical_device_dispatch_t *dispatch
 );
 
 #endif

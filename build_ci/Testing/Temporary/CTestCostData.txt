@@ -1,0 +1,9 @@
+test_gpu_detection 1 0.00570081
+test_memory 1 0.0183255
+test_scheduler 1 0.00273012
+test_core_api 1 0.003317
+test_execution 1 0.00150315
+test_config 1 0.000859347
+test_multi_gpu 1 0.00145168
+test_vulkan_layer_submit 1 0.0254611
+---
