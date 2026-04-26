@@ -28,6 +28,7 @@ target_link_libraries(test_gpu_detection
     ${DRM_IMPORTED_TARGET}
     ${PCI_IMPORTED_TARGET}
     ${UDEV_IMPORTED_TARGET}
+    m
 )
 
 add_test(NAME test_gpu_detection COMMAND test_gpu_detection)
@@ -46,6 +47,7 @@ target_link_libraries(test_memory
     ${DRM_IMPORTED_TARGET}
     ${PCI_IMPORTED_TARGET}
     ${UDEV_IMPORTED_TARGET}
+    m
 )
 
 add_test(NAME test_memory COMMAND test_memory)
@@ -64,6 +66,7 @@ target_link_libraries(test_scheduler
     ${DRM_IMPORTED_TARGET}
     ${PCI_IMPORTED_TARGET}
     ${UDEV_IMPORTED_TARGET}
+    m
 )
 
 add_test(NAME test_scheduler COMMAND test_scheduler)
@@ -82,6 +85,7 @@ target_link_libraries(test_core_api
     ${DRM_IMPORTED_TARGET}
     ${PCI_IMPORTED_TARGET}
     ${UDEV_IMPORTED_TARGET}
+    m
 )
 
 add_test(NAME test_core_api COMMAND test_core_api)
@@ -100,6 +104,7 @@ target_link_libraries(test_execution
     ${DRM_IMPORTED_TARGET}
     ${PCI_IMPORTED_TARGET}
     ${UDEV_IMPORTED_TARGET}
+    m
 )
 
 add_test(NAME test_execution COMMAND test_execution)
@@ -118,6 +123,7 @@ target_link_libraries(test_config
     ${DRM_IMPORTED_TARGET}
     ${PCI_IMPORTED_TARGET}
     ${UDEV_IMPORTED_TARGET}
+    m
 )
 
 add_test(NAME test_config COMMAND test_config)

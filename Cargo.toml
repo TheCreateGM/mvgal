@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# MVGAL Rust workspace root
+
+[workspace]
+members = [
+    "safe/fence_manager",
+    "safe/memory_safety",
+    "safe/capability_model",
+    "runtime/safe",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["MVGAL Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/TheCreateGM/mvgal"
+description = "Multi-Vendor GPU Aggregation Layer for Linux — Rust safety-critical subsystems"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+cbindgen = "0.26"

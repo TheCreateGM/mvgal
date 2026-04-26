@@ -1,27 +1,33 @@
 # MVGAL Top-Level Makefile
 # Multi-Vendor GPU Aggregation Layer for Linux
 
-.PHONY: all clean benchmarks tools gui dbus kernel distclean
+.PHONY: all clean benchmarks tools gui dbus kernel distclean cmake-build
 
-all: benchmarks tools
+all: cmake-build
+
+# Build using CMake (primary build system)
+cmake-build:
+	mkdir -p build
+	cd build && cmake .. -DCMAKE_BUILD_TYPE=Release
+	cd build && make -j$(nproc)
 
 # Benchmarks
 benchmarks:
-	cd benchmarks && $(MAKE) all
+	cd misc/benchmarks && $(MAKE) all
 
-# CLI Tools
-tools:
+# CLI Tools (for development testing - uses CMake output)
+tools: cmake-build
 	cd tools && $(MAKE) all
 
-# GUI Tools (requires GTK3)
-gui:
-	cd gui && $(MAKE) all
+# GUI Tools (requires GTK3) - uses CMake output
+gui: cmake-build
+	cd src/gui && $(MAKE) all
 
-# DBus Service (requires libdbus-1-dev)
-dbus:
-	cd pkg/dbus && $(CC) -o mvgal-dbus-service mvgal-dbus-service.c \
-		-I../.. -I../../src/userspace/core \
-		-L../../src/userspace/core -lmvgal_core -lpthread \
+# DBus Service (requires libdbus-1-dev) - uses CMake output
+dbus: cmake-build
+	cd src/pkg/dbus && $(CC) -o mvgal-dbus-service mvgal-dbus-service.c \
+		-I../.. -I../../include \
+		-L../../build -lmvgal -lpthread \
 		$(shell pkg-config --cflags --libs dbus-1) -O2 -Wall
 
 # Kernel Module
@@ -30,51 +36,50 @@ kernel:
 
 # Clean
 clean:
-	cd benchmarks && $(MAKE) clean || true
+	cd misc/benchmarks && $(MAKE) clean || true
 	cd tools && $(MAKE) clean || true
-	cd gui && $(MAKE) clean || true
-	cd pkg/dbus && rm -f mvgal-dbus-service || true
+	cd src/gui && $(MAKE) clean || true
+	cd src/pkg/dbus && rm -f mvgal-dbus-service || true
+	cd build && make clean || true
 
 # Distclean - full clean
 distclean: clean
+	rm -rf build
 	rm -f src/kernel/*.ko src/kernel/*.o src/kernel/.*.cmd src/kernel/*.mod.c
-	rm -f src/userspace/*.so src/userspace/*.o
-	rm -rf benchmarks/results/*.txt
-	rm -rf pkg/dbus/mvgal-dbus-service
-	rm -rf src/userspace/intercept/*/*.so src/userspace/intercept/*/*.o
+	rm -rf misc/benchmarks/results/*.txt
 
 # Tarball
 tarball: clean
 	mkdir -p dist
-	tar -czf dist/mvgal-0.1.0.tar.gz -X .gitignore .
-	@echo "Tarball created: dist/mvgal-0.1.0.tar.gz"
+	tar -czf dist/mvgal-$(shell cat include/mvgal/mvgal_version.h | grep MVGAL_VERSION_STRING | awk '{print $$3}' | tr -d '"').tar.gz -X .gitignore .
+	@echo "Tarball created: dist/mvgal-*.tar.gz"
 
 # Install
-install: all
-	mkdir -p /usr/local/bin
-	cp tools/mvgal /usr/local/bin/
-	cp tools/mvgal-config /usr/local/bin/
-	mkdir -p /usr/local/lib
-	cp src/userspace/core/libmvgal_core.a /usr/local/lib/
-	cp src/userspace/libmvgal_core.so /usr/local/lib/ 2>/dev/null || true
-	mkdir -p /usr/local/include/mvgal
-	cp src/userspace/core/mvgal.h /usr/local/include/mvgal/
-	mkdir -p /etc/mvgal
-	cp config/mvgal.conf /etc/mvgal/
+install: cmake-build
+	mkdir -p $(DESTDIR)/usr/local/bin
+	cp build/libmvgal.so $(DESTDIR)/usr/local/bin/ || cp build/libmvgal.so $(DESTDIR)/usr/local/bin/ 2>/dev/null || true
+	cp tools/mvgal $(DESTDIR)/usr/local/bin/ || true
+	cp tools/mvgal-config $(DESTDIR)/usr/local/bin/ || true
+	mkdir -p $(DESTDIR)/usr/local/lib
+	cp build/libmvgal.so $(DESTDIR)/usr/local/lib/ 2>/dev/null || true
+	mkdir -p $(DESTDIR)/usr/local/include/mvgal
+	cp -r include/mvgal/*.h $(DESTDIR)/usr/local/include/mvgal/
+	mkdir -p $(DESTDIR)/etc/mvgal
+	cp config/mvgal.conf $(DESTDIR)/etc/mvgal/
 	cp config/99-mvgal.rules /lib/udev/rules.d/ 2>/dev/null || cp config/99-mvgal.rules /usr/lib/udev/rules.d/ 2>/dev/null || true
 	# Install icon
-	mkdir -p /usr/local/share/icons/hicolor/256x256/apps
-	cp config/icons/hicolor/256x256/apps/mvgal.svg /usr/local/share/icons/hicolor/256x256/apps/
+	mkdir -p $(DESTDIR)/usr/local/share/icons/hicolor/256x256/apps
+	cp assets/mvgal.svg $(DESTDIR)/usr/local/share/icons/hicolor/256x256/apps/ || cp config/icons/hicolor/256x256/apps/mvgal.svg $(DESTDIR)/usr/local/share/icons/hicolor/256x256/apps/ 2>/dev/null || true
 	# Install desktop file
-	mkdir -p /usr/local/share/applications
-	cp config/org.mvgal.MVGAL-GUI.desktop /usr/local/share/applications/
+	mkdir -p $(DESTDIR)/usr/local/share/applications
+	cp config/org.mvgal.MVGAL-GUI.desktop $(DESTDIR)/usr/local/share/applications/ 2>/dev/null || true
 	@echo "MVGAL installed to /usr/local"
 
 # Uninstall
 uninstall:
 	rm -f /usr/local/bin/mvgal /usr/local/bin/mvgal-config
-	rm -f /usr/local/lib/libmvgal_core.so /usr/local/lib/libmvgal_core.a
-	rm -f /usr/local/include/mvgal/mvgal.h
+	rm -f /usr/local/lib/libmvgal.so
+	rm -rf /usr/local/include/mvgal
 	rm -f /etc/mvgal/mvgal.conf
 	rm -f /lib/udev/rules.d/99-mvgal.rules /usr/lib/udev/rules.d/99-mvgal.rules 2>/dev/null || true
 	rm -f /usr/local/share/icons/hicolor/256x256/apps/mvgal.svg

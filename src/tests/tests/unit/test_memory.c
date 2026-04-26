@@ -3,9 +3,9 @@
  * @brief Memory Management Unit Tests
  */
 
-#include "mvgal.h"
+#include "mvgal/mvgal.h"
 #include "mvgal_memory.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal_log.h"
 #include <stdio.h>
 #include <stdlib.h>
 

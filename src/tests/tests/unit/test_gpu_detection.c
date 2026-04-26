@@ -6,9 +6,9 @@
  * Tests for GPU detection and management functionality.
  */
 
-#include "mvgal.h"
-#include "mvgal_gpu.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal.h"
+#include "mvgal/mvgal_gpu.h"
+#include "mvgal/mvgal_log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -91,23 +91,24 @@ static void test_gpu_enumeration(void)
     
     // Allocate buffer for GPU descriptors
     mvgal_gpu_descriptor_t *gpus = (mvgal_gpu_descriptor_t *)
-        malloc(count * sizeof(mvgal_gpu_descriptor_t));
+        malloc((size_t)count * sizeof(mvgal_gpu_descriptor_t));
     TEST_ASSERT(gpus != NULL, "Failed to allocate memory for GPU descriptors");
     
     // Enumerate GPUs
-    int enumerated = mvgal_gpu_enumerate(gpus, count);
+    int enumerated = mvgal_gpu_enumerate(gpus, (uint32_t)count);
     TEST_ASSERT(enumerated >= 0, "GPU enumeration failed");
     TEST_ASSERT(enumerated <= count, "Enumerated more GPUs than requested");
     
     // Check each GPU descriptor
     for (int i = 0; i < enumerated; i++) {
-        TEST_ASSERT(gpus[i].id >= 0, "Invalid GPU ID");
+        /* ID is an unsigned value; `>= 0` is always true. Check for an invalid sentinel instead. */
+        TEST_ASSERT(gpus[i].id != (uint32_t)UINT32_MAX, "Invalid GPU ID");
         TEST_ASSERT(gpus[i].name[0] != '\0', "Empty GPU name");
         TEST_ASSERT(gpus[i].vram_total > 0, "Zero VRAM reported");
         
         MVGAL_LOG_INFO("  GPU %d: %s (ID: %d, Vendor: %d, VRAM: %llu MB)",
                       i, gpus[i].name, gpus[i].id, gpus[i].vendor,
-                      gpus[i].vram_total / (1024 * 1024));
+                      (unsigned long long)(gpus[i].vram_total / (1024ULL * 1024ULL)));
     }
     
     free(gpus);
@@ -137,10 +138,11 @@ static void test_gpu_get_descriptor(void)
     // Get descriptor for each GPU
     for (int i = 0; i < count; i++) {
         mvgal_gpu_descriptor_t gpu;
-        err = mvgal_gpu_get_descriptor(i, &gpu);
+        err = mvgal_gpu_get_descriptor((uint32_t)i, &gpu);
         TEST_ASSERT(err == MVGAL_SUCCESS, "Failed to get GPU descriptor");
         
-        TEST_ASSERT(gpu.id == i, "GPU ID mismatch");
+        /* `gpu.id` is unsigned; cast the loop index for a proper comparison. */
+        TEST_ASSERT(gpu.id == (uint32_t)i, "GPU ID mismatch");
         TEST_ASSERT(gpu.name[0] != '\0', "Empty GPU name");
         
         MVGAL_LOG_INFO("  Retrieved GPU %d: %s", i, gpu.name);
@@ -148,7 +150,7 @@ static void test_gpu_get_descriptor(void)
     
     // Test invalid index
     mvgal_gpu_descriptor_t gpu;
-    err = mvgal_gpu_get_descriptor(count + 1, &gpu);
+    err = mvgal_gpu_get_descriptor((uint32_t)(count + 1), &gpu);
     TEST_ASSERT(err != MVGAL_SUCCESS, "Should fail for invalid GPU index");
     
     mvgal_shutdown();
@@ -190,7 +192,7 @@ static void test_gpu_enable_disable(void)
     TEST_ASSERT(mvgal_gpu_is_enabled(0), "GPU 0 should be re-enabled");
     
     // Test invalid index
-    err = mvgal_gpu_enable(count + 1, true);
+    err = mvgal_gpu_enable((uint32_t)(count + 1), true);
     TEST_ASSERT(err != MVGAL_SUCCESS, "Should fail for invalid GPU index");
     
     mvgal_shutdown();
@@ -218,7 +220,7 @@ static void test_gpu_memory_info(void)
     
     for (int i = 0; i < count; i++) {
         uint64_t total, used, free;
-        err = mvgal_gpu_get_memory_stats(i, &total, &used, &free);
+        err = mvgal_gpu_get_memory_stats((uint32_t)i, &total, &used, &free);
         TEST_ASSERT(err == MVGAL_SUCCESS, "Failed to get memory info");
         
         TEST_ASSERT(total > 0, "Total memory should be > 0");
@@ -226,7 +228,10 @@ static void test_gpu_memory_info(void)
         TEST_ASSERT(free <= total, "Free memory should be <= total");
         
         MVGAL_LOG_INFO("  GPU %d: Total=%llu MB, Used=%llu MB, Free=%llu MB",
-                      i, total / (1024 * 1024), used / (1024 * 1024), free / (1024 * 1024));
+                      i,
+                      (unsigned long long)(total / (1024ULL * 1024ULL)),
+                      (unsigned long long)(used / (1024ULL * 1024ULL)),
+                      (unsigned long long)(free / (1024ULL * 1024ULL)));
     }
     
     mvgal_shutdown();
@@ -268,7 +273,8 @@ static void test_gpu_select_best(void)
     err = mvgal_gpu_select_best(&criteria, &selected);
     TEST_ASSERT(err == MVGAL_SUCCESS, "Failed to select best GPU");
     
-    TEST_ASSERT(selected.id >= 0, "Invalid selected GPU ID");
+    /* `selected.id` is unsigned; check against an invalid sentinel instead of >= 0. */
+    TEST_ASSERT(selected.id != (uint32_t)UINT32_MAX, "Invalid selected GPU ID");
     MVGAL_LOG_INFO("  Selected best GPU: %s (ID: %d)", selected.name, selected.id);
     
     mvgal_shutdown();

@@ -7,12 +7,12 @@
  * This module implements the core public API functions declared in mvgal.h.
  */
 
-#include "mvgal.h"
-#include "mvgal_gpu.h"
-#include "mvgal_memory.h"
-#include "mvgal_scheduler.h"
-#include "mvgal_config.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal.h"
+#include "mvgal/mvgal_gpu.h"
+#include "mvgal/mvgal_memory.h"
+#include "mvgal/mvgal_scheduler.h"
+#include "mvgal/mvgal_config.h"
+#include "mvgal/mvgal_log.h"
 
 #include <stddef.h>
 #include <stdbool.h>

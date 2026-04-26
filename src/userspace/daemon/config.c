@@ -8,9 +8,9 @@
  * It provides default values and basic get/set operations.
  */
 
-#include "mvgal_config.h"
-#include "mvgal_log.h"
-#include "mvgal_types.h"
+#include "mvgal/mvgal_config.h"
+#include "mvgal/mvgal_log.h"
+#include "mvgal/mvgal_types.h"
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdlib.h>

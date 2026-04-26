@@ -610,3 +610,149 @@ Your contributions help make MVGAL better for everyone. Whether it's:
 *Version: 0.2.0 "Health Monitor"*
 *Last Updated: April 21, 2026*
 *License: GPLv3*
+
+---
+
+## 🔬 CompCert Formal Verification
+
+The memory manager's core allocation logic (`src/userspace/memory/allocator.c`)
+and the fence domain implementation (`src/userspace/memory/sync.c`) are quality
+gates that must compile with CompCert in addition to GCC/Clang.
+
+### Running CompCert Verification
+
+```bash
+# Install CompCert (requires OPAM)
+opam install coq
+opam install compcert
+
+# Verify allocator.c
+ccomp -Wall -I include -I src/userspace \
+    src/userspace/memory/allocator.c -o /dev/null
+
+# Verify sync.c
+ccomp -Wall -I include -I src/userspace \
+    src/userspace/memory/sync.c -o /dev/null
+```
+
+CompCert does not support all GCC extensions. If a file fails CompCert
+compilation, the following restrictions apply to the affected file:
+- No `__attribute__((packed))` — use explicit padding instead.
+- No `__builtin_*` intrinsics — use standard C equivalents.
+- No VLAs (variable-length arrays).
+- No `typeof` — use explicit types.
+
+CompCert verification is a **blocking quality gate** for PRs that modify
+`allocator.c` or `sync.c`. PRs that break CompCert compatibility will not
+be merged until fixed.
+
+---
+
+## 🔌 Adding a New GPU Vendor
+
+To add support for a new GPU vendor:
+
+### 1. Kernel Module (`src/kernel/mvgal_kernel.c`)
+
+Add the PCI vendor ID to `mvgal_vendor_name()` and `mvgal_vendor_mask()`:
+
+```c
+static const char *mvgal_vendor_name(u16 vendor_id)
+{
+    switch (vendor_id) {
+    // ... existing vendors ...
+    case 0xXXXX:  /* New vendor PCI ID */
+        return "New Vendor";
+    default:
+        return "Unknown";
+    }
+}
+```
+
+Add a new `MVGAL_UAPI_VENDOR_MASK_*` constant in `include/mvgal/mvgal_uapi.h`.
+
+### 2. GPU Manager (`src/userspace/daemon/gpu_manager.c`)
+
+Add vendor detection in `mvgal_gpu_detect_vendor()`:
+
+```c
+case 0xXXXX:
+    desc->vendor = MVGAL_VENDOR_NEW;
+    strncpy(desc->driver_name, "newvendor", sizeof(desc->driver_name) - 1);
+    break;
+```
+
+Add sysfs paths for metrics (temperature, utilization, VRAM) in the
+`mvgal_gpu_update_metrics()` function.
+
+### 3. Compile-Time Guard
+
+Wrap all new-vendor-specific code in:
+
+```c
+#ifdef MVGAL_ENABLE_NEWVENDOR
+// vendor-specific code
+#endif
+```
+
+Add the CMake option in `CMakeLists.txt`:
+
+```cmake
+option(MVGAL_ENABLE_NEWVENDOR "Enable New Vendor GPU support" ON)
+if(MVGAL_ENABLE_NEWVENDOR)
+    target_compile_definitions(mvgal_core PRIVATE MVGAL_ENABLE_NEWVENDOR=1)
+endif()
+```
+
+### 4. Documentation
+
+Add the vendor to `docs/DRIVER_INTEGRATION.md` with:
+- Required driver name and minimum version.
+- Kernel interfaces used.
+- Reference repository studied.
+- Known limitations.
+
+### 5. Tests
+
+Add a test case in `src/tests/tests/unit/test_gpu_detection.c`:
+
+```c
+static void test_new_vendor_detection(void) {
+    // Test that the new vendor is correctly identified
+    // when a matching PCI device is present.
+}
+```
+
+---
+
+## 🔒 Security Review Checklist
+
+Before submitting a PR that touches IPC, memory management, or kernel code:
+
+- [ ] IPC authentication: all new message types check `SCM_CREDENTIALS`.
+- [ ] No user-controlled data is used as a size without bounds checking.
+- [ ] All `copy_from_user` / `copy_to_user` calls check return values.
+- [ ] No kernel memory is leaked on error paths.
+- [ ] Rust `unsafe` blocks have safety comments.
+- [ ] No new `unsafe` blocks outside FFI boundaries in Rust crates.
+- [ ] AddressSanitizer clean: `cmake -DWITH_ASAN=ON && ctest`.
+- [ ] UBSan clean: `cmake -DWITH_UBSAN=ON && ctest`.
+
+---
+
+## 📦 ABI Stability
+
+Once a kernel module ioctl is defined and released, it must not be changed
+in a way that breaks existing user-space. Use versioned ioctls:
+
+```c
+/* Version 1 of the GPU query ioctl */
+#define MVGAL_IOC_GET_GPU_INFO_V1  _IOWR(MVGAL_IOC_MAGIC, 3, struct mvgal_uapi_gpu_query_v1)
+
+/* Version 2 adds new fields at the end */
+#define MVGAL_IOC_GET_GPU_INFO_V2  _IOWR(MVGAL_IOC_MAGIC, 13, struct mvgal_uapi_gpu_query_v2)
+```
+
+The IPC protocol uses a version negotiation handshake. Old clients continue
+to work with newer daemon versions as long as the negotiated version is
+supported. See `docs/API.md` for the protocol versioning specification.

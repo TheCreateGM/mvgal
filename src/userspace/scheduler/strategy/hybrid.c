@@ -9,7 +9,7 @@
  */
 
 #include "../scheduler_internal.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal_log.h"
 
 // Forward declarations for strategy functions
 mvgal_error_t mvgal_scheduler_distribute_compute_offload(struct mvgal_workload *workload);

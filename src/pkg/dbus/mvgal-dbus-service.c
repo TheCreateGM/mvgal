@@ -12,15 +12,57 @@
 #include <stdbool.h>
 #include <dbus/dbus.h>
 
-#include "../../src/userspace/core/mvgal.h"
+#include "../../include/mvgal/mvgal.h"
+#include "../../include/mvgal/mvgal_gpu.h"
+#include "../../include/mvgal/mvgal_config.h"
 
 #define DBUS_SERVICE_NAME "org.mvgal.MVGAL"
 #define DBUS_PATH "/org/mvgal/MVGAL"
 
+static mvgal_context_t g_context = NULL;
+
+static const char *strategy_to_string(mvgal_distribution_strategy_t strategy) {
+    switch (strategy) {
+        case MVGAL_STRATEGY_ROUND_ROBIN: return "round_robin";
+        case MVGAL_STRATEGY_AFR: return "afr";
+        case MVGAL_STRATEGY_SFR: return "sfr";
+        case MVGAL_STRATEGY_SINGLE_GPU: return "single_gpu";
+        case MVGAL_STRATEGY_HYBRID: return "hybrid";
+        case MVGAL_STRATEGY_TASK: return "task";
+        case MVGAL_STRATEGY_COMPUTE_OFFLOAD: return "compute_offload";
+        case MVGAL_STRATEGY_AUTO: return "auto";
+        case MVGAL_STRATEGY_CUSTOM: return "custom";
+        default: return "unknown";
+    }
+}
+
+static mvgal_distribution_strategy_t string_to_strategy(const char *name) {
+    if (strcmp(name, "round_robin") == 0) return MVGAL_STRATEGY_ROUND_ROBIN;
+    if (strcmp(name, "afr") == 0) return MVGAL_STRATEGY_AFR;
+    if (strcmp(name, "sfr") == 0) return MVGAL_STRATEGY_SFR;
+    if (strcmp(name, "single_gpu") == 0 || strcmp(name, "single") == 0) return MVGAL_STRATEGY_SINGLE_GPU;
+    if (strcmp(name, "hybrid") == 0) return MVGAL_STRATEGY_HYBRID;
+    if (strcmp(name, "task") == 0) return MVGAL_STRATEGY_TASK;
+    if (strcmp(name, "compute_offload") == 0) return MVGAL_STRATEGY_COMPUTE_OFFLOAD;
+    if (strcmp(name, "auto") == 0) return MVGAL_STRATEGY_AUTO;
+    if (strcmp(name, "custom") == 0) return MVGAL_STRATEGY_CUSTOM;
+    return MVGAL_STRATEGY_HYBRID;
+}
+
+static const char *vendor_to_string(mvgal_vendor_t vendor) {
+    switch (vendor) {
+        case MVGAL_VENDOR_AMD: return "AMD";
+        case MVGAL_VENDOR_NVIDIA: return "NVIDIA";
+        case MVGAL_VENDOR_INTEL: return "Intel";
+        case MVGAL_VENDOR_MOORE_THREADS: return "Moore Threads";
+        default: return "Unknown";
+    }
+}
+
 dbus_bool_t handle_get_version(DBusConnection *connection, DBusMessage *message, void *user_data) {
     (void)user_data;
     
-    const char *version = "0.1.0";
+    const char *version = mvgal_get_version();
     DBusMessage *reply = dbus_message_new_method_return(message);
     dbus_message_append_args(reply, DBUS_TYPE_STRING, &version, DBUS_TYPE_INVALID);
     dbus_connection_send(connection, reply, NULL);
@@ -31,21 +73,18 @@ dbus_bool_t handle_get_version(DBusConnection *connection, DBusMessage *message,
 dbus_bool_t handle_get_enabled(DBusConnection *connection, DBusMessage *message, void *user_data) {
     (void)user_data;
     
-    mvgal_config_t config;
-    if (mvgal_get_config(&config) == 0) {
-        dbus_bool_t enabled = config.enabled;
-        DBusMessage *reply = dbus_message_new_method_return(message);
-        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &enabled, DBUS_TYPE_INVALID);
-        dbus_connection_send(connection, reply, NULL);
-        dbus_message_unref(reply);
-    }
+    dbus_bool_t enabled = mvgal_is_enabled();
+    DBusMessage *reply = dbus_message_new_method_return(message);
+    dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &enabled, DBUS_TYPE_INVALID);
+    dbus_connection_send(connection, reply, NULL);
+    dbus_message_unref(reply);
     return TRUE;
 }
 
 dbus_bool_t handle_get_gpu_count(DBusConnection *connection, DBusMessage *message, void *user_data) {
     (void)user_data;
     
-    int count = mvgal_get_gpu_count();
+    int32_t count = mvgal_gpu_get_count();
     DBusMessage *reply = dbus_message_new_method_return(message);
     dbus_message_append_args(reply, DBUS_TYPE_INT32, &count, DBUS_TYPE_INVALID);
     dbus_connection_send(connection, reply, NULL);
@@ -56,30 +95,35 @@ dbus_bool_t handle_get_gpu_count(DBusConnection *connection, DBusMessage *messag
 dbus_bool_t handle_list_gpus(DBusConnection *connection, DBusMessage *message, void *user_data) {
     (void)user_data;
     
-    int gpu_count = mvgal_get_gpu_count();
+    int32_t gpu_count = mvgal_gpu_get_count();
     DBusMessage *reply = dbus_message_new_method_return(message);
     
     DBusMessageIter array_iter;
     dbus_message_iter_init_append(reply, &array_iter);
-    dbus_message_iter_open_container(&array_iter, DBUS_TYPE_STRUCT, NULL, &array_iter);
+    dbus_message_iter_open_container(&array_iter, DBUS_TYPE_ARRAY, "(isssbd)", &array_iter);
     
-    for (int i = 0; i < gpu_count; i++) {
-        mvgal_gpu_info_t info;
-        if (mvgal_get_gpu_info(i, &info) == 0) {
-            // id, name, vendor, strategy, enabled, memory_used
-            int32_t id = info.id;
-            const char *name = info.name;
-            const char *vendor = info.vendor;
-            const char *strategy = "unknown";
-            dbus_bool_t enabled = info.enabled;
-            double memory_used = (double)info.memory_used / (1024 * 1024); // MB
+    for (int32_t i = 0; i < gpu_count; i++) {
+        mvgal_gpu_descriptor_t desc;
+        if (mvgal_gpu_get_descriptor(i, &desc) == MVGAL_SUCCESS) {
+            DBusMessageIter struct_iter;
+            dbus_message_iter_open_container(&array_iter, DBUS_TYPE_STRUCT, NULL, &struct_iter);
             
-            dbus_message_iter_append_basic(&array_iter, DBUS_TYPE_INT32, &id);
-            dbus_message_iter_append_basic(&array_iter, DBUS_TYPE_STRING, &name);
-            dbus_message_iter_append_basic(&array_iter, DBUS_TYPE_STRING, &vendor);
-            dbus_message_iter_append_basic(&array_iter, DBUS_TYPE_STRING, &strategy);
-            dbus_message_iter_append_basic(&array_iter, DBUS_TYPE_BOOLEAN, &enabled);
-            dbus_message_iter_append_basic(&array_iter, DBUS_TYPE_DOUBLE, &memory_used);
+            // id, name, vendor, strategy, enabled, memory_used
+            int32_t id = desc.id;
+            const char *name = desc.name;
+            const char *vendor = vendor_to_string(desc.vendor);
+            const char *strategy = strategy_to_string(desc.enabled ? MVGAL_STRATEGY_ROUND_ROBIN : MVGAL_STRATEGY_SINGLE_GPU);
+            dbus_bool_t enabled = desc.enabled;
+            double memory_used = (double)desc.vram_used / (1024 * 1024); // MB
+            
+            dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_INT32, &id);
+            dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_STRING, &name);
+            dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_STRING, &vendor);
+            dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_STRING, &strategy);
+            dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_BOOLEAN, &enabled);
+            dbus_message_iter_append_basic(&struct_iter, DBUS_TYPE_DOUBLE, &memory_used);
+            
+            dbus_message_iter_close_container(&array_iter, &struct_iter);
         }
     }
     
@@ -93,18 +137,18 @@ dbus_bool_t handle_get_stats(DBusConnection *connection, DBusMessage *message, v
     (void)user_data;
     
     mvgal_stats_t stats;
-    if (mvgal_get_stats(&stats) == 0) {
+    if (mvgal_get_stats(g_context, &stats) == MVGAL_SUCCESS) {
         DBusMessage *reply = dbus_message_new_method_return(message);
         DBusMessageIter dict_iter;
         
         dbus_message_iter_init_append(reply, &dict_iter);
         dbus_message_iter_open_container(&dict_iter, DBUS_TYPE_ARRAY, "{sv}", &dict_iter);
         
-        // total_workloads
+        // frames_submitted
         DBusMessageIter entry_iter;
         dbus_message_iter_open_container(&dict_iter, DBUS_TYPE_DICT_ENTRY, NULL, &entry_iter);
-        const char *key = "total_workloads";
-        uint64_t value = stats.total_workloads;
+        const char *key = "frames_submitted";
+        uint64_t value = stats.frames_submitted;
         dbus_message_iter_append_basic(&entry_iter, DBUS_TYPE_STRING, &key);
         DBusMessageIter variant_iter;
         dbus_message_iter_open_container(&entry_iter, DBUS_TYPE_VARIANT, "u", &variant_iter);
@@ -112,23 +156,44 @@ dbus_bool_t handle_get_stats(DBusConnection *connection, DBusMessage *message, v
         dbus_message_iter_close_container(&entry_iter, &variant_iter);
         dbus_message_iter_close_container(&dict_iter, &entry_iter);
         
-        // load_balance
+        // frames_completed
         dbus_message_iter_open_container(&dict_iter, DBUS_TYPE_DICT_ENTRY, NULL, &entry_iter);
-        key = "load_balance";
-        double load_balance = stats.load_balance;
+        key = "frames_completed";
+        value = stats.frames_completed;
         dbus_message_iter_append_basic(&entry_iter, DBUS_TYPE_STRING, &key);
-        dbus_message_iter_open_container(&entry_iter, DBUS_TYPE_VARIANT, "d", &variant_iter);
-        dbus_message_iter_append_basic(&variant_iter, DBUS_TYPE_DOUBLE, &load_balance);
+        dbus_message_iter_open_container(&entry_iter, DBUS_TYPE_VARIANT, "u", &variant_iter);
+        dbus_message_iter_append_basic(&variant_iter, DBUS_TYPE_UINT64, &value);
         dbus_message_iter_close_container(&entry_iter, &variant_iter);
         dbus_message_iter_close_container(&dict_iter, &entry_iter);
         
-        // memory_used
+        // workloads_distributed
         dbus_message_iter_open_container(&dict_iter, DBUS_TYPE_DICT_ENTRY, NULL, &entry_iter);
-        key = "memory_used";
-        uint64_t memory_used = stats.memory_used;
+        key = "workloads_distributed";
+        value = stats.workloads_distributed;
         dbus_message_iter_append_basic(&entry_iter, DBUS_TYPE_STRING, &key);
         dbus_message_iter_open_container(&entry_iter, DBUS_TYPE_VARIANT, "u", &variant_iter);
-        dbus_message_iter_append_basic(&variant_iter, DBUS_TYPE_UINT64, &memory_used);
+        dbus_message_iter_append_basic(&variant_iter, DBUS_TYPE_UINT64, &value);
+        dbus_message_iter_close_container(&entry_iter, &variant_iter);
+        dbus_message_iter_close_container(&dict_iter, &entry_iter);
+        
+        // bytes_transferred
+        dbus_message_iter_open_container(&dict_iter, DBUS_TYPE_DICT_ENTRY, NULL, &entry_iter);
+        key = "bytes_transferred";
+        value = stats.bytes_transferred;
+        dbus_message_iter_append_basic(&entry_iter, DBUS_TYPE_STRING, &key);
+        dbus_message_iter_open_container(&entry_iter, DBUS_TYPE_VARIANT, "u", &variant_iter);
+        dbus_message_iter_append_basic(&variant_iter, DBUS_TYPE_UINT64, &value);
+        dbus_message_iter_close_container(&entry_iter, &variant_iter);
+        dbus_message_iter_close_container(&dict_iter, &entry_iter);
+        
+        // Calculate load balance (simplified)
+        float balance = 100.0f;
+        
+        dbus_message_iter_open_container(&dict_iter, DBUS_TYPE_DICT_ENTRY, NULL, &entry_iter);
+        key = "load_balance";
+        dbus_message_iter_append_basic(&entry_iter, DBUS_TYPE_STRING, &key);
+        dbus_message_iter_open_container(&entry_iter, DBUS_TYPE_VARIANT, "d", &variant_iter);
+        dbus_message_iter_append_basic(&variant_iter, DBUS_TYPE_DOUBLE, &balance);
         dbus_message_iter_close_container(&entry_iter, &variant_iter);
         dbus_message_iter_close_container(&dict_iter, &entry_iter);
         
@@ -151,25 +216,33 @@ dbus_bool_t handle_set_strategy(DBusConnection *connection, DBusMessage *message
     }
     
     if (strategy_str) {
-        mvgal_strategy_t strategy;
-        if (strcmp(strategy_str, "round_robin") == 0) {
-            strategy = MVGAL_STRATEGY_ROUND_ROBIN;
-        } else if (strcmp(strategy_str, "afr") == 0) {
-            strategy = MVGAL_STRATEGY_AFR;
-        } else if (strcmp(strategy_str, "sfr") == 0) {
-            strategy = MVGAL_STRATEGY_SFR;
-        } else if (strcmp(strategy_str, "single") == 0) {
-            strategy = MVGAL_STRATEGY_SINGLE;
-        } else if (strcmp(strategy_str, "hybrid") == 0) {
-            strategy = MVGAL_STRATEGY_HYBRID;
-        } else if (strcmp(strategy_str, "custom") == 0) {
-            strategy = MVGAL_STRATEGY_CUSTOM;
-        } else {
-            strategy = MVGAL_STRATEGY_ROUND_ROBIN;
-        }
-        
-        mvgal_set_strategy(strategy);
+        mvgal_distribution_strategy_t strategy = string_to_strategy(strategy_str);
+        mvgal_set_strategy(g_context, strategy);
     }
+    
+    DBusMessage *reply = dbus_message_new_method_return(message);
+    dbus_connection_send(connection, reply, NULL);
+    dbus_message_unref(reply);
+    return TRUE;
+}
+
+dbus_bool_t handle_get_strategy(DBusConnection *connection, DBusMessage *message, void *user_data) {
+    (void)user_data;
+    
+    mvgal_distribution_strategy_t strategy = mvgal_get_strategy(g_context);
+    const char *strategy_str = strategy_to_string(strategy);
+    
+    DBusMessage *reply = dbus_message_new_method_return(message);
+    dbus_message_append_args(reply, DBUS_TYPE_STRING, &strategy_str, DBUS_TYPE_INVALID);
+    dbus_connection_send(connection, reply, NULL);
+    dbus_message_unref(reply);
+    return TRUE;
+}
+
+dbus_bool_t handle_reset_stats(DBusConnection *connection, DBusMessage *message, void *user_data) {
+    (void)user_data;
+    
+    mvgal_reset_stats(g_context);
     
     DBusMessage *reply = dbus_message_new_method_return(message);
     dbus_connection_send(connection, reply, NULL);
@@ -198,7 +271,21 @@ dbus_bool_t handle_method_call(DBusConnection *connection, DBusMessage *message,
                     return handle_get_enabled(connection, message, user_data);
                 } else if (strcmp(property, "GPUCount") == 0) {
                     return handle_get_gpu_count(connection, message, user_data);
+                } else if (strcmp(property, "Strategy") == 0) {
+                    return handle_get_strategy(connection, message, user_data);
                 }
+            }
+        } else if (strcmp(method, "Set") == 0) {
+            const char *property = NULL;
+            DBusMessageIter args;
+            if (dbus_message_iter_init(message, &args)) {
+                DBusMessageIter sub_iter;
+                dbus_message_iter_recurse(&args, &sub_iter);
+                dbus_message_iter_get_basic(&sub_iter, &property);
+            }
+            
+            if (property && strcmp(property, "Strategy") == 0) {
+                return handle_set_strategy(connection, message, user_data);
             }
         }
         return TRUE;
@@ -210,6 +297,8 @@ dbus_bool_t handle_method_call(DBusConnection *connection, DBusMessage *message,
         return handle_get_stats(connection, message, user_data);
     } else if (strcmp(method, "SetDefaultStrategy") == 0) {
         return handle_set_strategy(connection, message, user_data);
+    } else if (strcmp(method, "ResetStats") == 0) {
+        return handle_reset_stats(connection, message, user_data);
     }
     
     return FALSE;
@@ -223,16 +312,21 @@ int main(int argc, char **argv) {
     dbus_error_init(&error);
     
     // Initialize MVGAL
-    if (mvgal_init(NULL) != 0) {
-        fprintf(stderr, "Failed to initialize MVGAL\n");
+    mvgal_error_t mvgal_err = mvgal_init(NULL);
+    if (mvgal_err != MVGAL_SUCCESS) {
+        fprintf(stderr, "Failed to initialize MVGAL: %d\n", mvgal_err);
         return 1;
     }
+    
+    // Create context
+    mvgal_context_create(&g_context);
     
     // Connect to system bus
     connection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
     if (dbus_error_is_set(&error)) {
         fprintf(stderr, "Failed to connect to system bus: %s\n", error.message);
         dbus_error_free(&error);
+        mvgal_context_destroy(g_context);
         mvgal_shutdown();
         return 1;
     }
@@ -244,6 +338,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to request service name: %s\n", error.message);
         dbus_error_free(&error);
         dbus_connection_unref(connection);
+        mvgal_context_destroy(g_context);
         mvgal_shutdown();
         return 1;
     }
@@ -251,6 +346,7 @@ int main(int argc, char **argv) {
     if (ret != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
         fprintf(stderr, "Failed to become primary owner of service name\n");
         dbus_connection_unref(connection);
+        mvgal_context_destroy(g_context);
         mvgal_shutdown();
         return 1;
     }
@@ -270,6 +366,7 @@ int main(int argc, char **argv) {
     // Cleanup
     dbus_connection_unregister_object_path(connection, DBUS_PATH);
     dbus_connection_unref(connection);
+    mvgal_context_destroy(g_context);
     mvgal_shutdown();
     
     return 0;

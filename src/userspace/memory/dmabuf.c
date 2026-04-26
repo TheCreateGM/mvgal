@@ -9,7 +9,7 @@
  */
 
 #include "memory_internal.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal_log.h"
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -18,6 +18,11 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>
+
+// For mkostemp (GNU extension)
+#ifndef HAVE_MKOSTEMP
+#define mkostemp(template, flags) mkstemp(template)
+#endif
 
 // DMA-BUF heap ioctl definitions (Linux kernel)
 #ifndef DMA_HEAP_IOCTL_CASE

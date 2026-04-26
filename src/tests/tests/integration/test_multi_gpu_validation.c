@@ -5,13 +5,13 @@
  * Validates that multiple GPUs can be detected and used together.
  */
 
-#include "mvgal.h"
+#include "mvgal/mvgal.h"
 #include "mvgal_execution.h"
-#include "mvgal_gpu.h"
+#include "mvgal/mvgal_gpu.h"
 #include "mvgal_scheduler.h"
 #include <inttypes.h>
 #include "mvgal_memory.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal_log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,8 +40,8 @@ int main(void)
     
     // Test GPU enumeration
     if (gpu_count > 0) {
-        mvgal_gpu_descriptor_t *gpus = malloc(gpu_count * sizeof(mvgal_gpu_descriptor_t));
-        int enumerated = mvgal_gpu_enumerate(gpus, gpu_count);
+        mvgal_gpu_descriptor_t *gpus = malloc((size_t)gpu_count * sizeof(mvgal_gpu_descriptor_t));
+        int enumerated = mvgal_gpu_enumerate(gpus, (uint32_t)gpu_count);
         TEST_ASSERT(enumerated > 0, "GPU enumeration");
         MVGAL_LOG_INFO("Enumerated %d GPU(s):", enumerated);
         

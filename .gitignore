@@ -73,3 +73,6 @@ dist/
 *.tar.gz
 *.snap
 *.Flatpak
+
+# Stakpak session files
+.stakpak/session*

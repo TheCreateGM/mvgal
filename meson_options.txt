@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# MVGAL meson build options
+
+option('with_vulkan',       type : 'boolean', value : true,  description : 'Build Vulkan interception layer')
+option('with_opencl',       type : 'boolean', value : true,  description : 'Build OpenCL interception layer')
+option('with_cuda',         type : 'boolean', value : false, description : 'Build CUDA wrapper (experimental)')
+option('with_daemon',       type : 'boolean', value : true,  description : 'Build MVGAL daemon')
+option('with_tests',        type : 'boolean', value : true,  description : 'Build test suite')
+option('with_benchmarks',   type : 'boolean', value : false, description : 'Build benchmark suite')
+option('with_kernel_module',type : 'boolean', value : false, description : 'Build kernel module (requires kernel headers)')

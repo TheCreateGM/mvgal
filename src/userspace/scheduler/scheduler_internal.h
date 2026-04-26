@@ -11,9 +11,9 @@
 #ifndef MVGAL_SCHEDULER_INTERNAL_H
 #define MVGAL_SCHEDULER_INTERNAL_H
 
-#include "mvgal_scheduler.h"
-#include "mvgal_gpu.h"
-#include "mvgal_memory.h"
+#include "mvgal/mvgal_scheduler.h"
+#include "mvgal/mvgal_gpu.h"
+#include "mvgal/mvgal_memory.h"
 #include <pthread.h>
 #include <stdatomic.h>
 

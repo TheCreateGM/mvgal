@@ -6,7 +6,7 @@
 #ifndef MVGAL_EXECUTION_INTERNAL_H
 #define MVGAL_EXECUTION_INTERNAL_H
 
-#include "mvgal_execution.h"
+#include "mvgal/mvgal_execution.h"
 #include "../scheduler/scheduler_internal.h"
 #include "../memory/memory_internal.h"
 

@@ -20,6 +20,7 @@ target_link_libraries(test_multi_gpu
     ${DRM_IMPORTED_TARGET}
     ${PCI_IMPORTED_TARGET}
     ${UDEV_IMPORTED_TARGET}
+    m
 )
 
 add_test(NAME test_multi_gpu COMMAND test_multi_gpu)
@@ -46,4 +47,27 @@ if(WITH_VULKAN AND Vulkan_FOUND)
     )
 
     add_test(NAME test_vulkan_layer_submit COMMAND test_vulkan_layer_submit)
+endif()
+
+# OpenCL interception test
+if(MVGAL_BUILD_API AND OpenCL_FOUND)
+    add_executable(test_opencl_intercept
+        test_opencl_intercept.c
+    )
+
+    target_link_libraries(test_opencl_intercept
+        PRIVATE
+            mvgal_core
+            Threads::Threads
+            ${OpenCL_LIBRARIES}
+            dl
+            m
+    )
+
+    target_include_directories(test_opencl_intercept
+        PRIVATE
+            ${OpenCL_INCLUDE_DIRS}
+    )
+
+    add_test(NAME test_opencl_intercept COMMAND test_opencl_intercept)
 endif()

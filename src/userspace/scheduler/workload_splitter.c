@@ -8,9 +8,9 @@
  * declared in mvgal_scheduler.h.
  */
 
-#include "mvgal_scheduler.h"
-#include "mvgal_log.h"
-#include "mvgal_types.h"
+#include "mvgal/mvgal_scheduler.h"
+#include "mvgal/mvgal_log.h"
+#include "mvgal/mvgal_types.h"
 
 #include <stdlib.h>
 #include <string.h>

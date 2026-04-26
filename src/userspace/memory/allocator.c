@@ -10,8 +10,8 @@
  */
 
 #include "memory_internal.h"
-#include "mvgal_gpu.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal_gpu.h"
+#include "mvgal/mvgal_log.h"
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
