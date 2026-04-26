@@ -3,10 +3,10 @@
  * @brief Execution engine unit tests
  */
 
-#include "mvgal.h"
+#include "mvgal/mvgal.h"
 #include "mvgal_execution.h"
 #include "mvgal_memory.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal_log.h"
 
 #include <inttypes.h>
 #include <stdio.h>

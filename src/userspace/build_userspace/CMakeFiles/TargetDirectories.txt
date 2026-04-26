@@ -1,0 +1,9 @@
+/home/axogm/Documents/Driver/new/mvgal/src/userspace/build_userspace/CMakeFiles/mvgal_core.dir
+/home/axogm/Documents/Driver/new/mvgal/src/userspace/build_userspace/CMakeFiles/mvgal.dir
+/home/axogm/Documents/Driver/new/mvgal/src/userspace/build_userspace/CMakeFiles/mvgal-daemon.dir
+/home/axogm/Documents/Driver/new/mvgal/src/userspace/build_userspace/CMakeFiles/edit_cache.dir
+/home/axogm/Documents/Driver/new/mvgal/src/userspace/build_userspace/CMakeFiles/rebuild_cache.dir
+/home/axogm/Documents/Driver/new/mvgal/src/userspace/build_userspace/CMakeFiles/list_install_components.dir
+/home/axogm/Documents/Driver/new/mvgal/src/userspace/build_userspace/CMakeFiles/install.dir
+/home/axogm/Documents/Driver/new/mvgal/src/userspace/build_userspace/CMakeFiles/install/local.dir
+/home/axogm/Documents/Driver/new/mvgal/src/userspace/build_userspace/CMakeFiles/install/strip.dir

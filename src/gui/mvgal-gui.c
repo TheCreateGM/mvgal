@@ -13,7 +13,8 @@
 #endif
 #include <stdbool.h>
 
-#include "../src/userspace/core/mvgal.h"
+#include "mvgal/mvgal.h"
+#include "mvgal/mvgal_gpu.h"
 
 // Main window
 static GtkWidget *window = NULL;
@@ -38,40 +39,76 @@ static GtkWidget *label_total_workloads = NULL;
 static GtkWidget *label_load_balance = NULL;
 static GtkWidget *label_memory_used = NULL;
 
+// Global context
+static mvgal_context_t g_context = NULL;
+
+static void on_set_strategy(GtkWidget *widget, gpointer user_data);
+
+static const char *strategy_name(mvgal_distribution_strategy_t strategy) {
+    switch (strategy) {
+        case MVGAL_STRATEGY_ROUND_ROBIN: return "Round Robin";
+        case MVGAL_STRATEGY_AFR: return "AFR";
+        case MVGAL_STRATEGY_SFR: return "SFR";
+        case MVGAL_STRATEGY_SINGLE_GPU: return "Single GPU";
+        case MVGAL_STRATEGY_HYBRID: return "Hybrid";
+        case MVGAL_STRATEGY_TASK: return "Task";
+        case MVGAL_STRATEGY_COMPUTE_OFFLOAD: return "Compute Offload";
+        case MVGAL_STRATEGY_AUTO: return "Auto";
+        case MVGAL_STRATEGY_CUSTOM: return "Custom";
+        default: return "Unknown";
+    }
+}
+
+static const char *vendor_name(mvgal_vendor_t vendor) {
+    switch (vendor) {
+        case MVGAL_VENDOR_AMD: return "AMD";
+        case MVGAL_VENDOR_NVIDIA: return "NVIDIA";
+        case MVGAL_VENDOR_INTEL: return "Intel";
+        case MVGAL_VENDOR_MOORE_THREADS: return "Moore Threads";
+        default: return "Unknown";
+    }
+}
+
 static void refresh_gpu_list(void) {
     GtkTreeIter iter;
     
     gtk_list_store_clear(gpu_store);
     
-    int gpu_count = mvgal_get_gpu_count();
-    for (int i = 0; i < gpu_count; i++) {
-        mvgal_gpu_info_t info;
-        if (mvgal_get_gpu_info(i, &info) == 0) {
+    int32_t gpu_count = mvgal_gpu_get_count();
+    for (int32_t i = 0; i < gpu_count; i++) {
+        mvgal_gpu_descriptor_t desc;
+        if (mvgal_gpu_get_descriptor(i, &desc) == MVGAL_SUCCESS) {
             gtk_list_store_append(gpu_store, &iter);
             gtk_list_store_set(gpu_store, &iter,
-                               0, info.id,
-                               1, info.name,
-                               2, info.vendor,
-                               3, info.priority,
-                               4, info.enabled ? "Yes" : "No",
-                               5, (double)info.memory_used / (1024 * 1024),
+                               0, desc.id,
+                               1, desc.name,
+                               2, vendor_name(desc.vendor),
+                               3, (int)i,  // Use index as priority for now
+                               4, desc.enabled ? "Yes" : "No",
+                               5, (double)desc.vram_used / (1024 * 1024),
                                -1);
         }
     }
 }
 
 static void refresh_stats(void) {
+    if (g_context == NULL) {
+        mvgal_context_create(&g_context);
+    }
+    
     mvgal_stats_t stats;
-    if (mvgal_get_stats(&stats) == 0) {
+    if (mvgal_get_stats(g_context, &stats) == MVGAL_SUCCESS) {
         char buf[256];
         
-        snprintf(buf, sizeof(buf), "%lu", (unsigned long)stats.total_workloads);
+        snprintf(buf, sizeof(buf), "%lu", (unsigned long)stats.frames_submitted);
         gtk_label_set_text(GTK_LABEL(label_total_workloads), buf);
         
-        snprintf(buf, sizeof(buf), "%.2f%%", stats.load_balance);
+        // Simplified load balance display
+        float balance = 100.0f;
+        snprintf(buf, sizeof(buf), "%.2f%%", balance);
         gtk_label_set_text(GTK_LABEL(label_load_balance), buf);
         
-        snprintf(buf, sizeof(buf), "%.2f MB", (double)stats.memory_used / (1024 * 1024));
+        snprintf(buf, sizeof(buf), "%.2f MB", (double)stats.bytes_transferred / (1024 * 1024));
         gtk_label_set_text(GTK_LABEL(label_memory_used), buf);
     }
 }
@@ -161,11 +198,18 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(strategy_combo), "round_robin");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(strategy_combo), "afr");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(strategy_combo), "sfr");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(strategy_combo), "single");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(strategy_combo), "single_gpu");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(strategy_combo), "hybrid");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(strategy_combo), "task");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(strategy_combo), "compute_offload");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(strategy_combo), "auto");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(strategy_combo), "custom");
     gtk_combo_box_set_active(GTK_COMBO_BOX(strategy_combo), 0);
     gtk_box_pack_start(GTK_BOX(strategy_vbox), strategy_combo, FALSE, FALSE, 0);
+    
+    GtkWidget *set_strategy_btn = gtk_button_new_with_label("Set Strategy");
+    g_signal_connect(set_strategy_btn, "clicked", G_CALLBACK(on_set_strategy), NULL);
+    gtk_box_pack_start(GTK_BOX(strategy_vbox), set_strategy_btn, FALSE, FALSE, 0);
     
     gtk_box_pack_start(GTK_BOX(strategy_box), strategy_frame, FALSE, FALSE, 0);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), strategy_box, gtk_label_new("Strategy"));
@@ -227,7 +271,7 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_grid_attach(GTK_GRID(stats_grid), label_load_balance, 1, row, 1, 1);
     row++;
     
-    label = gtk_label_new("Memory Used:");
+    label = gtk_label_new("Memory Transferred:");
     gtk_grid_attach(GTK_GRID(stats_grid), label, 0, row, 1, 1);
     label_memory_used = gtk_label_new("0 MB");
     gtk_grid_attach(GTK_GRID(stats_grid), label_memory_used, 1, row, 1, 1);
@@ -245,16 +289,65 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_widget_show_all(window);
     
     // Initialize MVGAL
-    mvgal_init(NULL);
+    mvgal_error_t err = mvgal_init(0);
+    if (err != MVGAL_SUCCESS) {
+        GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(window),
+            GTK_DIALOG_DESTROY_WITH_PARENT,
+            GTK_MESSAGE_ERROR,
+            GTK_BUTTONS_OK,
+            "Failed to initialize MVGAL: %d", err);
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+    }
+    
+    // Create context
+    mvgal_context_create(&g_context);
     
     // Refresh data
     refresh_gpu_list();
     refresh_stats();
 }
 
+static void on_set_strategy(GtkWidget *widget, gpointer user_data) {
+    (void)widget;
+    (void)user_data;
+    
+    const char *strategy_text = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(strategy_combo));
+    mvgal_distribution_strategy_t strategy = MVGAL_STRATEGY_HYBRID;
+    
+    if (g_strcmp0(strategy_text, "round_robin") == 0) {
+        strategy = MVGAL_STRATEGY_ROUND_ROBIN;
+    } else if (g_strcmp0(strategy_text, "afr") == 0) {
+        strategy = MVGAL_STRATEGY_AFR;
+    } else if (g_strcmp0(strategy_text, "sfr") == 0) {
+        strategy = MVGAL_STRATEGY_SFR;
+    } else if (g_strcmp0(strategy_text, "single_gpu") == 0) {
+        strategy = MVGAL_STRATEGY_SINGLE_GPU;
+    } else if (g_strcmp0(strategy_text, "hybrid") == 0) {
+        strategy = MVGAL_STRATEGY_HYBRID;
+    } else if (g_strcmp0(strategy_text, "task") == 0) {
+        strategy = MVGAL_STRATEGY_TASK;
+    } else if (g_strcmp0(strategy_text, "compute_offload") == 0) {
+        strategy = MVGAL_STRATEGY_COMPUTE_OFFLOAD;
+    } else if (g_strcmp0(strategy_text, "auto") == 0) {
+        strategy = MVGAL_STRATEGY_AUTO;
+    } else if (g_strcmp0(strategy_text, "custom") == 0) {
+        strategy = MVGAL_STRATEGY_CUSTOM;
+    }
+    
+    if (g_context != NULL) {
+        mvgal_set_strategy(g_context, strategy);
+    }
+}
+
 static void on_shutdown(GtkApplication *app, gpointer user_data) {
     (void)app;
     (void)user_data;
+    
+    if (g_context != NULL) {
+        mvgal_context_destroy(g_context);
+        g_context = NULL;
+    }
     mvgal_shutdown();
 }
 

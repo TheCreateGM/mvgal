@@ -9,8 +9,8 @@
  */
 
 #include "scheduler_internal.h"
-#include "mvgal_log.h"
-#include "mvgal_gpu.h"
+#include "mvgal/mvgal_log.h"
+#include "mvgal/mvgal_gpu.h"
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>

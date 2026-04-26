@@ -76,7 +76,7 @@ target_link_libraries(mvgal
 )
 
 # Vulkan interception layer (optional)
-if(WITH_VULKAN AND Vulkan_FOUND)
+if(MVGAL_BUILD_API AND Vulkan_FOUND)
     add_library(mvgal_vulkan_layer SHARED
         intercept/vulkan/vk_layer.c
     )
@@ -148,7 +148,7 @@ if(WITH_VULKAN AND Vulkan_FOUND)
 endif()
 
 # OpenCL interception (optional)
-if(WITH_OPENCL AND OpenCL_FOUND)
+if(MVGAL_BUILD_API AND OpenCL_FOUND)
     add_library(mvgal_opencl SHARED
         intercept/opencl/cl_intercept.c
     )

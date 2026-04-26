@@ -14,9 +14,9 @@
 #include <stddef.h>
 #include <stdatomic.h>
 #include <pthread.h>
-#include "mvgal_types.h"
-#include "mvgal_gpu.h"
-#include "mvgal_memory.h"
+#include "mvgal/mvgal_types.h"
+#include "mvgal/mvgal_gpu.h"
+#include "mvgal/mvgal_memory.h"
 
 #ifdef __cplusplus
 extern "C" {

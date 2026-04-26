@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "memory_safety"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "MVGAL safe wrappers for cross-GPU memory operations"
+
+[dependencies]
+serde = { workspace = true }
+
+[lib]
+name = "mvgal_memory_safety"
+crate-type = ["staticlib", "rlib"]

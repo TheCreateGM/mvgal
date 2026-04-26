@@ -9,7 +9,7 @@
  */
 
 #include "../scheduler_internal.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal_log.h"
 
 /**
  * @brief Distribute workload using compute offload strategy

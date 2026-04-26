@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Cargo configuration for MVGAL Rust workspace
+
+[build]
+# Use all available CPUs for compilation
+# jobs = 0  # Set to a specific number if needed, e.g. jobs = 8
+
+[profile.release]
+# Optimize for size in release builds (important for FFI static libs)
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+# Fast debug builds
+opt-level = 0
+debug = true
+
+[profile.test]
+# Tests need debug info
+opt-level = 1
+debug = true

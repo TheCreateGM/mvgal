@@ -13,7 +13,7 @@
  * - Color output
  */
 
-#include "mvgal_log.h"
+#include "mvgal/mvgal_log.h"
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdlib.h>

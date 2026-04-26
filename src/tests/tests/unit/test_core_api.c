@@ -3,8 +3,8 @@
  * @brief Core API Unit Tests
  */
 
-#include "mvgal.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal.h"
+#include "mvgal/mvgal_log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,7 +39,7 @@ static void test_version(void)
     TEST_ASSERT(strlen(version) > 0, "Version is empty");
     uint32_t major, minor, patch;
     mvgal_get_version_numbers(&major, &minor, &patch);
-    TEST_ASSERT(major > 0 || minor > 0 || patch >= 0, "Invalid version numbers");
+    TEST_ASSERT(major > 0 || minor > 0 || patch > 0, "Invalid version numbers");
     MVGAL_LOG_INFO("  Version: %s (%u.%u.%u)", version, major, minor, patch);
     mvgal_shutdown();
     MVGAL_LOG_INFO("TEST: Version - PASSED");

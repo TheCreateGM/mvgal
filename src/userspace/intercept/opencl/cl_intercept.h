@@ -13,11 +13,11 @@
 #define CL_INTERCEPT_MVGAL_H
 
 // MVGAL headers
-#include "mvgal.h"
-#include "mvgal_gpu.h"
-#include "mvgal_log.h"
-#include "mvgal_scheduler.h"
-#include "mvgal_memory.h"
+#include "mvgal/mvgal.h"
+#include "mvgal/mvgal_gpu.h"
+#include "mvgal/mvgal_log.h"
+#include "mvgal/mvgal_scheduler.h"
+#include "mvgal/mvgal_memory.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -107,6 +107,7 @@ typedef struct {
     void *original_clGetKernelWorkGroupInfo;
     void *original_clEnqueueNDRangeKernel;
     void *original_clEnqueueTask;
+    void *original_clEnqueueNativeKernel;
     void *original_clEnqueueReadBuffer;
     void *original_clEnqueueWriteBuffer;
     void *original_clEnqueueCopyBuffer;

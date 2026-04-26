@@ -8,9 +8,9 @@
  * a common descriptor, and exposes logical-device aggregation helpers.
  */
 
-#include "mvgal_gpu.h"
-#include "mvgal_log.h"
-#include "mvgal_config.h"
+#include "mvgal/mvgal_gpu.h"
+#include "mvgal/mvgal_log.h"
+#include "mvgal/mvgal_config.h"
 
 #include <ctype.h>
 #include <dirent.h>

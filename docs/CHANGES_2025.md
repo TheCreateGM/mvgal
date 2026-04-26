@@ -1,14 +1,14 @@
 # MVGAL Implementation Changes - 2025 & 2026
 
 ![Version](https://img.shields.io/badge/current-v0.2.0-%2376B900?style=for-the-badge)
-![Last Updated](https://img.shields.io/badge/updated-April_21_2026-%232196F3?style=for-the-badge)
+![Last Updated](https://img.shields.io/badge/updated-April_26_2026-%232196F3?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-Health_Monitor-%234CAF50?style=for-the-badge)
 ![Completion](https://img.shields.io/badge/completion-95%25-%232196F3?style=for-the-badge)
 
 **Project:** Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
-**Document Version:** 2.0
+**Document Version:** 2.1
 **Authors:** AxoGM, MVGAL Team
-**Total Code:** ~25,700+ lines across ~30 C source files
+**Total Code:** ~25,700+ lines of C code + ~748+ lines of Rust code = ~26,448+ lines across ~36 source files
 
 ---
 
@@ -47,8 +47,9 @@ gantt
     section April 2026 - NEW in v0.2.0
     Execution Module         :done, crit, 2026-04-01, 2026-04-21
     Kernel Integration       :done, high, 2026-04-05, 2026-04-20
+    Rust Safety Components   :done, crit, 2026-04-22, 2026-04-26
     Version Bump             :done, med, 2026-04-21, 2026-04-21
-    Docs Overhaul            :active, med, 2026-04-21, 2026-04-21
+    Docs Overhaul            :done, med, 2026-04-21, 2026-04-26
     
     section Future
     Vulkan Layer (complete)  :      high, after 2026-04-21, 14d
@@ -144,6 +145,141 @@ classDiagram
 - ✅ Multi-path memory routing (DMA-BUF, P2P, CPU fallback)
 - ✅ Integration with existing scheduler
 - ✅ Lightweight internal handle system
+
+---
+
+### 🚀 MAJOR ADDITION: Rust Safety Components (April 2026) **NEW**
+
+[![Status](https://img.shields.io/badge/status-NEW-%234CAF50?style=flat-square)]
+[![LOCC](https://img.shields.io/badge/added-748%2B_lines-%230071C5?style=for-the-badge)]
+[![Language](https://img.shields.io/badge/Language-Rust-%23DEA584.svg?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
+
+**Added in Latest Commit (April 2026):**
+
+MVGAL now includes **Rust-based safety-critical components** organized in a **Cargo workspace** with full C FFI interfaces.
+
+```mermaid
+flowchart TD
+    subgraph RustWorkspace["Rust Workspace"]
+        Cargo.toml
+        fence_manager
+        memory_safety
+        capability_model
+        runtime/safe
+    end
+    
+    subgraph CIntegration["C Integration"]
+        Core[crate-type=staticlib]
+        Headers[C Headers]
+        CCode[C Code]
+    end
+    
+    RustWorkspace -->|Compiles to| Core
+    Core -->|Links with| CCode
+    RustWorkspace -->|Generates| Headers
+    CCode -->|Calls| Core
+    
+    style RustWorkspace fill:#DEA584,stroke:#B87338
+    style CIntegration fill:#3A3A3A,stroke:#505050
+```
+
+**New Workspace Structure:**
+```
+mvgal/
+├── Cargo.toml                     # Workspace root
+├── Cargo.lock
+│
+├── safe/
+│   ├── fence_manager/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs            # ~248 lines
+│   │
+│   ├── memory_safety/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs            # ~230 lines
+│   │
+│   └── capability_model/
+│       ├── Cargo.toml
+│       └── src/lib.rs            # ~260 lines
+│
+└── runtime/safe/
+    ├── Cargo.toml
+    └── lib.rs
+```
+
+**New Components:**
+
+#### 1. Fence Manager (`safe/fence_manager/`)
+- **Purpose**: Cross-device fence lifecycle management
+- **Lines**: ~248
+- **Features**:
+  - Fence creation, submission, signaling, reset, destruction
+  - State machine (Pending → Submitted → Signalled → Reset → Destroyed)
+  - GPU index association
+  - Monotonic timestamp tracking
+  - Thread-safe HashMap registry
+- **FFI Functions**: 6 functions (`mvgal_fence_create`, `mvgal_fence_submit`, `mvgal_fence_signal`, `mvgal_fence_state`, `mvgal_fence_reset`, `mvgal_fence_destroy`)
+- **Tests**: 3 comprehensive unit tests
+- **Status**: ✅ 100% Complete with full C FFI
+
+#### 2. Memory Safety (`safe/memory_safety/`)
+- **Purpose**: Safe wrappers for cross-GPU memory operations
+- **Lines**: ~230
+- **Features**:
+  - Memory allocation tracking with reference counting
+  - Support for 3 placements: System RAM, GPU VRAM, Mirrored
+  - DMA-BUF file descriptor association
+  - Total bytes tracking per placement type
+  - Automatic cleanup on release
+- **FFI Functions**: 8 functions (`mvgal_mem_track`, `mvgal_mem_retain`, `mvgal_mem_release`, `mvgal_mem_set_dmabuf`, `mvgal_mem_size`, `mvgal_mem_placement`, `mvgal_mem_total_system_bytes`, `mvgal_mem_total_gpu_bytes`)
+- **Tests**: 3 comprehensive unit tests
+- **Status**: ✅ 100% Complete with full C FFI
+
+#### 3. Capability Model (`safe/capability_model/`)
+- **Purpose**: GPU capability normalization and comparison
+- **Lines**: ~260
+- **Features**:
+  - GPU vendor enumeration (AMD, NVIDIA, Intel, Moore Threads)
+  - Capability aggregation across multiple GPUs
+  - Tier classification (Full, ComputeOnly, Mixed)
+  - API flags union/intersection computation
+  - JSON serialization support (via serde_json)
+- **Types**: `GpuVendor`, `CapabilityTier`, `GpuCapability`, `AggregateCapability`
+- **FFI Functions**: 5 functions (`mvgal_cap_compute`, `mvgal_cap_free`, `mvgal_cap_total_vram`, `mvgal_cap_tier`, `mvgal_cap_to_json`)
+- **Tests**: 4 comprehensive unit tests
+- **Status**: ✅ 100% Complete with full C FFI
+
+**Workspace Configuration:**
+- **Version**: 0.2.0
+- **Edition**: 2021
+- **Rust Version**: 1.75+
+- **License**: MIT OR Apache-2.0
+- **Dependencies**: serde (all crates), serde_json (capability_model)
+
+**Key Benefits:**
+- ✅ **Memory Safety**: Compile-time prevention of use-after-free, buffer overflows, data races
+- ✅ **Thread Safety**: Safe concurrent access with Mutex and Atomic operations
+- ✅ **Performance**: Zero-cost abstractions, comparable to C
+- ✅ **Interoperability**: Full C FFI for seamless integration with C code
+- ✅ **Reliability**: Comprehensive unit testing with `cargo test`
+
+**Build Commands:**
+```bash
+# Build all Rust crates
+cd safe
+cargo build --release
+
+# Build individual crates
+cargo build --release -p fence_manager
+cargo build --release -p memory_safety
+cargo build --release -p capability_model
+
+# Run tests
+cargo test
+cargo test --release
+```
+
+**See Also:** [RUST_DEVELOPMENT.md](RUST_DEVELOPMENT.md) for detailed Rust development guide.
 
 ---
 

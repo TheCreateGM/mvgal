@@ -7,10 +7,10 @@
 
 #include "execution_internal.h"
 
-#include "mvgal.h"
-#include "mvgal_gpu.h"
-#include "mvgal_log.h"
-#include "mvgal_scheduler.h"
+#include "mvgal/mvgal.h"
+#include "mvgal/mvgal_gpu.h"
+#include "mvgal/mvgal_log.h"
+#include "mvgal/mvgal_scheduler.h"
 
 #include <inttypes.h>
 #include <pthread.h>

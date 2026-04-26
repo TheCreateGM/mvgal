@@ -1,0 +1,5 @@
+# Kbuild file for MVGAL kernel module
+# This file tells the kernel build system that this is a standalone module
+# and not part of the kernel source tree.
+
+obj-m := mvgal.o

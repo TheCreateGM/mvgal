@@ -8,7 +8,7 @@
  */
 
 #include "memory_internal.h"
-#include "mvgal_log.h"
+#include "mvgal/mvgal_log.h"
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
