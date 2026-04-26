@@ -14,6 +14,7 @@ mvgal_layer_state_t g_mvgal_layer_state = {
     .queues = NULL,
     .physical_devices = NULL,
     .submit_count = 0,
+    .physical_device_count = 0,
 };
 
 static bool env_truthy(const char *name)
@@ -211,6 +212,22 @@ VkResult mvgal_vk_register_instance(
         (PFN_vkDestroyInstance)next_gipa(instance, "vkDestroyInstance");
     dispatch->create_device =
         (PFN_vkCreateDevice)next_gipa(instance, "vkCreateDevice");
+    dispatch->enumerate_physical_devices =
+        (PFN_vkEnumeratePhysicalDevices)next_gipa(instance, "vkEnumeratePhysicalDevices");
+    dispatch->get_physical_device_properties =
+        (PFN_vkGetPhysicalDeviceProperties)next_gipa(instance, "vkGetPhysicalDeviceProperties");
+    dispatch->get_physical_device_features =
+        (PFN_vkGetPhysicalDeviceFeatures)next_gipa(instance, "vkGetPhysicalDeviceFeatures");
+    dispatch->get_physical_device_memory_properties =
+        (PFN_vkGetPhysicalDeviceMemoryProperties)next_gipa(instance, "vkGetPhysicalDeviceMemoryProperties");
+    dispatch->get_physical_device_queue_family_properties =
+        (PFN_vkGetPhysicalDeviceQueueFamilyProperties)next_gipa(instance, "vkGetPhysicalDeviceQueueFamilyProperties");
+    dispatch->get_physical_device_properties2 =
+        (PFN_vkGetPhysicalDeviceProperties2)next_gipa(instance, "vkGetPhysicalDeviceProperties2");
+    dispatch->get_physical_device_features2 =
+        (PFN_vkGetPhysicalDeviceFeatures2)next_gipa(instance, "vkGetPhysicalDeviceFeatures2");
+    dispatch->get_physical_device_memory_properties2 =
+        (PFN_vkGetPhysicalDeviceMemoryProperties2)next_gipa(instance, "vkGetPhysicalDeviceMemoryProperties2");
 
     pthread_mutex_lock(&g_mvgal_layer_state.lock);
     dispatch->next = g_mvgal_layer_state.instances;
@@ -652,6 +669,22 @@ VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDevices(
         if (map_result != VK_SUCCESS) {
             return map_result;
         }
+
+        /* Log topology for telemetry */
+        mvgal_vk_layer_log(
+            "vkEnumeratePhysicalDevices instance=%p count=%u",
+            (void *)instance,
+            *pPhysicalDeviceCount
+        );
+
+        /* Cache properties for each newly registered device */
+        for (uint32_t i = 0; i < *pPhysicalDeviceCount; ++i) {
+            mvgal_physical_device_dispatch_t *pd =
+                mvgal_vk_find_physical_device_dispatch(pPhysicalDevices[i]);
+            if (pd != NULL && !pd->properties_cached) {
+                mvgal_vk_cache_physical_device_properties(pd);
+            }
+        }
     }
 
     return result;
@@ -912,12 +945,234 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(
         return (PFN_vkVoidFunction)vkQueueSubmit2KHR;
     }
 
+    if (strcmp(pName, "vkGetPhysicalDeviceProperties") == 0) {
+        return (PFN_vkVoidFunction)vkGetPhysicalDeviceProperties;
+    }
+    if (strcmp(pName, "vkGetPhysicalDeviceFeatures") == 0) {
+        return (PFN_vkVoidFunction)vkGetPhysicalDeviceFeatures;
+    }
+    if (strcmp(pName, "vkGetPhysicalDeviceMemoryProperties") == 0) {
+        return (PFN_vkVoidFunction)vkGetPhysicalDeviceMemoryProperties;
+    }
+    if (strcmp(pName, "vkGetPhysicalDeviceQueueFamilyProperties") == 0) {
+        return (PFN_vkVoidFunction)vkGetPhysicalDeviceQueueFamilyProperties;
+    }
+    if (strcmp(pName, "vkGetPhysicalDeviceProperties2") == 0) {
+        return (PFN_vkVoidFunction)vkGetPhysicalDeviceProperties2;
+    }
+    if (strcmp(pName, "vkGetPhysicalDeviceFeatures2") == 0) {
+        return (PFN_vkVoidFunction)vkGetPhysicalDeviceFeatures2;
+    }
+    if (strcmp(pName, "vkGetPhysicalDeviceMemoryProperties2") == 0) {
+        return (PFN_vkVoidFunction)vkGetPhysicalDeviceMemoryProperties2;
+    }
+
     dispatch = mvgal_vk_find_instance_dispatch(instance);
     if (dispatch == NULL || dispatch->next_gipa == NULL) {
         return NULL;
     }
 
     return dispatch->next_gipa(instance, pName);
+}
+
+/* ---------------------------------------------------------------------------
+ * Physical device property caching
+ * ---------------------------------------------------------------------------
+ * Cache VkPhysicalDeviceProperties for each tracked physical device so the
+ * layer can log device names and vendor IDs in telemetry without calling back
+ * into the driver on every submit.
+ */
+void mvgal_vk_cache_physical_device_properties(
+    mvgal_physical_device_dispatch_t *dispatch
+)
+{
+    if (dispatch == NULL || dispatch->properties_cached) {
+        return;
+    }
+
+    if (dispatch->instance_dispatch == NULL ||
+        dispatch->instance_dispatch->get_physical_device_properties == NULL) {
+        return;
+    }
+
+    dispatch->instance_dispatch->get_physical_device_properties(
+        dispatch->physical_device,
+        &dispatch->properties
+    );
+    dispatch->properties_cached = true;
+
+    mvgal_vk_layer_log(
+        "physical_device=%p vendor=0x%04x device=0x%04x name=\"%s\"",
+        (void *)dispatch->physical_device,
+        (unsigned)dispatch->properties.vendorID,
+        (unsigned)dispatch->properties.deviceID,
+        dispatch->properties.deviceName
+    );
+
+    atomic_fetch_add_explicit(
+        &g_mvgal_layer_state.physical_device_count,
+        1U,
+        memory_order_relaxed
+    );
+}
+
+/* ---------------------------------------------------------------------------
+ * Physical device forwarding interceptors
+ *
+ * These pass through to the next layer/driver while giving the MVGAL layer
+ * an observation point for future aggregation logic.
+ * ---------------------------------------------------------------------------
+ */
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceProperties(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceProperties *pProperties
+)
+{
+    mvgal_physical_device_dispatch_t *dispatch =
+        mvgal_vk_find_physical_device_dispatch(physicalDevice);
+
+    if (dispatch == NULL || dispatch->instance_dispatch == NULL ||
+        dispatch->instance_dispatch->get_physical_device_properties == NULL) {
+        return;
+    }
+
+    dispatch->instance_dispatch->get_physical_device_properties(
+        physicalDevice, pProperties
+    );
+
+    /* Opportunistically cache if not yet done */
+    if (!dispatch->properties_cached && pProperties != NULL) {
+        dispatch->properties = *pProperties;
+        dispatch->properties_cached = true;
+        mvgal_vk_layer_log(
+            "vkGetPhysicalDeviceProperties physical_device=%p vendor=0x%04x name=\"%s\"",
+            (void *)physicalDevice,
+            (unsigned)pProperties->vendorID,
+            pProperties->deviceName
+        );
+    }
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFeatures(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceFeatures *pFeatures
+)
+{
+    mvgal_physical_device_dispatch_t *dispatch =
+        mvgal_vk_find_physical_device_dispatch(physicalDevice);
+
+    if (dispatch == NULL || dispatch->instance_dispatch == NULL ||
+        dispatch->instance_dispatch->get_physical_device_features == NULL) {
+        return;
+    }
+
+    dispatch->instance_dispatch->get_physical_device_features(
+        physicalDevice, pFeatures
+    );
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceMemoryProperties(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceMemoryProperties *pMemoryProperties
+)
+{
+    mvgal_physical_device_dispatch_t *dispatch =
+        mvgal_vk_find_physical_device_dispatch(physicalDevice);
+
+    if (dispatch == NULL || dispatch->instance_dispatch == NULL ||
+        dispatch->instance_dispatch->get_physical_device_memory_properties == NULL) {
+        return;
+    }
+
+    dispatch->instance_dispatch->get_physical_device_memory_properties(
+        physicalDevice, pMemoryProperties
+    );
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceQueueFamilyProperties(
+    VkPhysicalDevice physicalDevice,
+    uint32_t *pQueueFamilyPropertyCount,
+    VkQueueFamilyProperties *pQueueFamilyProperties
+)
+{
+    mvgal_physical_device_dispatch_t *dispatch =
+        mvgal_vk_find_physical_device_dispatch(physicalDevice);
+
+    if (dispatch == NULL || dispatch->instance_dispatch == NULL ||
+        dispatch->instance_dispatch->get_physical_device_queue_family_properties == NULL) {
+        return;
+    }
+
+    dispatch->instance_dispatch->get_physical_device_queue_family_properties(
+        physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties
+    );
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceProperties2(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceProperties2 *pProperties
+)
+{
+    mvgal_physical_device_dispatch_t *dispatch =
+        mvgal_vk_find_physical_device_dispatch(physicalDevice);
+
+    if (dispatch == NULL || dispatch->instance_dispatch == NULL ||
+        dispatch->instance_dispatch->get_physical_device_properties2 == NULL) {
+        return;
+    }
+
+    dispatch->instance_dispatch->get_physical_device_properties2(
+        physicalDevice, pProperties
+    );
+
+    /* Opportunistically cache core properties */
+    if (!dispatch->properties_cached && pProperties != NULL) {
+        dispatch->properties = pProperties->properties;
+        dispatch->properties_cached = true;
+        mvgal_vk_layer_log(
+            "vkGetPhysicalDeviceProperties2 physical_device=%p vendor=0x%04x name=\"%s\"",
+            (void *)physicalDevice,
+            (unsigned)pProperties->properties.vendorID,
+            pProperties->properties.deviceName
+        );
+    }
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFeatures2(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceFeatures2 *pFeatures
+)
+{
+    mvgal_physical_device_dispatch_t *dispatch =
+        mvgal_vk_find_physical_device_dispatch(physicalDevice);
+
+    if (dispatch == NULL || dispatch->instance_dispatch == NULL ||
+        dispatch->instance_dispatch->get_physical_device_features2 == NULL) {
+        return;
+    }
+
+    dispatch->instance_dispatch->get_physical_device_features2(
+        physicalDevice, pFeatures
+    );
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceMemoryProperties2(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceMemoryProperties2 *pMemoryProperties
+)
+{
+    mvgal_physical_device_dispatch_t *dispatch =
+        mvgal_vk_find_physical_device_dispatch(physicalDevice);
+
+    if (dispatch == NULL || dispatch->instance_dispatch == NULL ||
+        dispatch->instance_dispatch->get_physical_device_memory_properties2 == NULL) {
+        return;
+    }
+
+    dispatch->instance_dispatch->get_physical_device_memory_properties2(
+        physicalDevice, pMemoryProperties
+    );
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(

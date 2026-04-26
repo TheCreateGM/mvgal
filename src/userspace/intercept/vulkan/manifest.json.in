@@ -5,8 +5,8 @@
     "type": "GLOBAL",
     "library_path": "libVK_LAYER_MVGAL.so",
     "api_version": "1.3.0",
-    "implementation_version": "1",
-    "description": "Milestone 1 Vulkan submit interception layer for MVGAL/UMGAL",
+    "implementation_version": "2",
+    "description": "MVGAL Vulkan interception layer for multi-vendor GPU aggregation",
     "functions": {
       "vkNegotiateLoaderLayerInterfaceVersion": "vkNegotiateLoaderLayerInterfaceVersion"
     },
