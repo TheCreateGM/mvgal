@@ -7,7 +7,7 @@ License: GPL-3.0-only
 URL: https://github.com/TheCreateGM/mvgal
 Source0: mvgal-%{version}.tar.gz
 
-BuildRequires: gcc, make, cmake >= 3.20, libdrm-devel, systemd-devel
+BuildRequires: gcc, gcc-c++, make, cmake >= 3.20, libdrm-devel, systemd-devel
 
 Requires: libdrm, systemd
 Requires: vulkan-loader
