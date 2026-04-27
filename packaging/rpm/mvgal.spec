@@ -70,7 +70,7 @@ install -m 644 include/mvgal/mvgal_intercept.h %{buildroot}%{_includedir}/mvgal/
 
 # Daemon
 mkdir -p %{buildroot}%{_sbindir}
-install -m 755 build/src/userspace/mvgal-daemon %{buildroot}%{_sbindir}/
+install -m 755 build/runtime/mvgald %{buildroot}%{_sbindir}/mvgal-daemon
 
 # Config
 mkdir -p %{buildroot}%{_sysconfdir}/mvgal
