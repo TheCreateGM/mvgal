@@ -8,8 +8,12 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <signal.h>
 #include <unistd.h>
 
@@ -127,7 +131,11 @@ int main(int argc, char* argv[])
 
     /* Daemonize if requested */
     if (daemonize) {
-        (void)daemon(1, 0);
+        int ret = daemon(1, 0);
+        if (ret < 0) {
+            std::cerr << "Failed to daemonize: " << strerror(errno) << std::endl;
+            return 1;
+        }
     }
 
     /* Run main loop */
