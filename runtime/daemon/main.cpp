@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
 
     /* Daemonize if requested */
     if (daemonize) {
-        daemon(1, 0);
+        (void)daemon(1, 0);
     }
 
     /* Run main loop */
