@@ -312,6 +312,12 @@ See `Cargo.toml` for workspace configuration:
 
 ### Installation
 
+```bash
+# experiment
+sudo dnf copr enable axogm/mvgal
+sudo dnf install -y mvgal
+```
+
 #### Auto-Build (Recommended)
 ```bash
 cd mvgal
