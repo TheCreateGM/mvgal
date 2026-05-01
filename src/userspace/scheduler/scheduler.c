@@ -25,7 +25,7 @@ static mvgal_scheduler_state_t g_scheduler_state = {0};
 static uint64_t get_time_ns(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+    return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
 }
 
 /**
@@ -830,11 +830,11 @@ mvgal_error_t mvgal_workload_wait(
         // Wait with timeout
         struct timespec ts;
         clock_gettime(CLOCK_MONOTONIC, &ts);
-        uint64_t ns = ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+        uint64_t ns = (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
         ns += (uint64_t)timeout_ms * 1000000ULL;
         
-        ts.tv_sec = ns / 1000000000ULL;
-        ts.tv_nsec = ns % 1000000000ULL;
+        ts.tv_sec = (time_t)(ns / 1000000000ULL);
+        ts.tv_nsec = (long)(ns % 1000000000ULL);
         
         while (!w->completion_signaled) {
             int ret = pthread_cond_timedwait(&w->cond, &w->mutex, &ts);

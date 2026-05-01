@@ -6,7 +6,7 @@
  *
  * Intercepts Apple Metal API calls when running applications that use
  * Metal through compatibility layers (like Wine with Metal support, or
- * GPU acceleration on macOS via Linux compatibility).
+ * GPU-accelerated applications on Linux with Metal-like APIs).
  *
  * Note: Metal is primarily an Apple API, but this interceptor provides
  * compatibility for:
@@ -34,8 +34,10 @@
 #include <dlfcn.h>
 #include <pthread.h>
 
-// Include minimal MVGAL intercept header
-#include <mvgal/mvgal_intercept.h>
+// MVGAL headers
+#include <mvgal/mvgal.h>
+#include <mvgal/mvgal_scheduler.h>
+#include <mvgal/mvgal_execution.h>
 
 /******************************************************************************
  * Metal Type Definitions
@@ -57,7 +59,7 @@ typedef void* MetalCommandBufferRef;
  * Configuration and State
  ******************************************************************************/
 
-#define MVGAL_METAL_VERSION "0.1.0"
+#define MVGAL_METAL_VERSION "0.2.0"
 
 typedef struct {
     bool enabled;
@@ -66,7 +68,7 @@ typedef struct {
     int current_gpu;
     char strategy[64];
     pthread_mutex_t lock;
-    bool mvgal_initialized;
+    mvgal_context_t context;
 } metal_wrapper_state_t;
 
 static metal_wrapper_state_t wrapper_state = {
@@ -76,8 +78,50 @@ static metal_wrapper_state_t wrapper_state = {
     .current_gpu = 0,
     .strategy = "round_robin",
     .lock = PTHREAD_MUTEX_INITIALIZER,
-    .mvgal_initialized = false
+    .context = NULL
 };
+
+/******************************************************************************
+ * Function Pointer Types
+ ******************************************************************************/
+
+// MTLCreateSystemDefaultDevice
+typedef MetalDeviceRef (*MTLCreateSystemDefaultDevice_t)(void);
+
+// MTLDeviceNewBuffer
+typedef MetalBufferRef (*MTLDeviceNewBuffer_t)(MetalDeviceRef device, size_t length, uint32_t options);
+
+// MTLDeviceNewTexture
+typedef MetalTextureRef (*MTLDeviceNewTexture_t)(MetalDeviceRef device, uint32_t descriptor, uint32_t options);
+
+// MTLDeviceMakeCommandQueue
+typedef MetalCommandQueueRef (*MTLDeviceMakeCommandQueue_t)(MetalDeviceRef device, uint32_t maxCommandBufferCount);
+
+// MTLDeviceNewRenderPipelineState
+typedef MetalRenderPipelineRef (*MTLDeviceNewRenderPipelineState_t)(MetalDeviceRef device, void *descriptor, void *error);
+
+// MTLDeviceNewComputePipelineState
+typedef MetalComputePipelineRef (*MTLDeviceNewComputePipelineState_t)(MetalDeviceRef device, void *descriptor, void *error);
+
+// MTLCommandQueueCommandBuffer
+typedef MetalCommandBufferRef (*MTLCommandQueueCommandBuffer_t)(MetalCommandQueueRef queue);
+
+// MTLCommandBufferCommit
+typedef void (*MTLCommandBufferCommit_t)(MetalCommandBufferRef commandBuffer);
+
+// MTLCommandBufferPresentDrawables
+typedef void (*MTLCommandBufferPresentDrawables_t)(MetalCommandBufferRef commandBuffer);
+
+// Real function pointers
+static MTLCreateSystemDefaultDevice_t real_MTLCreateSystemDefaultDevice = NULL;
+static MTLDeviceNewBuffer_t real_MTLDeviceNewBuffer = NULL;
+static MTLDeviceNewTexture_t real_MTLDeviceNewTexture = NULL;
+static MTLDeviceMakeCommandQueue_t real_MTLDeviceMakeCommandQueue = NULL;
+static MTLDeviceNewRenderPipelineState_t real_MTLDeviceNewRenderPipelineState = NULL;
+static MTLDeviceNewComputePipelineState_t real_MTLDeviceNewComputePipelineState = NULL;
+static MTLCommandQueueCommandBuffer_t real_MTLCommandQueueCommandBuffer = NULL;
+static MTLCommandBufferCommit_t real_MTLCommandBufferCommit = NULL;
+static MTLCommandBufferPresentDrawables_t real_MTLCommandBufferPresentDrawables = NULL;
 
 /******************************************************************************
  * Helper Functions
@@ -127,6 +171,28 @@ static void* get_real_function(const char *name) {
     return func;
 }
 
+// Submit workload to MVGAL
+static void submit_metal_workload(const char *step_name, mvgal_workload_type_t type) {
+    if (!wrapper_state.context) {
+        return;
+    }
+
+    mvgal_workload_submit_info_t info = {
+        .type = type,
+        .priority = 50,
+        .gpu_mask = (1U << get_next_gpu()),
+        .user_data = NULL
+    };
+
+    mvgal_workload_t workload;
+    mvgal_error_t err = mvgal_workload_submit(wrapper_state.context, &info, &workload);
+    if (err != MVGAL_SUCCESS) {
+        log_warn("Failed to submit workload: %s", step_name);
+    } else {
+        log_debug("Submitted workload: type=%d, step=%s", type, step_name);
+    }
+}
+
 /******************************************************************************
  * Initialization
  ******************************************************************************/
@@ -149,26 +215,42 @@ static void init_wrapper(void) {
         strncpy(wrapper_state.strategy, strategy, sizeof(wrapper_state.strategy) - 1);
     }
 
-    // Default to 1 GPU
-    wrapper_state.gpu_count = 1;
-    
-    // Try to get GPU count from MVGAL
-    void *mvgal_handle = dlopen("libmvgal_core.so", RTLD_LAZY | RTLD_GLOBAL);
-    if (mvgal_handle) {
-        int (*get_count)(void) = dlsym(mvgal_handle, "mvgal_gpu_get_count");
-        if (get_count) {
-            wrapper_state.gpu_count = get_count();
-            log_info("MVGAL initialized with %d GPUs", wrapper_state.gpu_count);
-        }
+    // Initialize MVGAL
+    mvgal_error_t err = mvgal_init(0);
+    if (err != MVGAL_SUCCESS) {
+        log_warn("Failed to initialize MVGAL: %d", err);
+        return;
     }
-    
-    wrapper_state.mvgal_initialized = true;
+
+    err = mvgal_context_create(&wrapper_state.context);
+    if (err != MVGAL_SUCCESS) {
+        log_warn("Failed to create MVGAL context: %d", err);
+        wrapper_state.context = NULL;
+        return;
+    }
+
+    // Set strategy if specified
+    if (strcmp(wrapper_state.strategy, "round_robin") == 0) {
+        mvgal_scheduler_set_strategy(wrapper_state.context, MVGAL_STRATEGY_ROUND_ROBIN);
+    } else if (strcmp(wrapper_state.strategy, "hybrid") == 0) {
+        mvgal_scheduler_set_strategy(wrapper_state.context, MVGAL_STRATEGY_HYBRID);
+    }
+
+    // Get GPU count
+    wrapper_state.gpu_count = mvgal_gpu_get_count();
+    if (wrapper_state.gpu_count <= 0) {
+        wrapper_state.gpu_count = 1;
+    }
+
     log_info("Metal wrapper initialized (strategy: %s, GPUs: %d)",
              wrapper_state.strategy, wrapper_state.gpu_count);
 }
 
 static void fini_wrapper(void) {
-    if (wrapper_state.mvgal_initialized) {
+    if (wrapper_state.context) {
+        mvgal_context_destroy(wrapper_state.context);
+        wrapper_state.context = NULL;
+        mvgal_shutdown();
         log_info("Metal wrapper shutdown");
     }
 }
@@ -183,54 +265,12 @@ __attribute__((destructor)) static void metal_destructor(void) {
 }
 
 /******************************************************************************
- * Function Pointer Types
- ******************************************************************************/
-
-// MTLCreateSystemDefaultDevice
-typedef MetalDeviceRef (*MTLCreateSystemDefaultDevice_t)(void);
-
-// MTLDeviceNewBuffer
-typedef MetalBufferRef (*MTLDeviceNewBuffer_t)(MetalDeviceRef device, size_t length, uint32_t options);
-
-// MTLDeviceNewTexture
-typedef MetalTextureRef (*MTLDeviceNewTexture_t)(MetalDeviceRef device, uint32_t descriptor, uint32_t options);
-
-// MTLDeviceMakeCommandQueue
-typedef MetalCommandQueueRef (*MTLDeviceMakeCommandQueue_t)(MetalDeviceRef device, uint32_t maxCommandBufferCount);
-
-// MTLDeviceNewRenderPipelineState
-typedef MetalRenderPipelineRef (*MTLDeviceNewRenderPipelineState_t)(MetalDeviceRef device, void *descriptor, void *error);
-
-// MTLDeviceNewComputePipelineState
-typedef MetalComputePipelineRef (*MTLDeviceNewComputePipelineState_t)(MetalDeviceRef device, void *descriptor, void *error);
-
-// MTLCommandQueueCommandBuffer
-typedef MetalCommandBufferRef (*MTLCommandQueueCommandBuffer_t)(MetalCommandQueueRef queue);
-
-// MTLCommandBufferCommit
-typedef void (*MTLCommandBufferCommit_t)(MetalCommandBufferRef commandBuffer);
-
-// MTLCommandBufferPresentDrawables
-typedef void (*MTLCommandBufferPresentDrawables_t)(MetalCommandBufferRef commandBuffer);
-
-// Real function pointers
-static MTLCreateSystemDefaultDevice_t real_MTLCreateSystemDefaultDevice = NULL;
-static MTLDeviceNewBuffer_t real_MTLDeviceNewBuffer = NULL;
-static MTLDeviceNewTexture_t real_MTLDeviceNewTexture = NULL;
-static MTLDeviceMakeCommandQueue_t real_MTLDeviceMakeCommandQueue = NULL;
-static MTLDeviceNewRenderPipelineState_t real_MTLDeviceNewRenderPipelineState = NULL;
-static MTLDeviceNewComputePipelineState_t real_MTLDeviceNewComputePipelineState = NULL;
-static MTLCommandQueueCommandBuffer_t real_MTLCommandQueueCommandBuffer = NULL;
-static MTLCommandBufferCommit_t real_MTLCommandBufferCommit = NULL;
-static MTLCommandBufferPresentDrawables_t real_MTLCommandBufferPresentDrawables = NULL;
-
-/******************************************************************************
  * Metal Function Intercepts
  ******************************************************************************/
 
 // MTLCreateSystemDefaultDevice
 MetalDeviceRef MTLCreateSystemDefaultDevice(void) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_MTLCreateSystemDefaultDevice) {
             real_MTLCreateSystemDefaultDevice = get_real_function("MTLCreateSystemDefaultDevice");
         }
@@ -242,15 +282,7 @@ MetalDeviceRef MTLCreateSystemDefaultDevice(void) {
 
     log_debug("MTLCreateSystemDefaultDevice intercepted");
 
-    int target_gpu = get_next_gpu();
-    
-    mvgal_workload_t workload = {
-        .type = MVGAL_WORKLOAD_METAL_QUEUE,
-        .gpu_index = target_gpu,
-        .step_name = "MTLCreateSystemDefaultDevice"
-    };
-    log_debug("Workload: type=%d, gpu=%d, step=%s",
-              workload.type, workload.gpu_index, workload.step_name);
+    submit_metal_workload("MTLCreateSystemDefaultDevice", MVGAL_WORKLOAD_METAL_QUEUE);
 
     if (!real_MTLCreateSystemDefaultDevice) {
         real_MTLCreateSystemDefaultDevice = get_real_function("MTLCreateSystemDefaultDevice");
@@ -267,7 +299,7 @@ MetalCommandQueueRef MTLDeviceMakeCommandQueue(
     MetalDeviceRef device,
     unsigned long maxCommandBufferCount
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_MTLDeviceMakeCommandQueue) {
             real_MTLDeviceMakeCommandQueue = get_real_function("MTLDeviceMakeCommandQueue");
         }
@@ -279,15 +311,7 @@ MetalCommandQueueRef MTLDeviceMakeCommandQueue(
 
     log_debug("MTLDeviceMakeCommandQueue intercepted");
 
-    int target_gpu = get_next_gpu();
-    
-    mvgal_workload_t workload = {
-        .type = MVGAL_WORKLOAD_METAL_QUEUE,
-        .gpu_index = target_gpu,
-        .step_name = "MTLDeviceMakeCommandQueue"
-    };
-    log_debug("Workload: type=%d, gpu=%d, step=%s",
-              workload.type, workload.gpu_index, workload.step_name);
+    submit_metal_workload("MTLDeviceMakeCommandQueue", MVGAL_WORKLOAD_METAL_QUEUE);
 
     if (!real_MTLDeviceMakeCommandQueue) {
         real_MTLDeviceMakeCommandQueue = get_real_function("MTLDeviceMakeCommandQueue");
@@ -305,7 +329,7 @@ MetalBufferRef MTLDeviceNewBuffer(
     size_t length,
     unsigned long options
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_MTLDeviceNewBuffer) {
             real_MTLDeviceNewBuffer = get_real_function("MTLDeviceNewBuffer");
         }
@@ -317,16 +341,7 @@ MetalBufferRef MTLDeviceNewBuffer(
 
     log_debug("MTLDeviceNewBuffer intercepted (size: %zu, options: %lu)", length, options);
 
-    int target_gpu = get_next_gpu();
-    
-    mvgal_workload_t workload = {
-        .type = MVGAL_WORKLOAD_METAL_BUFFER,
-        .gpu_index = target_gpu,
-        .step_name = "MTLDeviceNewBuffer",
-        .data_size = length
-    };
-    log_debug("Workload: type=%d, gpu=%d, step=%s, size=%zu",
-              workload.type, workload.gpu_index, workload.step_name, workload.data_size);
+    submit_metal_workload("MTLDeviceNewBuffer", MVGAL_WORKLOAD_METAL_BUFFER);
 
     if (!real_MTLDeviceNewBuffer) {
         real_MTLDeviceNewBuffer = get_real_function("MTLDeviceNewBuffer");
@@ -344,7 +359,7 @@ MetalTextureRef MTLDeviceNewTexture(
     uint32_t descriptor,
     unsigned long options
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_MTLDeviceNewTexture) {
             real_MTLDeviceNewTexture = get_real_function("MTLDeviceNewTexture");
         }
@@ -356,15 +371,7 @@ MetalTextureRef MTLDeviceNewTexture(
 
     log_debug("MTLDeviceNewTexture intercepted");
 
-    int target_gpu = get_next_gpu();
-    
-    mvgal_workload_t workload = {
-        .type = MVGAL_WORKLOAD_METAL_TEXTURE,
-        .gpu_index = target_gpu,
-        .step_name = "MTLDeviceNewTexture"
-    };
-    log_debug("Workload: type=%d, gpu=%d, step=%s",
-              workload.type, workload.gpu_index, workload.step_name);
+    submit_metal_workload("MTLDeviceNewTexture", MVGAL_WORKLOAD_METAL_TEXTURE);
 
     if (!real_MTLDeviceNewTexture) {
         real_MTLDeviceNewTexture = get_real_function("MTLDeviceNewTexture");
@@ -382,7 +389,7 @@ MetalRenderPipelineRef MTLDeviceNewRenderPipelineState(
     void *descriptor,
     void *error
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_MTLDeviceNewRenderPipelineState) {
             real_MTLDeviceNewRenderPipelineState = get_real_function("MTLDeviceNewRenderPipelineState");
         }
@@ -394,21 +401,13 @@ MetalRenderPipelineRef MTLDeviceNewRenderPipelineState(
 
     log_debug("MTLDeviceNewRenderPipelineState intercepted");
 
+    submit_metal_workload("MTLDeviceNewRenderPipelineState", MVGAL_WORKLOAD_METAL_RENDER);
+
     if (!real_MTLDeviceNewRenderPipelineState) {
         real_MTLDeviceNewRenderPipelineState = get_real_function("MTLDeviceNewRenderPipelineState");
     }
     if (real_MTLDeviceNewRenderPipelineState) {
         MetalRenderPipelineRef result = real_MTLDeviceNewRenderPipelineState(device, descriptor, error);
-        
-        int target_gpu = get_next_gpu();
-        mvgal_workload_t workload = {
-            .type = MVGAL_WORKLOAD_METAL_RENDER,
-            .gpu_index = target_gpu,
-            .step_name = "MTLDeviceNewRenderPipelineState"
-        };
-        log_debug("Workload: type=%d, gpu=%d, step=%s",
-                  workload.type, workload.gpu_index, workload.step_name);
-        
         return result;
     }
 
@@ -421,7 +420,7 @@ MetalComputePipelineRef MTLDeviceNewComputePipelineState(
     void *descriptor,
     void *error
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_MTLDeviceNewComputePipelineState) {
             real_MTLDeviceNewComputePipelineState = get_real_function("MTLDeviceNewComputePipelineState");
         }
@@ -433,21 +432,13 @@ MetalComputePipelineRef MTLDeviceNewComputePipelineState(
 
     log_debug("MTLDeviceNewComputePipelineState intercepted");
 
+    submit_metal_workload("MTLDeviceNewComputePipelineState", MVGAL_WORKLOAD_METAL_COMPUTE);
+
     if (!real_MTLDeviceNewComputePipelineState) {
         real_MTLDeviceNewComputePipelineState = get_real_function("MTLDeviceNewComputePipelineState");
     }
     if (real_MTLDeviceNewComputePipelineState) {
         MetalComputePipelineRef result = real_MTLDeviceNewComputePipelineState(device, descriptor, error);
-        
-        int target_gpu = get_next_gpu();
-        mvgal_workload_t workload = {
-            .type = MVGAL_WORKLOAD_METAL_COMPUTE,
-            .gpu_index = target_gpu,
-            .step_name = "MTLDeviceNewComputePipelineState"
-        };
-        log_debug("Workload: type=%d, gpu=%d, step=%s",
-                  workload.type, workload.gpu_index, workload.step_name);
-        
         return result;
     }
 
@@ -458,7 +449,7 @@ MetalComputePipelineRef MTLDeviceNewComputePipelineState(
 MetalCommandBufferRef MTLCommandQueueCommandBuffer(
     MetalCommandQueueRef queue
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_MTLCommandQueueCommandBuffer) {
             real_MTLCommandQueueCommandBuffer = get_real_function("MTLCommandQueueCommandBuffer");
         }
@@ -470,15 +461,7 @@ MetalCommandBufferRef MTLCommandQueueCommandBuffer(
 
     log_debug("MTLCommandQueueCommandBuffer intercepted");
 
-    int target_gpu = get_next_gpu();
-    
-    mvgal_workload_t workload = {
-        .type = MVGAL_WORKLOAD_METAL_COMMAND,
-        .gpu_index = target_gpu,
-        .step_name = "MTLCommandQueueCommandBuffer"
-    };
-    log_debug("Workload: type=%d, gpu=%d, step=%s",
-              workload.type, workload.gpu_index, workload.step_name);
+    submit_metal_workload("MTLCommandQueueCommandBuffer", MVGAL_WORKLOAD_METAL_COMMAND);
 
     if (!real_MTLCommandQueueCommandBuffer) {
         real_MTLCommandQueueCommandBuffer = get_real_function("MTLCommandQueueCommandBuffer");
@@ -494,7 +477,7 @@ MetalCommandBufferRef MTLCommandQueueCommandBuffer(
 void MTLCommandBufferCommit(
     MetalCommandBufferRef commandBuffer
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_MTLCommandBufferCommit) {
             real_MTLCommandBufferCommit = get_real_function("MTLCommandBufferCommit");
         }
@@ -506,16 +489,7 @@ void MTLCommandBufferCommit(
 
     log_debug("MTLCommandBufferCommit intercepted");
 
-    int target_gpu = get_next_gpu();
-    
-    mvgal_workload_t workload = {
-        .type = MVGAL_WORKLOAD_METAL_COMMIT,
-        .gpu_index = target_gpu,
-        .step_name = "MTLCommandBufferCommit"
-    };
-    workload.flags.is_commit = 1;
-    log_debug("Workload: type=%d, gpu=%d, step=%s",
-              workload.type, workload.gpu_index, workload.step_name);
+    submit_metal_workload("MTLCommandBufferCommit", MVGAL_WORKLOAD_METAL_COMMIT);
 
     if (!real_MTLCommandBufferCommit) {
         real_MTLCommandBufferCommit = get_real_function("MTLCommandBufferCommit");
@@ -529,7 +503,7 @@ void MTLCommandBufferCommit(
 void MTLCommandBufferPresentDrawables(
     MetalCommandBufferRef commandBuffer
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_MTLCommandBufferPresentDrawables) {
             real_MTLCommandBufferPresentDrawables = get_real_function("MTLCommandBufferPresentDrawables");
         }
@@ -541,16 +515,7 @@ void MTLCommandBufferPresentDrawables(
 
     log_debug("MTLCommandBufferPresentDrawables intercepted");
 
-    int target_gpu = get_next_gpu();
-    
-    mvgal_workload_t workload = {
-        .type = MVGAL_WORKLOAD_METAL_PRESENT,
-        .gpu_index = target_gpu,
-        .step_name = "MTLCommandBufferPresentDrawables"
-    };
-    workload.flags.is_present = 1;
-    log_debug("Workload: type=%d, gpu=%d, step=%s",
-              workload.type, workload.gpu_index, workload.step_name);
+    submit_metal_workload("MTLCommandBufferPresentDrawables", MVGAL_WORKLOAD_METAL_PRESENT);
 
     if (!real_MTLCommandBufferPresentDrawables) {
         real_MTLCommandBufferPresentDrawables = get_real_function("MTLCommandBufferPresentDrawables");

@@ -162,7 +162,7 @@ static mvgal_log_level_t parse_log_level(const char *value) {
     if (value == NULL) return MVGAL_LOG_LEVEL_INFO;
     char lower[32];
     strncpy(lower, value, sizeof(lower) - 1);
-    for (size_t i = 0; lower[i]; i++) lower[i] = tolower(lower[i]);
+    for (size_t i = 0; lower[i]; i++) lower[i] = (char)tolower((unsigned char)lower[i]);
     if (strcmp(lower, "error") == 0 || strcmp(lower, "0") == 0) return MVGAL_LOG_LEVEL_ERROR;
     if (strcmp(lower, "warn") == 0 || strcmp(lower, "warning") == 0 || strcmp(lower, "1") == 0) return MVGAL_LOG_LEVEL_WARN;
     if (strcmp(lower, "info") == 0 || strcmp(lower, "2") == 0) return MVGAL_LOG_LEVEL_INFO;
@@ -178,7 +178,7 @@ static mvgal_distribution_strategy_t parse_strategy(const char *value) {
     if (value == NULL) return MVGAL_STRATEGY_HYBRID;
     char lower[32];
     strncpy(lower, value, sizeof(lower) - 1);
-    for (size_t i = 0; lower[i]; i++) lower[i] = tolower(lower[i]);
+    for (size_t i = 0; lower[i]; i++) lower[i] = (char)tolower((unsigned char)lower[i]);
     if (strcmp(lower, "afr") == 0) return MVGAL_STRATEGY_AFR;
     if (strcmp(lower, "sfr") == 0) return MVGAL_STRATEGY_SFR;
     if (strcmp(lower, "task") == 0) return MVGAL_STRATEGY_TASK;
@@ -223,7 +223,7 @@ static void parse_ini_data(const char *data) {
         if (*key == '\0') continue;
         char key_lower[64];
         strncpy(key_lower, key, sizeof(key_lower) - 1);
-        for (size_t i = 0; key_lower[i]; i++) key_lower[i] = tolower(key_lower[i]);
+        for (size_t i = 0; key_lower[i]; i++) key_lower[i] = (char)tolower((unsigned char)key_lower[i]);
         if (section == NULL || strcmp(section, "global") == 0 || strcmp(section, "core") == 0) {
             if (strcmp(key_lower, "enabled") == 0) g_current_config.enabled = parse_boolean(value);
             else if (strcmp(key_lower, "log_level") == 0 || strcmp(key_lower, "loglevel") == 0) g_current_config.log_level = parse_log_level(value);
@@ -284,9 +284,9 @@ mvgal_error_t mvgal_config_load(const char *filepath) {
     long file_size = ftell(f);
     fseek(f, 0, SEEK_SET);
     if (file_size > 0) {
-        char *buffer = malloc(file_size + 1);
+        char *buffer = malloc((size_t)file_size + 1);
         if (buffer) {
-            size_t bytes_read = fread(buffer, 1, file_size, f);
+            size_t bytes_read = fread(buffer, 1, (size_t)file_size, f);
             buffer[bytes_read] = '\0';
             parse_ini_data(buffer);
             free(buffer);
@@ -331,7 +331,7 @@ static void write_cfg(char **buf, size_t *size, size_t *offset, const char *fmt,
     va_start(args, fmt);
     int written = vsnprintf(*buf + *offset, *size - *offset, fmt, args);
     va_end(args);
-    if (written > 0) *offset += written;
+    if (written > 0) *offset += (size_t)written;
 }
 
 /**

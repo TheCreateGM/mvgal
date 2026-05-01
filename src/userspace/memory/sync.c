@@ -121,11 +121,11 @@ mvgal_error_t mvgal_fence_wait(mvgal_fence_t fence, uint32_t timeout_ms) {
     // Calculate timeout in nanoseconds
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    uint64_t ns = ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+    uint64_t ns = (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
     ns += (uint64_t)timeout_ms * 1000000ULL;
-    
-    ts.tv_sec = ns / 1000000000ULL;
-    ts.tv_nsec = ns % 1000000000ULL;
+
+    ts.tv_sec = (time_t)(ns / 1000000000ULL);
+    ts.tv_nsec = (long)(ns % 1000000000ULL);
     
     while (!f->signaled) {
         int ret = pthread_cond_timedwait(&f->cond, &f->mutex, &ts);
@@ -358,11 +358,11 @@ mvgal_error_t mvgal_semaphore_wait(
     // Calculate timeout
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    uint64_t ns = ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+    uint64_t ns = (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
     ns += (uint64_t)timeout_ms * 1000000ULL;
-    
-    ts.tv_sec = ns / 1000000000ULL;
-    ts.tv_nsec = ns % 1000000000ULL;
+
+    ts.tv_sec = (time_t)(ns / 1000000000ULL);
+    ts.tv_nsec = (long)(ns % 1000000000ULL);
     
     while (s->count < value) {
         int ret = pthread_cond_timedwait(&s->cond, &s->mutex, &ts);

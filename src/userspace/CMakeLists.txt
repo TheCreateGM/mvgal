@@ -38,45 +38,8 @@ target_link_libraries(mvgal_core
         m
 )
 
-# Shared library
-add_library(mvgal SHARED
-    api/mvgal_api.c
-    api/mvgal_log.c
-    daemon/gpu_manager.c
-    daemon/config.c
-    daemon/ipc.c
-    execution/execution.c
-    memory/memory.c
-    memory/dmabuf.c
-    memory/allocator.c
-    memory/sync.c
-    scheduler/scheduler.c
-    scheduler/load_balancer.c
-    scheduler/workload_splitter.c
-    scheduler/strategy/afr.c
-    scheduler/strategy/sfr.c
-    scheduler/strategy/task.c
-    scheduler/strategy/compute_offload.c
-    scheduler/strategy/hybrid.c
-)
-
-target_include_directories(mvgal
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/../..
-        ${MVGAL_INCLUDE_DIRS}
-)
-
-target_link_libraries(mvgal
-    PRIVATE
-        mvgal_core
-        Threads::Threads
-        ${DRM_IMPORTED_TARGET}
-        ${PCI_IMPORTED_TARGET}
-        ${UDEV_IMPORTED_TARGET}
-)
-
 # Vulkan interception layer (optional)
-if(MVGAL_BUILD_API AND Vulkan_FOUND)
+if(MVGAL_BUILD_API AND (Vulkan_FOUND OR VULKAN_FOUND))
     add_library(mvgal_vulkan_layer SHARED
         intercept/vulkan/vk_layer.c
     )
@@ -176,6 +139,87 @@ if(MVGAL_BUILD_API AND OpenCL_FOUND)
     )
 endif()
 
+# D3D wrapper (Wine/Proton support)
+if(MVGAL_BUILD_API)
+    add_library(mvgal_d3d SHARED
+        intercept/d3d/d3d_wrapper.c
+    )
+
+    target_include_directories(mvgal_d3d
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/../..
+            ${MVGAL_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(mvgal_d3d
+        PRIVATE
+            mvgal_core
+            Threads::Threads
+            dl
+    )
+
+    install(
+        TARGETS mvgal_d3d
+        LIBRARY DESTINATION lib
+        COMPONENT runtime
+    )
+endif()
+
+# Metal wrapper (macOS compatibility on Linux)
+if(MVGAL_BUILD_API)
+    add_library(mvgal_metal SHARED
+        intercept/metal/metal_wrapper.c
+    )
+
+    target_include_directories(mvgal_metal
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/../..
+            ${MVGAL_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(mvgal_metal
+        PRIVATE
+            mvgal_core
+            Threads::Threads
+            dl
+    )
+
+    install(
+        TARGETS mvgal_metal
+        LIBRARY DESTINATION lib
+        COMPONENT runtime
+    )
+endif()
+
+# WebGPU wrapper
+if(MVGAL_BUILD_API)
+    add_library(mvgal_webgpu SHARED
+        intercept/webgpu/webgpu_wrapper.c
+    )
+
+    target_include_directories(mvgal_webgpu
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/../..
+            ${MVGAL_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(mvgal_webgpu
+        PRIVATE
+            mvgal_core
+            Threads::Threads
+            dl
+    )
+
+    install(
+        TARGETS mvgal_webgpu
+        LIBRARY DESTINATION lib
+        COMPONENT runtime
+    )
+endif()
+
 # CUDA wrapper (experimental)
 if(WITH_CUDA AND CUDAToolkit_FOUND)
     add_library(mvgal_cuda SHARED
@@ -239,7 +283,7 @@ endif()
 
 # Install core library
 install(
-    TARGETS mvgal mvgal_core
+    TARGETS mvgal_core
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     COMPONENT development

@@ -36,16 +36,18 @@
 #include <dlfcn.h>
 #include <pthread.h>
 
-// Include minimal MVGAL intercept header
-#include <mvgal/mvgal_intercept.h>
+// MVGAL headers
+#include <mvgal/mvgal.h>
+#include <mvgal/mvgal_scheduler.h>
+#include <mvgal/mvgal_execution.h>
 
 /******************************************************************************
  * Windows Types for Linux
  ******************************************************************************/
 
-#define S_OK 0x00000000
-#define E_FAIL 0x80004005
-#define E_NOTIMPL 0x80004001
+#define S_OK  ((HRESULT)0x00000000)
+#define E_FAIL ((HRESULT)0x80004005)
+#define E_NOTIMPL ((HRESULT)0x80004001)
 
 // WINAPI calling convention - empty on Linux
 #define WINAPI
@@ -215,7 +217,7 @@ typedef HRESULT (WINAPI *D3D12Device_CreateGraphicsPipelineState_t)(
  * Configuration and State
  ******************************************************************************/
 
-#define MVGAL_D3D_VERSION "0.1.0"
+#define MVGAL_D3D_VERSION "0.2.0"
 
 // State structure
 typedef struct {
@@ -225,7 +227,7 @@ typedef struct {
     int current_gpu;
     char strategy[64];
     pthread_mutex_t lock;
-    bool mvgal_initialized;
+    mvgal_context_t context;  // MVGAL context for workload submission
 } d3d_wrapper_state_t;
 
 static d3d_wrapper_state_t wrapper_state = {
@@ -235,7 +237,7 @@ static d3d_wrapper_state_t wrapper_state = {
     .current_gpu = 0,
     .strategy = "round_robin",
     .lock = PTHREAD_MUTEX_INITIALIZER,
-    .mvgal_initialized = false
+    .context = NULL
 };
 
 // Real function pointers
@@ -297,6 +299,27 @@ static void* get_real_function(const char *name) {
 }
 
 /******************************************************************************
+ * MVGAL Workload Submission
+ ******************************************************************************/
+
+static void submit_d3d_workload(const char *step_name, mvgal_workload_type_t type) {
+    if (!wrapper_state.context) return;
+    
+    mvgal_workload_submit_info_t info = {
+        .type = type,
+        .priority = 50,
+        .gpu_mask = 0xFFFFFFFF,
+        .user_data = NULL
+    };
+    
+    mvgal_workload_t workload;
+    mvgal_error_t err = mvgal_workload_submit(wrapper_state.context, &info, &workload);
+    if (err != MVGAL_SUCCESS) {
+        log_warn("Failed to submit D3D workload: %s", step_name);
+    }
+}
+
+/******************************************************************************
  * Initialization
  ******************************************************************************/
 
@@ -318,28 +341,42 @@ static void init_wrapper(void) {
         strncpy(wrapper_state.strategy, strategy, sizeof(wrapper_state.strategy) - 1);
     }
 
-    // Initialize MVGAL - we just need the basic API
-    // For now, use a simple GPU count
-    wrapper_state.gpu_count = 1; // Default to 1 GPU
-    
-    // Try to get actual GPU count from MVGAL
-    // We use dlopen/dlsym to avoid hard dependency
-    void *mvgal_handle = dlopen("libmvgal_core.so", RTLD_LAZY | RTLD_GLOBAL);
-    if (mvgal_handle) {
-        int (*get_count)(void) = dlsym(mvgal_handle, "mvgal_gpu_get_count");
-        if (get_count) {
-            wrapper_state.gpu_count = get_count();
-            log_info("MVGAL initialized with %d GPUs", wrapper_state.gpu_count);
-        }
+    // Initialize MVGAL
+    mvgal_error_t err = mvgal_init(0);
+    if (err != MVGAL_SUCCESS) {
+        log_warn("Failed to initialize MVGAL: %d", err);
+        return;
     }
-    
-    wrapper_state.mvgal_initialized = true;
-    log_info("D3D wrapper initialized (strategy: %s, GPUs: %d)", 
+
+    err = mvgal_context_create(&wrapper_state.context);
+    if (err != MVGAL_SUCCESS) {
+        log_warn("Failed to create MVGAL context: %d", err);
+        wrapper_state.context = NULL;
+        return;
+    }
+
+    // Set strategy if specified
+    if (strcmp(wrapper_state.strategy, "round_robin") == 0) {
+        mvgal_scheduler_set_strategy(wrapper_state.context, MVGAL_STRATEGY_ROUND_ROBIN);
+    } else if (strcmp(wrapper_state.strategy, "hybrid") == 0) {
+        mvgal_scheduler_set_strategy(wrapper_state.context, MVGAL_STRATEGY_HYBRID);
+    }
+
+    // Get GPU count
+    wrapper_state.gpu_count = mvgal_gpu_get_count();
+    if (wrapper_state.gpu_count <= 0) {
+        wrapper_state.gpu_count = 1;
+    }
+
+    log_info("D3D wrapper initialized (strategy: %s, GPUs: %d)",
              wrapper_state.strategy, wrapper_state.gpu_count);
 }
 
 static void fini_wrapper(void) {
-    if (wrapper_state.mvgal_initialized) {
+    if (wrapper_state.context) {
+        mvgal_context_destroy(wrapper_state.context);
+        wrapper_state.context = NULL;
+        mvgal_shutdown();
         log_info("D3D wrapper shutdown");
     }
 }
@@ -370,7 +407,7 @@ HRESULT WINAPI D3D11CreateDevice(
     D3D_FEATURE_LEVEL *pFeatureLevel,
     ID3D11DeviceContext **ppImmediateContext
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_D3D11CreateDevice) {
             real_D3D11CreateDevice = get_real_function("D3D11CreateDevice");
         }
@@ -382,33 +419,23 @@ HRESULT WINAPI D3D11CreateDevice(
         }
         return E_FAIL;
     }
-
+    
     log_debug("D3D11CreateDevice intercepted");
-
+    
     // Submit workload to MVGAL
-    if (ppDevice && *ppDevice) {
-        mvgal_workload_t workload = {
-            .type = MVGAL_WORKLOAD_D3D_CONTEXT,
-            .gpu_index = get_next_gpu(),
-            .step_name = "D3D11CreateDevice"
-        };
-        // Note: mvgal_workload_submit is a placeholder for telemetry
-        // In a real implementation, this would connect to the MVGAL daemon
-        log_debug("Workload: type=%d, gpu=%d, step=%s", 
-                  workload.type, workload.gpu_index, workload.step_name);
-    }
-
+    submit_d3d_workload("D3D11CreateDevice", MVGAL_WORKLOAD_D3D_CONTEXT);
+    
     // Call real function
     if (!real_D3D11CreateDevice) {
         real_D3D11CreateDevice = get_real_function("D3D11CreateDevice");
     }
     if (real_D3D11CreateDevice) {
         return real_D3D11CreateDevice(pAdapter, DriverTypes, Software,
-                                     Flags, pFeatureLevels, FeatureLevels,
-                                     SDKVersion, ppDevice, pFeatureLevel,
-                                     ppImmediateContext);
+                                      Flags, pFeatureLevels, FeatureLevels,
+                                      SDKVersion, ppDevice, pFeatureLevel,
+                                      ppImmediateContext);
     }
-
+    
     return E_FAIL;
 }
 
@@ -418,7 +445,7 @@ HRESULT WINAPI D3D11CreateDeviceContextState(
     const D3D11_DEVICE_CONTEXT_STATE_DESC *pDesc,
     ID3D11DeviceContext **ppDeviceContextState
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_D3D11CreateDeviceContextState) {
             real_D3D11CreateDeviceContextState = get_real_function("D3D11CreateDeviceContextState");
         }
@@ -430,15 +457,7 @@ HRESULT WINAPI D3D11CreateDeviceContextState(
 
     log_debug("D3D11CreateDeviceContextState intercepted");
 
-    if (ppDeviceContextState && *ppDeviceContextState) {
-        mvgal_workload_t workload = {
-            .type = MVGAL_WORKLOAD_D3D_CONTEXT,
-            .gpu_index = get_next_gpu(),
-            .step_name = "CreateDeviceContextState"
-        };
-        log_debug("Workload: type=%d, gpu=%d, step=%s", 
-                  workload.type, workload.gpu_index, workload.step_name);
-    }
+    submit_d3d_workload("CreateDeviceContextState", MVGAL_WORKLOAD_D3D_CONTEXT);
 
     if (!real_D3D11CreateDeviceContextState) {
         real_D3D11CreateDeviceContextState = get_real_function("D3D11CreateDeviceContextState");
@@ -457,7 +476,7 @@ HRESULT WINAPI D3D11CreateBuffer(
     const void *pInitialData,
     ID3D11Buffer **ppBuffer
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_D3D11CreateBuffer) {
             real_D3D11CreateBuffer = get_real_function("D3D11CreateBuffer");
         }
@@ -468,17 +487,8 @@ HRESULT WINAPI D3D11CreateBuffer(
     }
 
     log_debug("D3D11CreateBuffer intercepted (size: %u)", pDesc ? pDesc->ByteWidth : 0);
-
-    if (ppBuffer && pDesc) {
-        mvgal_workload_t workload = {
-            .type = MVGAL_WORKLOAD_D3D_BUFFER,
-            .gpu_index = get_next_gpu(),
-            .step_name = "CreateBuffer",
-            .data_size = pDesc->ByteWidth
-        };
-        log_debug("Workload: type=%d, gpu=%d, step=%s, size=%zu", 
-                  workload.type, workload.gpu_index, workload.step_name, workload.data_size);
-    }
+    
+    submit_d3d_workload("CreateBuffer", MVGAL_WORKLOAD_D3D_BUFFER);
 
     if (!real_D3D11CreateBuffer) {
         real_D3D11CreateBuffer = get_real_function("D3D11CreateBuffer");
@@ -507,16 +517,7 @@ HRESULT WINAPI CreateDXGIFactory1(
 
     log_debug("CreateDXGIFactory1 intercepted");
 
-    // Enumerate GPUs via DXGI
-    if (ppFactory && *ppFactory) {
-        mvgal_workload_t workload = {
-            .type = MVGAL_WORKLOAD_D3D_CONTEXT,
-            .gpu_index = 0,
-            .step_name = "CreateDXGIFactory1"
-        };
-        log_debug("Workload: type=%d, gpu=%d, step=%s", 
-                  workload.type, workload.gpu_index, workload.step_name);
-    }
+    submit_d3d_workload("CreateDXGIFactory1", MVGAL_WORKLOAD_D3D_CONTEXT);
 
     if (!real_CreateDXGIFactory1) {
         real_CreateDXGIFactory1 = get_real_function("CreateDXGIFactory1");
@@ -546,15 +547,7 @@ HRESULT WINAPI DXGIFactory_EnumAdapters1(
 
     log_debug("EnumAdapters1 intercepted (adapter: %u)", Adapter);
 
-    if (ppAdapter) {
-        mvgal_workload_t workload = {
-            .type = MVGAL_WORKLOAD_D3D_CONTEXT,
-            .gpu_index = (int)Adapter % wrapper_state.gpu_count,
-            .step_name = "EnumAdapters1"
-        };
-        log_debug("Workload: type=%d, gpu=%d, step=%s", 
-                  workload.type, workload.gpu_index, workload.step_name);
-    }
+    submit_d3d_workload("EnumAdapters1", MVGAL_WORKLOAD_D3D_CONTEXT);
 
     if (!real_DXGIFactory_EnumAdapters1) {
         real_DXGIFactory_EnumAdapters1 = get_real_function("EnumAdapters1");
@@ -577,7 +570,7 @@ HRESULT WINAPI D3D12CreateDevice(
     REFIID riid,
     void **ppDevice
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_D3D12CreateDevice) {
             real_D3D12CreateDevice = get_real_function("D3D12CreateDevice");
         }
@@ -589,15 +582,7 @@ HRESULT WINAPI D3D12CreateDevice(
 
     log_debug("D3D12CreateDevice intercepted");
 
-    int target_gpu = get_next_gpu();
-    
-    mvgal_workload_t workload = {
-        .type = MVGAL_WORKLOAD_D3D_CONTEXT,
-        .gpu_index = target_gpu,
-        .step_name = "D3D12CreateDevice"
-    };
-    log_debug("Workload: type=%d, gpu=%d, step=%s", 
-              workload.type, workload.gpu_index, workload.step_name);
+    submit_d3d_workload("D3D12CreateDevice", MVGAL_WORKLOAD_D3D_CONTEXT);
 
     if (!real_D3D12CreateDevice) {
         real_D3D12CreateDevice = get_real_function("D3D12CreateDevice");
@@ -616,7 +601,7 @@ HRESULT WINAPI D3D12Device_CreateCommandQueue(
     REFIID riid,
     void **ppCommandQueue
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_D3D12Device_CreateCommandQueue) {
             real_D3D12Device_CreateCommandQueue = get_real_function("D3D12Device_CreateCommandQueue");
         }
@@ -628,15 +613,7 @@ HRESULT WINAPI D3D12Device_CreateCommandQueue(
 
     log_debug("D3D12Device_CreateCommandQueue intercepted");
 
-    int target_gpu = get_next_gpu();
-    
-    mvgal_workload_t workload = {
-        .type = MVGAL_WORKLOAD_D3D_QUEUE,
-        .gpu_index = target_gpu,
-        .step_name = "CreateCommandQueue"
-    };
-    log_debug("Workload: type=%d, gpu=%d, step=%s", 
-              workload.type, workload.gpu_index, workload.step_name);
+    submit_d3d_workload("CreateCommandQueue", MVGAL_WORKLOAD_D3D_QUEUE);
 
     if (!real_D3D12Device_CreateCommandQueue) {
         real_D3D12Device_CreateCommandQueue = get_real_function("D3D12Device_CreateCommandQueue");
@@ -655,7 +632,7 @@ HRESULT WINAPI D3D12Device_CreateGraphicsPipelineState(
     REFIID riid,
     void **ppPipelineState
 ) {
-    if (!wrapper_state.enabled || !wrapper_state.mvgal_initialized) {
+    if (!wrapper_state.enabled) {
         if (!real_D3D12Device_CreateGraphicsPipelineState) {
             real_D3D12Device_CreateGraphicsPipelineState = get_real_function("D3D12Device_CreateGraphicsPipelineState");
         }
@@ -667,15 +644,7 @@ HRESULT WINAPI D3D12Device_CreateGraphicsPipelineState(
 
     log_debug("D3D12Device_CreateGraphicsPipelineState intercepted");
 
-    int target_gpu = get_next_gpu();
-    
-    mvgal_workload_t workload = {
-        .type = MVGAL_WORKLOAD_D3D_PIPELINE,
-        .gpu_index = target_gpu,
-        .step_name = "CreateGraphicsPipelineState"
-    };
-    log_debug("Workload: type=%d, gpu=%d, step=%s", 
-              workload.type, workload.gpu_index, workload.step_name);
+    submit_d3d_workload("CreateGraphicsPipelineState", MVGAL_WORKLOAD_D3D_PIPELINE);
 
     if (!real_D3D12Device_CreateGraphicsPipelineState) {
         real_D3D12Device_CreateGraphicsPipelineState = get_real_function("D3D12Device_CreateGraphicsPipelineState");

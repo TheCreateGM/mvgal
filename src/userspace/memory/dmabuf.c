@@ -76,7 +76,7 @@ mvgal_error_t mvgal_dmabuf_allocate(
         }
         
         if (ioctl(state->system_heap.fd, DMA_HEAP_IOCTL_CASE, &alloc) == 0) {
-            fd = alloc.fd;
+            fd = (int)alloc.fd;
             MVGAL_LOG_DEBUG("DMA-BUF heap allocation: size=%zu, fd=%d", size, fd);
         }
     }
