@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 cmake_minimum_required(VERSION 3.16)
-project(mvgal VERSION 0.2.0 LANGUAGES C CXX)
+project(mvgal VERSION 0.2.1 LANGUAGES C CXX)
 
 # =============================================================================
 # Project Metadata

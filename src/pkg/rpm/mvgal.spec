@@ -1,5 +1,5 @@
 Name:           mvgal
-Version:        0.2.0
+Version:        0.2.1
 Release:        1%{?dist}
 Summary:        Multi-Vendor GPU Aggregation Layer for Linux
 
@@ -43,7 +43,7 @@ make -j%{?_smp_ncpus:%{_smp_ncpus}}%{!?_smp_ncpus:1}
 %install
 rm -rf %{buildroot}
 
-# Libs  
+# Libs
 mkdir -p %{buildroot}%{_libdir}
 for lib in build/src/userspace/libmvgal.so* build/src/userspace/libmvgal_core.a build/src/userspace/libVK_LAYER_MVGAL.so build/src/userspace/libmvgal_opencl.so; do
     [ -f "$lib" ] && install -m 644 "$lib" %{buildroot}%{_libdir}/ || true

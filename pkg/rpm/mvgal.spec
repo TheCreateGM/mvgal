@@ -1,0 +1,1 @@
+/home/axogm/Documents/mvgal/.github/ci/copr/builds/fedora-44-x86_64/mvgal.spec
