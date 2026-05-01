@@ -1,0 +1,1 @@
+/usr/bin/cc -I/usr/include -O3 -DNDEBUG -flto -Wl,--dependency-file=CMakeFiles/test_gpu_detection.dir/link.d CMakeFiles/test_gpu_detection.dir/test_gpu_detection.c.o -o test_gpu_detection   -L/home/axogm/Documents/mvgal  -Wl,-rpath,/home/axogm/Documents/mvgal ../../../userspace/libmvgal_core.a -lm

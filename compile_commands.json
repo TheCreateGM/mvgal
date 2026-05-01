@@ -1,0 +1,308 @@
+[
+{
+  "directory": "/home/axogm/Documents/mvgal/runtime",
+  "command": "/usr/bin/c++  -isystem /usr/include/libdrm -O3 -DNDEBUG -std=c++20 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wpedantic -o CMakeFiles/mvgald.dir/daemon/main.cpp.o -c /home/axogm/Documents/mvgal/runtime/daemon/main.cpp",
+  "file": "/home/axogm/Documents/mvgal/runtime/daemon/main.cpp",
+  "output": "runtime/CMakeFiles/mvgald.dir/daemon/main.cpp.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/runtime",
+  "command": "/usr/bin/c++  -isystem /usr/include/libdrm -O3 -DNDEBUG -std=c++20 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wpedantic -o CMakeFiles/mvgald.dir/daemon/daemon.cpp.o -c /home/axogm/Documents/mvgal/runtime/daemon/daemon.cpp",
+  "file": "/home/axogm/Documents/mvgal/runtime/daemon/daemon.cpp",
+  "output": "runtime/CMakeFiles/mvgald.dir/daemon/daemon.cpp.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/runtime",
+  "command": "/usr/bin/c++  -isystem /usr/include/libdrm -O3 -DNDEBUG -std=c++20 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wpedantic -o CMakeFiles/mvgald.dir/daemon/scheduler.cpp.o -c /home/axogm/Documents/mvgal/runtime/daemon/scheduler.cpp",
+  "file": "/home/axogm/Documents/mvgal/runtime/daemon/scheduler.cpp",
+  "output": "runtime/CMakeFiles/mvgald.dir/daemon/scheduler.cpp.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/runtime",
+  "command": "/usr/bin/c++  -isystem /usr/include/libdrm -O3 -DNDEBUG -std=c++20 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wpedantic -o CMakeFiles/mvgald.dir/daemon/device_registry.cpp.o -c /home/axogm/Documents/mvgal/runtime/daemon/device_registry.cpp",
+  "file": "/home/axogm/Documents/mvgal/runtime/daemon/device_registry.cpp",
+  "output": "runtime/CMakeFiles/mvgald.dir/daemon/device_registry.cpp.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/runtime",
+  "command": "/usr/bin/c++  -isystem /usr/include/libdrm -O3 -DNDEBUG -std=c++20 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wpedantic -o CMakeFiles/mvgald.dir/daemon/memory_manager.cpp.o -c /home/axogm/Documents/mvgal/runtime/daemon/memory_manager.cpp",
+  "file": "/home/axogm/Documents/mvgal/runtime/daemon/memory_manager.cpp",
+  "output": "runtime/CMakeFiles/mvgald.dir/daemon/memory_manager.cpp.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/runtime",
+  "command": "/usr/bin/c++  -isystem /usr/include/libdrm -O3 -DNDEBUG -std=c++20 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wpedantic -o CMakeFiles/mvgald.dir/daemon/power_manager.cpp.o -c /home/axogm/Documents/mvgal/runtime/daemon/power_manager.cpp",
+  "file": "/home/axogm/Documents/mvgal/runtime/daemon/power_manager.cpp",
+  "output": "runtime/CMakeFiles/mvgald.dir/daemon/power_manager.cpp.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/runtime",
+  "command": "/usr/bin/c++  -isystem /usr/include/libdrm -O3 -DNDEBUG -std=c++20 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wpedantic -o CMakeFiles/mvgald.dir/daemon/metrics_collector.cpp.o -c /home/axogm/Documents/mvgal/runtime/daemon/metrics_collector.cpp",
+  "file": "/home/axogm/Documents/mvgal/runtime/daemon/metrics_collector.cpp",
+  "output": "runtime/CMakeFiles/mvgald.dir/daemon/metrics_collector.cpp.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/runtime",
+  "command": "/usr/bin/c++  -isystem /usr/include/libdrm -O3 -DNDEBUG -std=c++20 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wpedantic -o CMakeFiles/mvgald.dir/daemon/ipc_server.cpp.o -c /home/axogm/Documents/mvgal/runtime/daemon/ipc_server.cpp",
+  "file": "/home/axogm/Documents/mvgal/runtime/daemon/ipc_server.cpp",
+  "output": "runtime/CMakeFiles/mvgald.dir/daemon/ipc_server.cpp.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/api/mvgal_api.c.o -c /home/axogm/Documents/mvgal/src/userspace/api/mvgal_api.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/api/mvgal_api.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/api/mvgal_api.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/api/mvgal_log.c.o -c /home/axogm/Documents/mvgal/src/userspace/api/mvgal_log.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/api/mvgal_log.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/api/mvgal_log.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/daemon/gpu_manager.c.o -c /home/axogm/Documents/mvgal/src/userspace/daemon/gpu_manager.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/daemon/gpu_manager.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/daemon/gpu_manager.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/daemon/config.c.o -c /home/axogm/Documents/mvgal/src/userspace/daemon/config.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/daemon/config.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/daemon/config.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/daemon/ipc.c.o -c /home/axogm/Documents/mvgal/src/userspace/daemon/ipc.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/daemon/ipc.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/daemon/ipc.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/execution/execution.c.o -c /home/axogm/Documents/mvgal/src/userspace/execution/execution.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/execution/execution.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/execution/execution.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/memory/memory.c.o -c /home/axogm/Documents/mvgal/src/userspace/memory/memory.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/memory/memory.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/memory/memory.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/memory/dmabuf.c.o -c /home/axogm/Documents/mvgal/src/userspace/memory/dmabuf.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/memory/dmabuf.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/memory/dmabuf.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/memory/allocator.c.o -c /home/axogm/Documents/mvgal/src/userspace/memory/allocator.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/memory/allocator.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/memory/allocator.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/memory/sync.c.o -c /home/axogm/Documents/mvgal/src/userspace/memory/sync.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/memory/sync.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/memory/sync.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/scheduler/scheduler.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/scheduler.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/scheduler.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/scheduler/scheduler.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/scheduler/load_balancer.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/load_balancer.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/load_balancer.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/scheduler/load_balancer.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/scheduler/workload_splitter.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/workload_splitter.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/workload_splitter.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/scheduler/workload_splitter.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/scheduler/strategy/afr.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/afr.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/afr.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/scheduler/strategy/afr.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/scheduler/strategy/sfr.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/sfr.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/sfr.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/scheduler/strategy/sfr.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/scheduler/strategy/task.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/task.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/task.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/scheduler/strategy/task.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/scheduler/strategy/compute_offload.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/compute_offload.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/compute_offload.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/scheduler/strategy/compute_offload.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal_core.dir/scheduler/strategy/hybrid.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/hybrid.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/hybrid.c",
+  "output": "src/userspace/CMakeFiles/mvgal_core.dir/scheduler/strategy/hybrid.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/api/mvgal_api.c.o -c /home/axogm/Documents/mvgal/src/userspace/api/mvgal_api.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/api/mvgal_api.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/api/mvgal_api.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/api/mvgal_log.c.o -c /home/axogm/Documents/mvgal/src/userspace/api/mvgal_log.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/api/mvgal_log.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/api/mvgal_log.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/daemon/gpu_manager.c.o -c /home/axogm/Documents/mvgal/src/userspace/daemon/gpu_manager.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/daemon/gpu_manager.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/daemon/gpu_manager.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/daemon/config.c.o -c /home/axogm/Documents/mvgal/src/userspace/daemon/config.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/daemon/config.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/daemon/config.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/daemon/ipc.c.o -c /home/axogm/Documents/mvgal/src/userspace/daemon/ipc.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/daemon/ipc.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/daemon/ipc.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/execution/execution.c.o -c /home/axogm/Documents/mvgal/src/userspace/execution/execution.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/execution/execution.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/execution/execution.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/memory/memory.c.o -c /home/axogm/Documents/mvgal/src/userspace/memory/memory.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/memory/memory.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/memory/memory.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/memory/dmabuf.c.o -c /home/axogm/Documents/mvgal/src/userspace/memory/dmabuf.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/memory/dmabuf.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/memory/dmabuf.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/memory/allocator.c.o -c /home/axogm/Documents/mvgal/src/userspace/memory/allocator.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/memory/allocator.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/memory/allocator.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/memory/sync.c.o -c /home/axogm/Documents/mvgal/src/userspace/memory/sync.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/memory/sync.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/memory/sync.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/scheduler/scheduler.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/scheduler.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/scheduler.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/scheduler/scheduler.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/scheduler/load_balancer.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/load_balancer.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/load_balancer.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/scheduler/load_balancer.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/scheduler/workload_splitter.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/workload_splitter.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/workload_splitter.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/scheduler/workload_splitter.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/scheduler/strategy/afr.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/afr.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/afr.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/scheduler/strategy/afr.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/scheduler/strategy/sfr.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/sfr.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/sfr.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/scheduler/strategy/sfr.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/scheduler/strategy/task.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/task.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/task.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/scheduler/strategy/task.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/scheduler/strategy/compute_offload.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/compute_offload.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/compute_offload.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/scheduler/strategy/compute_offload.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/userspace",
+  "command": "/usr/bin/cc -Dmvgal_EXPORTS -I/home/axogm/Documents/mvgal/src/userspace/../.. -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/kernel -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIC -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/mvgal.dir/scheduler/strategy/hybrid.c.o -c /home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/hybrid.c",
+  "file": "/home/axogm/Documents/mvgal/src/userspace/scheduler/strategy/hybrid.c",
+  "output": "src/userspace/CMakeFiles/mvgal.dir/scheduler/strategy/hybrid.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/tests/tests/unit",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/include/mvgal -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/api -I/home/axogm/Documents/mvgal/src/userspace/daemon -I/home/axogm/Documents/mvgal/src/userspace/memory -I/home/axogm/Documents/mvgal/src/userspace/scheduler -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/test_gpu_detection.dir/test_gpu_detection.c.o -c /home/axogm/Documents/mvgal/src/tests/tests/unit/test_gpu_detection.c",
+  "file": "/home/axogm/Documents/mvgal/src/tests/tests/unit/test_gpu_detection.c",
+  "output": "src/tests/tests/unit/CMakeFiles/test_gpu_detection.dir/test_gpu_detection.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/tests/tests/unit",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/include/mvgal -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/api -I/home/axogm/Documents/mvgal/src/userspace/daemon -I/home/axogm/Documents/mvgal/src/userspace/memory -I/home/axogm/Documents/mvgal/src/userspace/scheduler -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/test_memory.dir/test_memory.c.o -c /home/axogm/Documents/mvgal/src/tests/tests/unit/test_memory.c",
+  "file": "/home/axogm/Documents/mvgal/src/tests/tests/unit/test_memory.c",
+  "output": "src/tests/tests/unit/CMakeFiles/test_memory.dir/test_memory.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/tests/tests/unit",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/include/mvgal -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/api -I/home/axogm/Documents/mvgal/src/userspace/daemon -I/home/axogm/Documents/mvgal/src/userspace/memory -I/home/axogm/Documents/mvgal/src/userspace/scheduler -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/test_scheduler.dir/test_scheduler.c.o -c /home/axogm/Documents/mvgal/src/tests/tests/unit/test_scheduler.c",
+  "file": "/home/axogm/Documents/mvgal/src/tests/tests/unit/test_scheduler.c",
+  "output": "src/tests/tests/unit/CMakeFiles/test_scheduler.dir/test_scheduler.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/tests/tests/unit",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/include/mvgal -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/api -I/home/axogm/Documents/mvgal/src/userspace/daemon -I/home/axogm/Documents/mvgal/src/userspace/memory -I/home/axogm/Documents/mvgal/src/userspace/scheduler -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/test_core_api.dir/test_core_api.c.o -c /home/axogm/Documents/mvgal/src/tests/tests/unit/test_core_api.c",
+  "file": "/home/axogm/Documents/mvgal/src/tests/tests/unit/test_core_api.c",
+  "output": "src/tests/tests/unit/CMakeFiles/test_core_api.dir/test_core_api.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/tests/tests/unit",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/include/mvgal -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/api -I/home/axogm/Documents/mvgal/src/userspace/daemon -I/home/axogm/Documents/mvgal/src/userspace/memory -I/home/axogm/Documents/mvgal/src/userspace/scheduler -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/test_execution.dir/test_execution.c.o -c /home/axogm/Documents/mvgal/src/tests/tests/unit/test_execution.c",
+  "file": "/home/axogm/Documents/mvgal/src/tests/tests/unit/test_execution.c",
+  "output": "src/tests/tests/unit/CMakeFiles/test_execution.dir/test_execution.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/tests/tests/unit",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/include/mvgal -I/home/axogm/Documents/mvgal/src/userspace -I/home/axogm/Documents/mvgal/src/userspace/api -I/home/axogm/Documents/mvgal/src/userspace/daemon -I/home/axogm/Documents/mvgal/src/userspace/memory -I/home/axogm/Documents/mvgal/src/userspace/scheduler -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/test_config.dir/test_config.c.o -c /home/axogm/Documents/mvgal/src/tests/tests/unit/test_config.c",
+  "file": "/home/axogm/Documents/mvgal/src/tests/tests/unit/test_config.c",
+  "output": "src/tests/tests/unit/CMakeFiles/test_config.dir/test_config.c.o"
+},
+{
+  "directory": "/home/axogm/Documents/mvgal/src/tests/tests/integration",
+  "command": "/usr/bin/cc  -I/home/axogm/Documents/mvgal/include -I/home/axogm/Documents/mvgal/include/mvgal -I/usr/include -O3 -DNDEBUG -std=gnu17 -fPIE -Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Wno-unused-command-line-argument -Werror -O3 -DNDEBUG -flto -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -o CMakeFiles/test_multi_gpu.dir/test_multi_gpu_validation.c.o -c /home/axogm/Documents/mvgal/src/tests/tests/integration/test_multi_gpu_validation.c",
+  "file": "/home/axogm/Documents/mvgal/src/tests/tests/integration/test_multi_gpu_validation.c",
+  "output": "src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/test_multi_gpu_validation.c.o"
+}
+]

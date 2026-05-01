@@ -1,0 +1,1 @@
+/usr/bin/cc -I/usr/include -O3 -DNDEBUG -flto -Wl,--dependency-file=CMakeFiles/test_scheduler.dir/link.d CMakeFiles/test_scheduler.dir/test_scheduler.c.o -o test_scheduler   -L/home/axogm/Documents/mvgal  -Wl,-rpath,/home/axogm/Documents/mvgal ../../../userspace/libmvgal_core.a -lm

@@ -5,10 +5,12 @@
 ![Platform](https://img.shields.io/badge/Platform-Linux-%23FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)
 
 **Project:** Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
-**Version:** 0.2.0 "Health Monitor"
-**Last Updated:** April 21, 2026
+**Version:** 0.2.1 "Health Monitor"
+**Last Updated:** May 01, 2026
 
 ---
+
+> ⚠️ Note: Build artifacts and Copr build results have been archived to `builds_archive/` at the project root. For details and a complete list of moved items see `docs/BUILD_ARTIFACTS.md`.
 
 ## 🚀 Quick Start
 

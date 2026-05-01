@@ -1,8 +1,11 @@
 # MVGAL Build Guide
 
-**Version:** 0.2.0 | **Last Updated:** April 2026
+**Version:** 0.2.1 | **Last Updated:** May 2026
 
 ---
+
+> ⚠️ Note: Build artifacts and Copr build results have been archived to `builds_archive/` at the project root. See `docs/BUILD_ARTIFACTS.md` for details.
+
 
 ## Quick Start (Ubuntu 22.04 / 24.04)
 

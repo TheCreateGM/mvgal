@@ -162,14 +162,14 @@ install/strip/fast: preinstall/fast
 
 # The main all target
 all: cmake_check_build_system
-	cd /home/axogm/Documents/mvgal && $(CMAKE_COMMAND) -E cmake_progress_start /home/axogm/Documents/mvgal/CMakeFiles /home/axogm/Documents/mvgal/kernel//CMakeFiles/progress.marks
-	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 kernel/all
+	cd /home/axogm/Documents/mvgal && $(CMAKE_COMMAND) -E cmake_progress_start /home/axogm/Documents/mvgal/CMakeFiles /home/axogm/Documents/mvgal/src/tests/tests/integration//CMakeFiles/progress.marks
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/tests/tests/integration/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/axogm/Documents/mvgal/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 kernel/clean
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/tests/tests/integration/clean
 .PHONY : clean
 
 # The main clean target
@@ -178,18 +178,56 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 kernel/preinstall
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/tests/tests/integration/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 kernel/preinstall
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/tests/tests/integration/preinstall
 .PHONY : preinstall/fast
 
 # clear depends
 depend:
 	cd /home/axogm/Documents/mvgal && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
+
+# Convenience name for target.
+src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/rule:
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/rule
+.PHONY : src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/rule
+
+# Convenience name for target.
+test_multi_gpu: src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/rule
+.PHONY : test_multi_gpu
+
+# fast build rule for target.
+test_multi_gpu/fast:
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/build.make src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/build
+.PHONY : test_multi_gpu/fast
+
+test_multi_gpu_validation.o: test_multi_gpu_validation.c.o
+.PHONY : test_multi_gpu_validation.o
+
+# target to build an object file
+test_multi_gpu_validation.c.o:
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/build.make src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/test_multi_gpu_validation.c.o
+.PHONY : test_multi_gpu_validation.c.o
+
+test_multi_gpu_validation.i: test_multi_gpu_validation.c.i
+.PHONY : test_multi_gpu_validation.i
+
+# target to preprocess a source file
+test_multi_gpu_validation.c.i:
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/build.make src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/test_multi_gpu_validation.c.i
+.PHONY : test_multi_gpu_validation.c.i
+
+test_multi_gpu_validation.s: test_multi_gpu_validation.c.s
+.PHONY : test_multi_gpu_validation.s
+
+# target to generate assembly for a file
+test_multi_gpu_validation.c.s:
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/build.make src/tests/tests/integration/CMakeFiles/test_multi_gpu.dir/test_multi_gpu_validation.c.s
+.PHONY : test_multi_gpu_validation.c.s
 
 # Help Target
 help:
@@ -206,6 +244,10 @@ help:
 	@echo "... package_source"
 	@echo "... rebuild_cache"
 	@echo "... test"
+	@echo "... test_multi_gpu"
+	@echo "... test_multi_gpu_validation.o"
+	@echo "... test_multi_gpu_validation.i"
+	@echo "... test_multi_gpu_validation.s"
 .PHONY : help
 
 

@@ -162,14 +162,14 @@ install/strip/fast: preinstall/fast
 
 # The main all target
 all: cmake_check_build_system
-	cd /home/axogm/Documents/mvgal && $(CMAKE_COMMAND) -E cmake_progress_start /home/axogm/Documents/mvgal/CMakeFiles /home/axogm/Documents/mvgal/kernel//CMakeFiles/progress.marks
-	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 kernel/all
+	cd /home/axogm/Documents/mvgal && $(CMAKE_COMMAND) -E cmake_progress_start /home/axogm/Documents/mvgal/CMakeFiles /home/axogm/Documents/mvgal/src/tests/tests//CMakeFiles/progress.marks
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/tests/tests/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/axogm/Documents/mvgal/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 kernel/clean
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/tests/tests/clean
 .PHONY : clean
 
 # The main clean target
@@ -178,12 +178,12 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 kernel/preinstall
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/tests/tests/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 kernel/preinstall
+	cd /home/axogm/Documents/mvgal && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/tests/tests/preinstall
 .PHONY : preinstall/fast
 
 # clear depends

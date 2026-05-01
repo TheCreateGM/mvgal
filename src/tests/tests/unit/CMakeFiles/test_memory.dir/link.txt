@@ -1,0 +1,1 @@
+/usr/bin/cc -I/usr/include -O3 -DNDEBUG -flto -Wl,--dependency-file=CMakeFiles/test_memory.dir/link.d CMakeFiles/test_memory.dir/test_memory.c.o -o test_memory   -L/home/axogm/Documents/mvgal  -Wl,-rpath,/home/axogm/Documents/mvgal ../../../userspace/libmvgal_core.a -lm
