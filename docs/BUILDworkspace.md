@@ -1,6 +1,6 @@
 # MVGAL Build and Test Guide
 
-![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.2.1-%2376B900?style=for-the-badge)
 ![Language](https://img.shields.io/badge/Language-C11-%23A8B9CC.svg?style=for-the-badge&logo=c&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Linux-%23FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)
 
@@ -627,4 +627,4 @@ MVGAL is licensed under GPL-3.0-or-later. See COPYING or LICENSE file for detail
 
 ---
 
-*© 2026 MVGAL Project. Version 0.2.0 "Health Monitor". All Rights Reserved.*
+*© 2026 MVGAL Project. Version 0.2.1 "Health Monitor". All Rights Reserved.*

@@ -607,8 +607,8 @@ Your contributions help make MVGAL better for everyone. Whether it's:
 ---
 
 *© 2026 MVGAL Project.*
-*Version: 0.2.0 "Health Monitor"*
-*Last Updated: April 21, 2026*
+*Version: 0.2.1 "Health Monitor"*
+*Last Updated: May 01, 2026*
 *License: GPLv3*
 
 ---
@@ -756,3 +756,4 @@ in a way that breaks existing user-space. Use versioned ioctls:
 The IPC protocol uses a version negotiation handshake. Old clients continue
 to work with newer daemon versions as long as the negotiated version is
 supported. See `docs/API.md` for the protocol versioning specification.
+.

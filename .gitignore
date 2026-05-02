@@ -1,6 +1,9 @@
 # MVGAL Git Ignore
 # Multi-Vendor GPU Aggregation Layer for Linux
 
+# Archive of generated/backup files moved from root
+.archive/
+
 # Build artifacts
 *.o
 *.a

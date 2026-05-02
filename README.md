@@ -4,13 +4,13 @@
   <img src="assets/icons/mvgal.svg" alt="MVGAL Logo" width="200">
 </p>
 
-[![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)](https://github.com/TheCreateGM/mvgal)
+[![Version](https://img.shields.io/badge/version-0.2.1-%2376B900?style=for-the-badge)](https://github.com/TheCreateGM/mvgal)
 [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![Language: C11](https://img.shields.io/badge/Language-C11-%23A8B9CC.svg?style=for-the-badge&logo=c&logoColor=white)](https://en.cppreference.com/w/c/11)
 [![Language: Rust](https://img.shields.io/badge/Language-Rust-%23DEA584.svg?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux-%23FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)](https://www.linux.org)
 [![Build: Passing](https://img.shields.io/badge/Build-Passing-%2376B900.svg?style=for-the-badge)](https://github.com/TheCreateGM/mvgal/actions)
-[![Coverage: 95%](https://img.shields.io/badge/Coverage-95%25-%234CAF50.svg?style=for-the-badge)
+[![Coverage: 95%](https://img.shields.io/badge/Coverage-95%25-%234CAF50.svg?style=for-the-badge)]()
 [![Code Size](https://img.shields.io/badge/Code-%7E25%2C700%2B%20LOC-%230071C5?style=for-the-badge)](https://github.com/TheCreateGM/mvgal)
 [![Rust Crates](https://img.shields.io/badge/Rust-3_crates-%23DEA584.svg?style=for-the-badge)](https://doc.rust-lang.org/cargo/)
 
@@ -288,7 +288,7 @@ runtime/safe/
 ### Rust Workspace Configuration
 
 See `Cargo.toml` for workspace configuration:
-- Version: 0.2.0
+- Version: 0.2.1
 - Edition: 2021
 - Rust Version: 1.75+
 - Dependencies: serde, serde_json, tokio
@@ -857,7 +857,7 @@ mvgal/
 ### v0.2.1 (Next Patch Release)
 - [ ] Complete Vulkan layer compilation with Vulkan SDK
 - [ ] Fix remaining test warnings
-- [ ] Update all package builds for v0.2.0
+- [ ] Update all package builds for v0.2.1
 
 ### v0.3.0 (Next Minor Release)
 - [ ] Full Vulkan layer implementation
@@ -926,7 +926,7 @@ Contributions can be:
 
 ---
 
-## 🚨 Known Limitations & Blockers (v0.2.0)
+## 🚨 Known Limitations & Blockers (v0.2.1)
 
 ### Critical Blocker
 - **Vulkan Layer** (5% complete, ~1,470 LOC)
@@ -945,7 +945,7 @@ Contributions can be:
 - **Kernel Module** (30% complete, ~500 LOC)
   - Optional, not required for basic functionality
   - **Impact:** Improves performance but adds complexity
-  - Current userspace implementation sufficient for v0.2.0
+  - Current userspace implementation sufficient for v0.2.1
 
 - **OpenCL/D3D/Metal/WebGPU Wrappers** (30% complete, ~800 LOC)
   - Skeleton implementations only
@@ -954,7 +954,7 @@ Contributions can be:
 
 ---
 
-**📄 Document Version:** 0.2.0 "Health Monitor" | **Status:** ~95% Complete | **~26,400+ LOC across 105+ files**
+**📄 Document Version:** 0.2.1 "Health Monitor" | **Status:** ~95% Complete | **~26,400+ LOC across 105+ files**
 
 For detailed component status, see [docs/STATUS.md](docs/STATUS.md) and [docs/MISSING.md](docs/MISSING.md)
 
@@ -978,6 +978,7 @@ MVGAL is developed by **AxoGM** and maintained with ❤️ by the open-source co
 ---
 
 *© 2026 MVGAL Project.*
-*Version: 0.2.0 "Health Monitor"*
-*Last Updated: April 26, 2026*
+*Version: 0.2.1 "Health Monitor"*
+*Last Updated: May 01, 2026*
 *License: GPLv3 (see [LICENSE](LICENSE)) - Rust: MIT OR Apache-2.0*
+*

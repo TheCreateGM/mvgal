@@ -1,0 +1,5 @@
+"manifest"
+{
+    "commandline" "/mvgal_steam_compat.sh %verb%"
+    "use_sessions" "1"
+}

@@ -84,4 +84,4 @@ MVGAL implements the following security measures:
 
 ---
 
-*© 2026 MVGAL Project. Version 0.2.0 "Health Monitor". All Rights Reserved.*
+*© 2026 MVGAL Project. Version 0.2.1 "Health Monitor". All Rights Reserved.*

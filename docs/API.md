@@ -1,6 +1,6 @@
 # MVGAL IPC Protocol Reference
 
-**Version:** 0.2.0 | **Last Updated:** April 2026
+**Version:** 0.2.0 | **Last Updated:** May 2026
 
 ---
 

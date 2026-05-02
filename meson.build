@@ -192,6 +192,27 @@ if opt_daemon
 endif
 
 # ============================================================================
+# Standalone CLI tools (no libmvgal dependency)
+# ============================================================================
+
+foreach tool_name : ['mvgal-info', 'mvgal-status', 'mvgal-compat']
+  executable(tool_name,
+    'tools/' + tool_name + '.c',
+    include_directories : core_incs,
+    c_args : ['-D_GNU_SOURCE'],
+    install : true,
+  )
+endforeach
+
+executable('mvgal-bench',
+  'tools/mvgal-bench.c',
+  include_directories : core_incs,
+  c_args : ['-D_GNU_SOURCE'],
+  dependencies : [dependency('threads'), cc.find_library('m', required : false)],
+  install : true,
+)
+
+# ============================================================================
 # Tests (optional)
 # ============================================================================
 

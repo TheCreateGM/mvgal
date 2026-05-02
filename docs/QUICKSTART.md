@@ -1,11 +1,11 @@
 # MVGAL Quick Start Guide
 
-![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.2.1-%2376B900?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-Linux-%23FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)
 ![Language](https://img.shields.io/badge/Language-C11-%23A8B9CC.svg?style=for-the-badge&logo=c&logoColor=white)
 ![Status](https://img.shields.io/badge/status-92%25_complete-%234CAF50?style=for-the-badge)
 
-**Version 0.2.0 "Health Monitor"**
+**Version 0.2.1 "Health Monitor"**
 
 This guide provides the fastest way to get started with MVGAL.
 
