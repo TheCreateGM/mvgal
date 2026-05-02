@@ -1,6 +1,7 @@
 #!/bin/bash
 # MVGAL Auto-Install Dependencies Script
 # This script automatically detects the distribution and installs all required dependencies
+# All privileged operations use pkexec (never sudo).
 
 set -e
 
@@ -11,12 +12,11 @@ echo ""
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
-    echo "WARNING: Some packages may require root privileges."
-    echo "You may need to run this script with sudo."
+    echo "INFO: Will use pkexec for privileged package installation."
     echo ""
-    NEED_SUDO=true
+    NEED_PRIV=true
 else
-    NEED_SUDO=false
+    NEED_PRIV=false
 fi
 
 # Detect distribution
@@ -39,10 +39,10 @@ fi
 echo "Detected: $DISTRO $VERSION"
 echo ""
 
-# Function to run command with sudo if needed
+# Function to run command with pkexec if needed
 run_cmd() {
-    if [ "$NEED_SUDO" = true ] && [ "$EUID" -ne 0 ]; then
-        sudo bash -c "$*"
+    if [ "$NEED_PRIV" = true ] && [ "$EUID" -ne 0 ]; then
+        pkexec bash -c "$*"
     else
         bash -c "$*"
     fi

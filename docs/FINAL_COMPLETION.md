@@ -1,6 +1,6 @@
 # MVGAL Project - Completion Report
 
-![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.2.1-%2376B900?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-95%25_Complete-%234CAF50?style=for-the-badge)
 ![Completion](https://img.shields.io/badge/completion-95%25-%232196F3?style=for-the-badge)
 
@@ -28,7 +28,7 @@
 
 ## 🎯 v0.2.0 Feature Status
 
-### ✅ NEW: Execution Module (April 2026)
+### ✅ NEW: Execution Module (May 2026)
 - **Status:** 100% Complete
 - **Files:** execution.c, execution_internal.h, mvgal_execution.h
 - **Features:** Frame sessions, migration plans, Steam/Proton profiles
@@ -530,5 +530,5 @@ The project is **100% complete** for the requested features. However, for future
 ---
 
 **AxoGM**  
-**Version 0.2.0 "Health Monitor"**  
-**April 2026**
+**Version 0.2.1 "Health Monitor"**  
+**May 2026**

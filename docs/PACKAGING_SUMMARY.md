@@ -1,6 +1,6 @@
 # MVGAL Packaging Summary
 
-![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.2.1-%2376B900?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-95%25_Complete-%234CAF50?style=for-the-badge)
 
 **Project:** Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
@@ -470,7 +470,7 @@ To complete the packaging and release:
 ---
 
 *© 2026 MVGAL Project.*
-*Version: 0.2.0 "Health Monitor"*
+*Version: 0.2.1 "Health Monitor"*
 *Last Updated: April 21, 2026*
 *License: GPLv3*
 *All Rights Reserved*

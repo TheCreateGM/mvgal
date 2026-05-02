@@ -44,7 +44,7 @@ gantt
     section Q2-Q3 2025
     Vulkan Layer (partial)   :done, med, 2025-04-20, 2025-05-15
     
-    section April 2026 - NEW in v0.2.0
+    section May 2026 - NEW in v0.2.0
     Execution Module         :done, crit, 2026-04-01, 2026-04-21
     Kernel Integration       :done, high, 2026-04-05, 2026-04-20
     Rust Safety Components   :done, crit, 2026-04-22, 2026-04-26
@@ -75,7 +75,7 @@ gantt
 
 ---
 
-#### 🚀 MAJOR ADDITION: Execution Module (April 2026)
+#### 🚀 MAJOR ADDITION: Execution Module (May 2026)
 
 [![Status](https://img.shields.io/badge/status-NEW-%234CAF50?style=flat-square)]
 [![LOCC](https://img.shields.io/badge/added-942%2B_lines-%230071C5?style=flat-square)]
@@ -148,13 +148,13 @@ classDiagram
 
 ---
 
-### 🚀 MAJOR ADDITION: Rust Safety Components (April 2026) **NEW**
+### 🚀 MAJOR ADDITION: Rust Safety Components (May 2026) **NEW**
 
 [![Status](https://img.shields.io/badge/status-NEW-%234CAF50?style=flat-square)]
 [![LOCC](https://img.shields.io/badge/added-748%2B_lines-%230071C5?style=for-the-badge)]
 [![Language](https://img.shields.io/badge/Language-Rust-%23DEA584.svg?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
 
-**Added in Latest Commit (April 2026):**
+**Added in Latest Commit (May 2026):**
 
 MVGAL now includes **Rust-based safety-critical components** organized in a **Cargo workspace** with full C FFI interfaces.
 
@@ -550,7 +550,7 @@ flowchart TD
 - [x] Added Mermaid diagrams to README.md and PROGRESS.md
 - [x] Added badges to all markdown files
 - [x] Updated project structure documentation
-- [x] Added Version 0.2.0 "Health Monitor" badges
+- [x] Added Version 0.2.1 "Health Monitor" badges
 
 **Type: Visual Identity** ✅
 - [x] Created project icon (SVG + PNG in 4 sizes)
@@ -560,7 +560,7 @@ flowchart TD
 
 ---
 
-## 🆕 April 2026: Execution Module & Documentation Overhaul
+## 🆕 May 2026: Execution Module & Documentation Overhaul
 
 ### April 21, 2026 - v0.2.0 Documentation Complete
 
@@ -582,7 +582,7 @@ flowchart TD
 4. `docs/PROGRESS.md` - Extended timeline to 2026, added execution module
 5. `docs/STATUS.md` - Added execution module, updated to ~25,700 LOC
 6. `docs/MISSING.md` - Execution & CUDA marked 100%, completion now 95%
-7. `docs/CHANGES_2025.md` - This file, added April 2026 section
+7. `docs/CHANGES_2025.md` - This file, added May 2026 section
 8. `CONTRIBUTING.md` - Complete rewrite with contribution workflow
 9. `CODE_OF_CONDUCT.md` - Enhanced with badges and structure
 10. `SECURITY.md` - Complete rewrite with security features
@@ -639,7 +639,7 @@ flowchart TD
 
 ---
 
-### April 2026 - CUDA Wrapper Status Correction
+### May 2026 - CUDA Wrapper Status Correction
 
 **Type: Documentation Fix** ✅
 
@@ -783,7 +783,7 @@ flowchart TD
 | **Jan-Apr 2026** | **+~3,700** | **+~100** | **0** | **+~700** | **+~4,500** | **+~4,500** |
 | **Total (Apr 2026)** | **~25,700** | **~1,900** | **~1,500** | **~1,500** | **~30,600** | **+~24,000** |
 
-**Note:** Execution module added ~942 lines in April 2026
+**Note:** Execution module added ~942 lines in May 2026
 
 ### File Count Growth
 
@@ -936,11 +936,11 @@ pie
 | v0.3.0 | Planned | 🔜 | ~98% | Vulkan layer complete, packaging builds |
 | v1.0.0 | Planned | 🔜 | 100% | All features, production ready |
 
-**Note:** v0.2.0 received a major update in April 2026 with the Execution Module and comprehensive documentation updates.
+**Note:** v0.2.0 received a major update in May 2026 with the Execution Module and comprehensive documentation updates.
 
 ---
 
-## 📊 Current Project Metrics (April 2026)
+## 📊 Current Project Metrics (May 2026)
 
 **Total:** ~30,600+ lines across ~45 files
 

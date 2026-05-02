@@ -6,7 +6,7 @@
 
 **Project:** Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
 **Document Version:** 1.0
-**Last Updated:** April 26, 2026
+**Last Updated:** May 01, 2026
 
 ---
 
@@ -140,7 +140,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 rust-version = "1.75"
 authors = ["MVGAL Contributors"]
@@ -879,5 +879,5 @@ Contributions to the Rust components are welcome! Please:
 
 ---
 
-*© 2026 MVGAL Project. Last updated: April 26, 2026. Version 0.2.0 "Health Monitor".*
+*© 2026 MVGAL Project. Last updated: May 01, 2026. Version 0.2.1 "Health Monitor".*
 *Rust components: fence_manager, memory_safety, capability_model - all 100% complete.*

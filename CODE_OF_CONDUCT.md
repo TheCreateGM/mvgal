@@ -1,11 +1,11 @@
 # MVGAL Code of Conduct
 
-![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.2.1-%2376B900?style=for-the-badge)
 ![Community](https://img.shields.io/badge/community-Welcoming-%234CAF50?style=for-the-badge)
 
 **Project:** Multi-Vendor GPU Aggregation Layer for Linux
-**Version:** 0.2.0 "Health Monitor"
-**Last Updated:** April 21, 2026
+**Version:** 0.2.1 "Health Monitor"
+**Last Updated:** May 01, 2026
 
 ---
 
@@ -73,3 +73,4 @@ If you have questions, please see [Frequently Asked Questions](https://github.co
 ---
 
 *© 2026 MVGAL Project. Version 0.2.0 "Health Monitor". All Rights Reserved.*
+*

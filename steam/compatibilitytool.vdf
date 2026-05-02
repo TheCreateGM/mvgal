@@ -1,0 +1,13 @@
+"compatibilitytools"
+{
+    "compat_tools"
+    {
+        "MVGAL-0.2.1"
+        {
+            "install_path" "."
+            "display_name" "MVGAL 0.2.1 (Multi-Vendor GPU Aggregation)"
+            "from_oslist"  "linux"
+            "to_oslist"    "linux"
+        }
+    }
+}

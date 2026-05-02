@@ -248,6 +248,21 @@ if(MVGAL_BUILD_GAMING AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gaming/CMakeLists.
     add_subdirectory(gaming)
 endif()
 
+# Steam integration
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/steam/CMakeLists.txt")
+    add_subdirectory(steam)
+endif()
+
+# OpenGL translation layer
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/opengl/CMakeLists.txt")
+    add_subdirectory(opengl)
+endif()
+
+# UI dashboard
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ui/CMakeLists.txt")
+    add_subdirectory(ui)
+endif()
+
 # Compatibility layer
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/compat/CMakeLists.txt")
     add_subdirectory(compat)
