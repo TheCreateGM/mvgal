@@ -1,274 +1,235 @@
-# MVGAL Gaming Integration Guide
+# MVGAL Gaming Guide
 
-**Version:** 0.2.0 | **Last Updated:** May 2026
+**Version:** 0.2.1
 
 ---
 
 ## Overview
 
-MVGAL integrates with Steam, Proton, DXVK, and VKD3D-Proton to enable
-multi-GPU rendering for Linux games. This guide covers configuration,
-per-game profiles, and known compatibility notes.
+MVGAL provides first-class gaming support through:
+- **Vulkan implicit layer** — active for all Vulkan games automatically
+- **AFR (Alternate Frame Rendering)** — even/odd frames on different GPUs
+- **SFR (Split Frame Rendering)** — screen tiles on different GPUs
+- **Frame pacing** — vsync-aligned delivery to prevent microstutter
+- **Steam compatibility tool** — one-click enable per game
+- **DXVK + VKD3D-Proton** — D3D9/10/11/12 games via Proton work automatically
 
 ---
 
-## Steam Detection
+## Quick Setup for Gaming
 
-MVGAL detects Steam at daemon startup by checking:
+### Per-game (Steam launch option)
 
-1. The `STEAM_RUNTIME` environment variable.
-2. The presence of a `steam` process (`/proc/*/comm`).
-3. The Steam runtime directory (`~/.steam/root/`).
-
-When Steam is detected, MVGAL automatically activates the **gaming profile**:
-- Scheduling mode: AFR (Alternate Frame Rendering) preferred.
-- Frame pacing enforcement: enabled.
-- Latency-minimizing mode: enabled.
-- Idle timeout: reduced to 1 second (faster wake-up).
-
-To manually force the gaming profile:
-
-```bash
-mvgalctl set-profile gaming
+```
+ENABLE_MVGAL=1 MVGAL_STRATEGY=afr %command%
 ```
 
-To disable automatic Steam detection:
+### Global (all Vulkan games)
 
-```ini
-# /etc/mvgal/mvgal.conf
-[gaming]
-auto_detect_steam = false
-```
+The Vulkan layer `VK_LAYER_MVGAL` is an implicit layer — it activates for every Vulkan application once installed. No per-game configuration needed.
 
 ---
 
-## Proton Integration
+## Scheduling Strategies for Gaming
 
-MVGAL provides a Vulkan layer (`VK_LAYER_MVGAL`) that is automatically
-injected into Proton sessions when `MVGAL_VULKAN_ENABLE=1` is set.
+### AFR — Alternate Frame Rendering
 
-### Enabling for All Steam Games
+Best for: games with consistent frame times, high GPU utilization.
+
+```
+Frame 0 → GPU 0
+Frame 1 → GPU 1
+Frame 2 → GPU 0
+Frame 3 → GPU 1
+...
+```
+
+Frame N+1 is not presented until frame N is complete (enforced via Vulkan timeline semaphore). This prevents out-of-order presentation.
 
 ```bash
-# Add to Steam launch options for a game:
-MVGAL_VULKAN_ENABLE=1 %command%
-
-# Or enable globally via environment:
-echo 'MVGAL_VULKAN_ENABLE=1' >> ~/.config/environment.d/mvgal.conf
+MVGAL_STRATEGY=afr
 ```
 
-### Enabling for a Specific Game
+### SFR — Split Frame Rendering
 
-In Steam, right-click the game → Properties → Launch Options:
+Best for: games with heavy per-pixel shading, high resolution.
 
 ```
-MVGAL_VULKAN_ENABLE=1 MVGAL_STRATEGY=afr %command%
+Left half  → GPU 0
+Right half → GPU 1
+Composite → display GPU
 ```
-
-### Proton Version Compatibility
-
-| Proton Version | Status | Notes |
-|----------------|--------|-------|
-| Proton 9.0+ | ✅ Supported | Recommended |
-| Proton 8.0 | ✅ Supported | |
-| Proton 7.0 | ⚠️ Partial | Frame pacing may stutter |
-| Proton-GE | ✅ Supported | |
-
----
-
-## Rendering Modes
-
-### Alternate Frame Rendering (AFR)
-
-In AFR mode, odd frames are rendered on GPU 0 and even frames on GPU 1
-(extendable to N GPUs). The frame compositor synchronizes present timing
-to maintain consistent inter-frame intervals.
 
 ```bash
-# Enable AFR
-mvgalctl set-strategy afr
-
-# Or via environment variable
-MVGAL_STRATEGY=afr game_executable
+MVGAL_STRATEGY=sfr
 ```
 
-**Best for:** Games with consistent frame times, high-FPS targets.  
-**Avoid for:** Games with heavy inter-frame dependencies (motion blur, TAA).
+### Hybrid
 
-### Split Frame Rendering (SFR)
-
-In SFR mode, each frame is divided into horizontal or vertical tiles, with
-each GPU rendering a portion. The compositor assembles the final frame.
+Best for: mixed workloads, unknown games. MVGAL selects AFR or SFR automatically based on workload metrics.
 
 ```bash
-# Enable SFR (horizontal split)
-mvgalctl set-strategy sfr
-
-# Configure split direction
-mvgalctl set-sfr-direction horizontal  # or: vertical
-```
-
-**Best for:** Games with uniform workload distribution across the screen.  
-**Avoid for:** Games with heavy UI elements concentrated in one screen region.
-
-### Hybrid Adaptive
-
-The hybrid strategy automatically selects between AFR and SFR based on
-real-time workload metrics.
-
-```bash
-mvgalctl set-strategy hybrid
-```
-
----
-
-## Per-Game Profiles
-
-MVGAL maintains a profile database at `/etc/mvgal/profiles/` and
-`~/.config/mvgal/profiles/`. Profiles are matched by executable name and
-Vulkan application name.
-
-### Creating a Profile
-
-```ini
-# ~/.config/mvgal/profiles/cyberpunk2077.conf
-[profile]
-name = Cyberpunk 2077
-executable = Cyberpunk2077.exe
-vulkan_app_name = Cyberpunk 2077
-
-[scheduling]
-strategy = afr
-frame_pacing = true
-idle_timeout_ms = 500
-
-[memory]
-prefer_gpu = 0
-mirror_textures = true
-```
-
-### Listing Available Profiles
-
-```bash
-mvgalctl list-profiles
-```
-
-### Applying a Profile Manually
-
-```bash
-mvgalctl apply-profile cyberpunk2077
-```
-
----
-
-## DXVK Integration
-
-MVGAL's Vulkan layer correctly reports `VkPhysicalDeviceGroupProperties` so
-DXVK can optionally use explicit multi-GPU. When `VK_LAYER_MVGAL` is active,
-DXVK sees MVGAL's unified device rather than individual physical devices.
-
-### DXVK Configuration
-
-```ini
-# dxvk.conf
-# No special configuration needed when VK_LAYER_MVGAL is active.
-# DXVK will automatically use the MVGAL unified device.
-```
-
-### DXVK Version Compatibility
-
-| DXVK Version | Status |
-|--------------|--------|
-| 2.3+ | ✅ Supported |
-| 2.0–2.2 | ✅ Supported |
-| 1.x | ⚠️ Limited (no device group support) |
-
----
-
-## VKD3D-Proton Integration
-
-VKD3D-Proton uses Vulkan device groups for multi-GPU. MVGAL's layer exposes
-the correct `VkPhysicalDeviceGroupProperties` so VKD3D-Proton can use all
-GPUs in the MVGAL pool.
-
-```bash
-# Enable VKD3D multi-GPU (experimental)
-VKD3D_CONFIG=dxr11,dxr MVGAL_VULKAN_ENABLE=1 %command%
+MVGAL_STRATEGY=hybrid
 ```
 
 ---
 
 ## Frame Pacing
 
-MVGAL enforces frame pacing to prevent stuttering in AFR mode. If GPU A
-renders frame N two milliseconds late, frame N+1 on GPU B is delayed to
-maintain consistent inter-frame timing.
+Multi-GPU AFR can cause microstutter if frames arrive at uneven intervals. MVGAL's frame pacer (`steam/mvgal_frame_pacer.c`) holds completed frames in a ring buffer (depth 8) and releases them at vsync-aligned intervals.
 
+The pacer runs as a background thread in `mvgald`. It uses `clock_gettime(CLOCK_MONOTONIC)` and `nanosleep` for nanosecond-precision timing.
+
+Enable explicitly:
 ```bash
-# Configure frame pacing target (milliseconds)
-mvgalctl set-frame-pacing-target 16.67  # 60 FPS
+MVGAL_FRAME_PACING=1
+```
 
-# Disable frame pacing (not recommended for gaming)
-mvgalctl set-frame-pacing off
+The frame pacer is enabled by default when `MVGAL_STRATEGY=afr`.
+
+---
+
+## Environment Variables
+
+| Variable | Values | Default | Description |
+|----------|--------|---------|-------------|
+| `ENABLE_MVGAL` | `0` / `1` | `0` | Enable MVGAL for this launch |
+| `MVGAL_STRATEGY` | `afr`, `sfr`, `hybrid`, `single`, `round_robin` | `hybrid` | Scheduling strategy |
+| `MVGAL_FRAME_PACING` | `0` / `1` | `1` (with AFR) | Enable frame pacing |
+| `MVGAL_GPU_MASK` | hex bitmask | `0xFF` (all) | Which GPUs to use |
+| `MVGAL_VULKAN_DEBUG` | `0` / `1` | `0` | Vulkan layer debug logging |
+| `MVGAL_VULKAN_LOG_PATH` | path | stderr | Redirect Vulkan log to file |
+
+---
+
+## Steam Compatibility Tool
+
+MVGAL registers as a Steam compatibility tool. To use:
+
+1. Right-click game → Properties → Compatibility
+2. Check "Force the use of a specific Steam Play compatibility tool"
+3. Select **MVGAL 0.2.1**
+
+The compatibility tool script (`steam/mvgal_steam_compat.sh`) automatically sets `ENABLE_MVGAL=1`, `MVGAL_STRATEGY=afr`, and `MVGAL_FRAME_PACING=1`.
+
+---
+
+## DXVK Compatibility
+
+DXVK translates Direct3D 9/10/11 to Vulkan. MVGAL's Vulkan layer sits above DXVK in the layer stack and intercepts `vkQueueSubmit` calls. No special configuration needed.
+
+Tested DXVK versions: 2.3, 2.4
+
+**Recommended settings for DXVK games:**
+```
+ENABLE_MVGAL=1 MVGAL_STRATEGY=afr MVGAL_FRAME_PACING=1 %command%
 ```
 
 ---
 
-## Display Output
+## VKD3D-Proton Compatibility
 
-MVGAL detects the display-connected GPU at startup and always routes
-`vkQueuePresentKHR` through that GPU. If the rendering GPU differs from the
-display GPU, MVGAL copies the composited frame via DMA-BUF.
+VKD3D-Proton translates Direct3D 12 to Vulkan. Same as DXVK — MVGAL intercepts at the Vulkan queue submission level.
 
-```bash
-# Show which GPU is display-connected
-mvgalctl status --show-display-gpu
-
-# Override display GPU (advanced)
-mvgalctl set-display-gpu 1
+DX12 titles use explicit synchronization, making frame pacing more important:
+```
+ENABLE_MVGAL=1 MVGAL_STRATEGY=afr MVGAL_FRAME_PACING=1 %command%
 ```
 
 ---
 
-## Laptop (PRIME) Configuration
+## Game Compatibility Database
 
-On laptops with Intel iGPU + discrete dGPU:
-
-1. The iGPU drives the display (PRIME render offload).
-2. The dGPU renders via PRIME.
-3. MVGAL includes both GPUs in the pool.
+`mvgal-compat` includes a built-in database of known games:
 
 ```bash
-# Check PRIME configuration
-mvgalctl status --prime
+mvgal-compat "doom"
+mvgal-compat "Cyberpunk 2077"
+mvgal-compat "Elden Ring"
+```
 
-# Force PRIME offload for a game
-DRI_PRIME=1 MVGAL_VULKAN_ENABLE=1 %command%
+| Game | Status | Notes |
+|------|--------|-------|
+| DOOM (Vulkan) | ✅ Supported | AFR works well |
+| Quake (vkQuake) | ✅ Supported | Tested with vkQuake |
+| Dota 2 | ✅ Supported | SFR recommended |
+| CS2 | ✅ Supported | Native Vulkan, AFR tested |
+| Cyberpunk 2077 | ⚠️ Partial | DX12 via VKD3D-Proton; disable ray tracing for best multi-GPU |
+| Elden Ring | ⚠️ Partial | Frame pacing sensitive; use `MVGAL_FRAME_PACING=1` |
+| Red Dead Redemption 2 | ⚠️ Partial | Memory-intensive; ensure DMA-BUF available |
+| Minecraft | ✅ Supported | OpenGL via Zink/Vulkan |
+
+---
+
+## Known Limitations
+
+### Anti-cheat
+
+Kernel-level anti-cheat (EasyAntiCheat, BattlEye) blocks Vulkan layers. Disable MVGAL for affected games:
+```
+ENABLE_MVGAL=0 %command%
+```
+
+### Ray tracing
+
+Ray tracing workloads are GPU-local and do not scale across GPUs in the current implementation. Disable ray tracing for best multi-GPU performance.
+
+### Single-GPU fallback
+
+MVGAL automatically falls back to single-GPU mode when:
+- Multi-GPU latency exceeds single-GPU latency by >20%
+- A GPU becomes unavailable during a session
+- The game uses features incompatible with multi-GPU (e.g., certain DX12 synchronization patterns)
+
+Force single-GPU:
+```bash
+MVGAL_STRATEGY=single
 ```
 
 ---
 
-## Known Compatibility Issues
+## Performance Expectations
 
-| Game / Engine | Issue | Workaround |
-|---------------|-------|------------|
-| Games using DLSS | DLSS requires NVIDIA GPU; MVGAL routes DLSS calls to NVIDIA only | Set `MVGAL_DLSS_GPU=nvidia` |
-| Games with anti-cheat (EAC, BattlEye) | Anti-cheat may detect MVGAL layer | Disable layer: `MVGAL_VULKAN_ENABLE=0` |
-| Unreal Engine 4 (older) | UE4 may not enumerate device groups | Use `MVGAL_STRATEGY=single` |
-| Unity (older) | Unity may not support multi-GPU | Use `MVGAL_STRATEGY=single` |
-| Vulkan ray tracing | RT requires all GPUs to support VK_KHR_ray_tracing_pipeline | MVGAL reports intersection of features |
+| Configuration | Expected Improvement |
+|---------------|---------------------|
+| 2× same-vendor GPUs (AFR) | 1.6–1.9× frame rate |
+| 2× mixed-vendor GPUs (AFR) | 1.4–1.7× frame rate |
+| 3× GPUs (AFR) | 2.0–2.5× frame rate |
+| SFR (high resolution) | 1.5–1.8× frame rate |
+
+Actual improvement depends on:
+- PCIe bandwidth between GPUs
+- Game's CPU bottleneck
+- Frame time consistency
+- VRAM requirements vs available VRAM per GPU
 
 ---
 
-## Debugging
+## Monitoring During Gaming
 
 ```bash
-# Enable verbose Vulkan layer logging
-MVGAL_VULKAN_DEBUG=1 MVGAL_VULKAN_LOG_PATH=/tmp/mvgal-vk.log game_executable
+# Watch GPU utilization in real time
+mvgal-status --watch --interval 200
 
-# Show real-time GPU utilization during gaming
-mvgalctl monitor --interval 500
-
-# Show frame timing statistics
-mvgalctl stats --frames
+# Check frame pacer stats (via REST API)
+curl http://localhost:7474/api/v1/stats
 ```
+
+---
+
+## Troubleshooting
+
+**Microstutter despite frame pacing:**
+- Ensure `MVGAL_FRAME_PACING=1`
+- Check display refresh rate matches game frame rate
+- Try `MVGAL_STRATEGY=sfr` instead of `afr`
+
+**Lower performance than single GPU:**
+- PCIe bandwidth may be the bottleneck
+- Try `MVGAL_STRATEGY=single` to confirm
+- Check `mvgal-status` for PCIe utilization
+
+**Game crashes on launch:**
+- Disable MVGAL: `ENABLE_MVGAL=0`
+- Check `MVGAL_VULKAN_DEBUG=1` output
+- Verify Vulkan layer is correctly installed: `vulkaninfo | grep MVGAL`

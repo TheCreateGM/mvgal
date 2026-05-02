@@ -1,273 +1,240 @@
-# MVGAL Unified Memory Manager
+# MVGAL Memory Management
 
-**Version:** 0.2.0 | **Last Updated:** May 2026
+**Version:** 0.2.1
 
 ---
 
 ## Overview
 
-The MVGAL unified memory manager presents a single virtual address space to
-applications while managing physical VRAM across all GPUs. It handles
-allocation placement, replication, migration, and DMA-BUF-based cross-GPU
-transfers.
+MVGAL implements a unified memory manager that abstracts over physically separate GPU VRAM pools. Applications see a single virtual address space; MVGAL handles placement, migration, and synchronization transparently.
 
 ---
 
-## Data Structures
+## Memory Architecture
 
-### `mvgal_buffer_t` (Public Handle)
+```
+Application virtual address space
+         │
+         ▼
+┌─────────────────────────────────────────────────────┐
+│           Unified Virtual Memory (UVM)               │
+│   Single address space spanning all GPU VRAM pools   │
+└──────────────┬──────────────┬───────────────────────┘
+               │              │
+    ┌──────────▼──┐    ┌──────▼──────────┐
+    │  GPU 0 VRAM │    │  GPU 1 VRAM     │
+    │  (AMD 4 GiB)│    │  (NVIDIA 8 GiB) │
+    └─────────────┘    └─────────────────┘
+               │              │
+               └──────┬───────┘
+                      │
+              ┌───────▼───────┐
+              │  Host RAM     │
+              │  (staging)    │
+              └───────────────┘
+```
 
-An opaque handle returned to callers. Internally maps to:
+---
+
+## Transfer Path Selection
+
+MVGAL selects the optimal transfer path automatically:
+
+```
+1. DMA-BUF zero-copy
+   ├─ Kernel-supported (Linux 5.6+)
+   ├─ Works: AMD↔AMD, Intel↔Intel, AMD↔Intel
+   └─ Requires: both drivers export DMA-BUF
+
+2. PCIe Peer-to-Peer (P2P)
+   ├─ Direct GPU-to-GPU over PCIe
+   ├─ Requires: same PCIe root complex, kernel 5.10+
+   └─ Works: AMD↔NVIDIA (with nvidia-drm.modeset=1)
+
+3. Host-RAM staging
+   ├─ Always available
+   ├─ Highest latency (~2× PCIe bandwidth)
+   └─ Used when DMA-BUF and P2P are unavailable
+```
+
+### Measured bandwidth (typical PCIe 4.0 x16)
+
+| Path | Bandwidth |
+|------|-----------|
+| GPU-local VRAM | 400–900 GB/s |
+| DMA-BUF zero-copy | 20–30 GB/s |
+| PCIe P2P | 12–16 GB/s |
+| Host-RAM staging | 6–12 GB/s |
+
+---
+
+## Memory Flags
+
+| Flag | Value | Description |
+|------|-------|-------------|
+| `MVGAL_MEMORY_FLAG_HOST_VALID` | `1<<0` | CPU can access (mapped) |
+| `MVGAL_MEMORY_FLAG_GPU_VALID` | `1<<1` | GPUs can access |
+| `MVGAL_MEMORY_FLAG_CPU_CACHED` | `1<<2` | CPU cached memory |
+| `MVGAL_MEMORY_FLAG_CPU_UNCACHED` | `1<<3` | Write-combined, uncached |
+| `MVGAL_MEMORY_FLAG_SHARED` | `1<<4` | Shared across GPUs |
+| `MVGAL_MEMORY_FLAG_DMA_BUF` | `1<<5` | Use DMA-BUF for sharing |
+| `MVGAL_MEMORY_FLAG_P2P` | `1<<6` | Enable PCIe P2P transfers |
+| `MVGAL_MEMORY_FLAG_REPLICATED` | `1<<7` | Mirror on all GPUs |
+| `MVGAL_MEMORY_FLAG_PERSISTENT` | `1<<8` | Persistent CPU mapping |
+| `MVGAL_MEMORY_FLAG_LAZY_ALLOCATE` | `1<<9` | Defer physical allocation |
+| `MVGAL_MEMORY_FLAG_ZERO_INITIALIZED` | `1<<10` | Zero on allocation |
+
+---
+
+## Allocation Policy
+
+```
+Request size < 64 MB
+  └─ Allocate on GPU with most free VRAM
+
+Render target
+  └─ Allocate on GPU that will write first
+     (determined from workload history)
+
+Large buffer (> 64 MB)
+  └─ Allocate on GPU most likely to use it
+     (determined from access pattern history)
+
+Shared buffer (gpu_mask has multiple bits set)
+  └─ Allocate on primary GPU, DMA-BUF export to others
+```
+
+---
+
+## Memory Sharing Modes
+
+| Mode | Description |
+|------|-------------|
+| `MVGAL_MEMORY_SHARING_NONE` | GPU-local only |
+| `MVGAL_MEMORY_SHARING_DMABUF` | DMA-BUF export/import |
+| `MVGAL_MEMORY_SHARING_P2P` | PCIe peer-to-peer |
+| `MVGAL_MEMORY_SHARING_HOST` | Host-RAM staging |
+
+---
+
+## Memory Mirroring
+
+Read-only allocations accessed by multiple GPUs can be replicated to each GPU's local VRAM:
 
 ```c
-typedef struct mvgal_buffer_internal {
-    uint64_t            handle;         /* Unique MVGAL allocation ID */
-    uint64_t            size_bytes;     /* Allocation size */
-    uint64_t            unified_va;     /* Virtual address in unified space */
-    mvgal_placement_t   placement;      /* Current physical placement */
-    uint32_t            primary_gpu;    /* Primary GPU index */
-    uint32_t            mirror_mask;    /* Bitmask of GPUs holding replicas */
-    int                 dmabuf_fd;      /* DMA-BUF fd (-1 if none) */
-    uint32_t            ref_count;      /* Reference count */
-    uint64_t            last_access_ns; /* Last access timestamp */
-    uint32_t            access_gpu_mask;/* GPUs that accessed this buffer */
-    bool                read_only;      /* Whether buffer is read-only */
-    bool                pinned;         /* Whether buffer is pinned (no migration) */
-    pthread_mutex_t     lock;           /* Per-buffer lock */
-} mvgal_buffer_internal_t;
+// Replicate buffer to GPU 0 and GPU 1
+mvgal_memory_replicate(buffer, 0x3);  // gpu_mask = 0b11
 ```
 
-### `mvgal_placement_t`
+The mirror controller tracks access patterns per allocation and applies hysteresis to avoid thrashing. A buffer is mirrored when:
+- It is accessed by ≥2 GPUs in the same frame
+- The access count exceeds the mirror threshold (configurable)
+- Sufficient VRAM is available on all target GPUs
+
+---
+
+## Predictive Prefetching
+
+MVGAL tracks per-buffer access patterns across frames. When a buffer is consistently accessed by GPU N in frame F, MVGAL prefetches it to GPU N before frame F+1 begins.
+
+Prefetch is triggered by `mvgal_execution_submit()` based on the execution plan's `selected_gpu_mask`.
+
+---
+
+## DMA-BUF Integration
+
+### Export
 
 ```c
-typedef enum {
-    MVGAL_PLACEMENT_SYSTEM_RAM = 0,  /* Host system RAM */
-    MVGAL_PLACEMENT_GPU_VRAM   = 1,  /* Single GPU VRAM */
-    MVGAL_PLACEMENT_MIRRORED   = 2,  /* Replicated across multiple GPUs */
-    MVGAL_PLACEMENT_OVERFLOW   = 3,  /* System RAM overflow (VRAM exhausted) */
-} mvgal_placement_t;
+int fd;
+mvgal_memory_export_dmabuf(buffer, &fd);
+// fd is a DMA-BUF file descriptor
+// Pass to another process or GPU driver
 ```
 
-### Unified Virtual Address Space
+### Import
 
-The unified VA space is managed via an interval tree (`memory_internal.h`).
-Each allocation occupies a unique range in the unified VA space. Physical GPU
-addresses are mapped behind the unified VA handle.
+```c
+mvgal_buffer_t buffer;
+mvgal_memory_import_dmabuf(ctx, fd, size, &buffer);
+```
+
+### Kernel-level (via mvgal.ko)
+
+The kernel module uses `DRM_IOCTL_PRIME_HANDLE_TO_FD` and `DRM_IOCTL_PRIME_FD_TO_HANDLE` to export/import DMA-BUF objects between vendor DRM drivers.
+
+---
+
+## Rust Memory Safety Layer
+
+The `memory_safety` Rust crate tracks all allocations with reference counting:
 
 ```
-Unified VA Space (64-bit)
-┌──────────────────────────────────────────────────────────────┐
-│ 0x0000_0000_0000 │ [alloc 0: 8MB, GPU 0 VRAM]               │
-│ 0x0000_0080_0000 │ [alloc 1: 4MB, GPU 1 VRAM]               │
-│ 0x0000_00C0_0000 │ [alloc 2: 16MB, mirrored GPU 0+1]        │
-│ 0x0000_01C0_0000 │ [alloc 3: 2MB, system RAM overflow]       │
-│ ...              │                                            │
-└──────────────────────────────────────────────────────────────┘
+mvgal_mem_track(size, placement)  →  handle
+mvgal_mem_retain(handle)          →  increment refcount
+mvgal_mem_release(handle)         →  decrement; free at 0
+mvgal_mem_set_dmabuf(handle, fd)  →  associate DMA-BUF fd
+```
+
+Placements: `SystemRam=0`, `GpuVram=1`, `Mirrored=2`
+
+Statistics:
+```c
+uint64_t mvgal_mem_total_system_bytes(void);
+uint64_t mvgal_mem_total_gpu_bytes(void);
 ```
 
 ---
 
-## Allocation Algorithm
+## Memory Statistics
 
+```c
+mvgal_memory_stats_t stats;
+mvgal_memory_get_stats(ctx, &stats);
+
+// stats.total_allocated_bytes
+// stats.total_gpu_bytes
+// stats.total_system_bytes
+// stats.dmabuf_count
+// stats.p2p_transfers
+// stats.staging_transfers
+// stats.bytes_transferred
 ```
-mvgal_memory_allocate(size, flags, hint_gpu)
-         │
-         ├─ size < 64 MB?
-         │       │
-         │       └─ YES ──► Select GPU with most free VRAM
-         │
-         ├─ flags & MVGAL_MEM_RENDER_TARGET?
-         │       │
-         │       └─ YES ──► Select GPU that will write first
-         │                  (from recent workload history)
-         │
-         ├─ hint_gpu valid?
-         │       │
-         │       └─ YES ──► Use hint_gpu if it has sufficient free VRAM
-         │
-         ├─ Large allocation (≥ 64 MB)?
-         │       │
-         │       └─ YES ──► Select GPU most likely to use it
-         │                  (from access pattern history)
-         │
-         ├─ All GPU VRAM exhausted?
-         │       │
-         │       └─ YES ──► Overflow to system RAM
-         │                  Use MAP_HUGETLB if size ≥ 2 MB
-         │
-         └─ Allocate on selected GPU
-            Register in unified VA space
-            Return mvgal_buffer_t handle
-```
-
----
-
-## Memory Replication Policy
-
-Read-only allocations (textures, vertex buffers, constant buffers) are
-automatically replicated to all GPUs that access them.
-
-### Replication Decision
-
-```
-On GPU access to buffer B by GPU N:
-    if B.read_only AND B.primary_gpu != N:
-        if N not in B.mirror_mask:
-            cost = transfer_cost(B.primary_gpu, N, B.size_bytes)
-            benefit = estimated_future_accesses(B, N) * local_access_speedup
-            if benefit > cost AND vram_pressure(N) < MIRROR_VRAM_THRESHOLD:
-                replicate(B, N)
-                B.mirror_mask |= (1 << N)
-```
-
-### Hysteresis
-
-To avoid thrashing between replicated and non-replicated states, MVGAL
-applies hysteresis:
-
-- **Replicate threshold:** `benefit > cost * 1.5`
-- **Evict threshold:** `benefit < cost * 0.5`
-
-The hysteresis window is configurable:
-
-```ini
-[memory]
-mirror_replicate_threshold = 1.5
-mirror_evict_threshold = 0.5
-mirror_vram_pressure_limit = 0.85  # 85% VRAM used
-```
-
----
-
-## Memory Migration
-
-When a GPU that holds exclusive ownership of a buffer is idle and another GPU
-needs that buffer, MVGAL migrates it.
-
-### Migration Path Selection
-
-```
-migrate(buffer B, from GPU A, to GPU B):
-    │
-    ├─ P2P viable between A and B?
-    │       │
-    │       └─ YES ──► dma_buf_map_attachment (zero-copy)
-    │
-    ├─ DMA-BUF export supported on A?
-    │       │
-    │       └─ YES ──► Export DMA-BUF from A
-    │                  mmap in user space
-    │                  DMA to staging buffer
-    │                  Import to B
-    │
-    └─ Fallback ──► memcpy via system RAM
-                    (slowest path, always available)
-```
-
-### Migration Triggers
-
-Migration is triggered when:
-1. A GPU requests a buffer it does not own and the owning GPU is idle.
-2. VRAM pressure on the owning GPU exceeds the eviction threshold.
-3. The scheduler assigns a workload to a GPU that needs a buffer on another GPU.
 
 ---
 
 ## NUMA-Aware Allocation
 
-For host-side staging buffers, MVGAL queries the NUMA node of each GPU:
-
-```bash
-cat /sys/bus/pci/devices/0000:01:00.0/numa_node
-```
-
-Staging buffers are allocated from the NUMA node closest to the target GPU
-using `mbind()` with `MPOL_BIND`.
+MVGAL reads the NUMA node for each GPU from `/sys/bus/pci/devices/<slot>/numa_node`. When allocating host-side staging buffers, it prefers memory on the NUMA node closest to the GPU that will use it.
 
 ---
 
-## System RAM Overflow
+## Eviction Policy
 
-When VRAM across all GPUs is exhausted:
+When GPU VRAM is full:
+1. Scan allocations sorted by last-access time (LRU)
+2. Evict least-recently-used allocations to host RAM
+3. Re-populate on next access (demand paging)
 
-1. MVGAL allocates from system RAM using `mmap(MAP_ANONYMOUS | MAP_PRIVATE)`.
-2. For allocations ≥ 2 MB, `MAP_HUGETLB` is attempted first.
-3. The allocation is tracked with `MVGAL_PLACEMENT_OVERFLOW`.
-4. The prefetch engine schedules migration to VRAM when space becomes available.
-
----
-
-## DMA-BUF Bridge
-
-The DMA-BUF bridge (`src/userspace/memory/dmabuf.c`) implements:
-
-1. **Allocation:** Via `/dev/dma_heap/system` (kernel DMA heap).
-   Falls back to `memfd_create` or `tmpfile` for compatibility.
-2. **Export:** `ioctl(DMABUF_HEAP_IOCTL_ALLOC)` → returns fd.
-3. **Import:** `dma_buf_attach` + `dma_buf_map_attachment`.
-4. **P2P check:** `p2pdma_distance()` equivalent via sysfs topology.
-5. **Staging copy:** `mmap` source fd → `write` to destination fd.
-
----
-
-## Prefetch Engine
-
-The prefetch engine (`src/userspace/memory/`) predicts future buffer accesses
-based on:
-
-- Recent access history (last N frames).
-- Workload type (graphics vs compute).
-- Scheduler assignment (which GPU will run next).
-
-When a buffer is predicted to be needed on GPU N within the next 2 frames,
-the prefetch engine initiates migration in the background.
+Allocations with `MVGAL_MEMORY_FLAG_PERSISTENT` are never evicted.
 
 ---
 
 ## Configuration
 
+In `/etc/mvgal/mvgal.conf`:
+
 ```ini
-# /etc/mvgal/mvgal.conf
-
 [memory]
-# Threshold for small vs large allocation routing (bytes)
-small_alloc_threshold = 67108864  # 64 MB
+# Enable DMA-BUF sharing
+enable_dmabuf = true
 
-# VRAM pressure threshold for overflow to system RAM (0.0–1.0)
-vram_overflow_threshold = 0.95
+# Enable PCIe P2P transfers
+p2p_enabled = true
 
-# Enable huge pages for system RAM overflow
-use_hugepages = true
+# Replicate small buffers (< threshold) to all GPUs
+replicate_threshold = 67108864   # 64 MB
 
-# Mirror replication thresholds
-mirror_replicate_threshold = 1.5
-mirror_evict_threshold = 0.5
-mirror_vram_pressure_limit = 0.85
-
-# Prefetch lookahead (frames)
-prefetch_lookahead_frames = 2
+# Preferred copy method: dmabuf, p2p, host
+preferred_copy_method = dmabuf
 ```
-
----
-
-## Rust Safety Layer
-
-The `safe/memory_safety` Rust crate tracks all cross-GPU allocations with
-reference counting, preventing double-frees and use-after-free bugs:
-
-```rust
-// Track a new allocation
-let handle = mvgal_mem_track(size_bytes, PLACEMENT_GPU_VRAM, gpu_index);
-
-// Increment reference count (e.g., when sharing with another subsystem)
-mvgal_mem_retain(handle);
-
-// Decrement reference count (frees tracking record when it reaches zero)
-mvgal_mem_release(handle);
-
-// Associate a DMA-BUF fd
-mvgal_mem_set_dmabuf(handle, dmabuf_fd);
-```
-
-All `unsafe` blocks in the Rust crate are at FFI boundaries only and are
-annotated with safety comments explaining why they are sound.

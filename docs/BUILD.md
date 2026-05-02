@@ -1,102 +1,91 @@
 # MVGAL Build Guide
 
-**Version:** 0.2.1 | **Last Updated:** May 2026
+**Version:** 0.2.1
 
 ---
 
-> ⚠️ Note: Build artifacts and Copr build results have been archived to `builds_archive/` at the project root. See `docs/BUILD_ARTIFACTS.md` for details.
-
-
-## Quick Start (Ubuntu 22.04 / 24.04)
-
-```bash
-# 1. Install dependencies
-sudo apt-get update
-sudo apt-get install -y \
-    cmake ninja-build pkg-config \
-    gcc g++ clang clang-tidy clang-format \
-    libdrm-dev libpci-dev libudev-dev \
-    libvulkan-dev vulkan-validationlayers mesa-vulkan-drivers \
-    libgtest-dev \
-    git
-
-# 2. Clone and build
-git clone https://github.com/TheCreateGM/mvgal.git
-cd mvgal
-cmake -B build -G Ninja -DWITH_VULKAN=ON -DWITH_TESTS=ON
-cmake --build build --parallel $(nproc)
-
-# 3. Run tests
-ctest --test-dir build --output-on-failure
-
-# 4. Install
-sudo cmake --install build
-```
-
----
-
-## Dependencies
+## Prerequisites
 
 ### Required
 
-| Package | Ubuntu/Debian | Fedora/RHEL | Arch Linux |
-|---------|--------------|-------------|------------|
-| CMake ≥ 3.20 | `cmake` | `cmake` | `cmake` |
+| Package | Ubuntu/Debian | Fedora/RHEL | Arch |
+|---------|--------------|-------------|------|
+| CMake ≥ 3.16 | `cmake` | `cmake` | `cmake` |
 | Ninja | `ninja-build` | `ninja-build` | `ninja` |
-| GCC ≥ 12 | `gcc g++` | `gcc gcc-c++` | `gcc` |
+| GCC ≥ 11 or Clang ≥ 13 | `gcc g++` | `gcc-c++` | `gcc` |
 | libdrm | `libdrm-dev` | `libdrm-devel` | `libdrm` |
-| libpci | `libpci-dev` | `pciutils-devel` | `pciutils` |
-| libudev | `libudev-dev` | `systemd-devel` | `systemd-libs` |
+| libpci / pciaccess | `libpci-dev` | `pciutils-devel` | `pciutils` |
+| libudev | `libudev-dev` | `systemd-devel` | `systemd` |
 | pkg-config | `pkg-config` | `pkgconfig` | `pkgconf` |
 
 ### Optional
 
-| Package | Purpose | CMake Flag |
-|---------|---------|------------|
-| `libvulkan-dev` | Vulkan layer | `-DWITH_VULKAN=ON` |
-| `mesa-vulkan-drivers` | lavapipe for Vulkan tests | — |
-| `opencl-headers ocl-icd-dev` | OpenCL layer | `-DWITH_OPENCL=ON` |
-| CUDA Toolkit | CUDA shim | `-DWITH_CUDA=ON` |
-| `libgtest-dev` | Unit tests | `-DWITH_TESTS=ON` |
-| Rust toolchain (≥ 1.75) | Rust safety crates | — |
-| `linux-headers-$(uname -r)` | Kernel module | `-DWITH_KERNEL_MODULE=ON` |
+| Package | Purpose | Ubuntu/Debian |
+|---------|---------|--------------|
+| Vulkan SDK | Vulkan layer build | `libvulkan-dev vulkan-tools` |
+| OpenCL headers | OpenCL layer build | `opencl-headers ocl-icd-dev` |
+| Rust ≥ 1.75 | Safety crates | `rustup` |
+| Go ≥ 1.21 | REST API server | `golang` |
+| Qt5 or Qt6 | Dashboard | `qtbase5-dev` or `qt6-base-dev` |
+| Linux kernel headers | Kernel module | `linux-headers-$(uname -r)` |
+
+### Automated install
+
+```bash
+bash scripts/install_dependencies.sh
+```
+
+All privileged steps use `pkexec`.
 
 ---
 
-## CMake Build Options
+## CMake Build (Primary)
+
+### Quick build
+
+```bash
+mkdir -p build_output && cd build_output
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+```
+
+### Full build with all options
+
+```bash
+cmake .. \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DMVGAL_BUILD_KERNEL=ON \
+  -DMVGAL_BUILD_RUNTIME=ON \
+  -DMVGAL_BUILD_API=ON \
+  -DMVGAL_BUILD_TOOLS=ON \
+  -DMVGAL_ENABLE_RUST=ON \
+  -DMVGAL_BUILD_TESTS=ON \
+  -G Ninja
+ninja -j$(nproc)
+```
+
+### CMake Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `WITH_VULKAN` | `ON` | Build Vulkan interception layer |
-| `WITH_OPENCL` | `ON` | Build OpenCL interception layer |
-| `WITH_CUDA` | `OFF` | Build CUDA wrapper (requires CUDA SDK) |
-| `WITH_DAEMON` | `ON` | Build mvgald daemon |
-| `WITH_TESTS` | `ON` | Build test suite |
-| `WITH_BENCHMARKS` | `OFF` | Build benchmark suite |
-| `WITH_KERNEL_MODULE` | `OFF` | Build kernel module |
-| `WITH_DEBUG` | `OFF` | Debug build with symbols |
-| `WITH_ASAN` | `OFF` | AddressSanitizer |
-| `WITH_UBSAN` | `OFF` | UndefinedBehaviorSanitizer |
-| `WITH_TSAN` | `OFF` | ThreadSanitizer |
+| `MVGAL_BUILD_KERNEL` | ON | Build kernel module source |
+| `MVGAL_BUILD_RUNTIME` | ON | Build C++20 runtime daemon |
+| `MVGAL_BUILD_API` | OFF | Build API layers (Vulkan, OpenCL, CUDA) |
+| `MVGAL_BUILD_GAMING` | OFF | Build gaming integration |
+| `MVGAL_BUILD_TOOLS` | ON | Build CLI tools |
+| `MVGAL_ENABLE_RUST` | ON | Build Rust safety crates |
+| `MVGAL_BUILD_TESTS` | ON | Build test suite |
+| `MVGAL_ENABLE_SANITIZERS` | OFF | Enable ASan + UBSan (Debug only) |
+| `MVGAL_ENABLE_COVERAGE` | OFF | Enable gcov coverage |
+| `MVGAL_USE_CCACHE` | ON | Use ccache if available |
 
-### Example Configurations
+### Build targets
 
 ```bash
-# Default (recommended for most users)
-cmake -B build -G Ninja -DWITH_VULKAN=ON -DWITH_TESTS=ON
-
-# Debug with sanitizers
-cmake -B build -G Ninja -DWITH_DEBUG=ON -DWITH_ASAN=ON -DWITH_UBSAN=ON
-
-# Minimal (no Vulkan, no tests)
-cmake -B build -G Ninja -DWITH_VULKAN=OFF -DWITH_TESTS=OFF
-
-# Full (all optional components)
-cmake -B build -G Ninja \
-    -DWITH_VULKAN=ON \
-    -DWITH_OPENCL=ON \
-    -DWITH_TESTS=ON \
-    -DWITH_BENCHMARKS=ON
+cmake --build build_output --target mvgald          # daemon only
+cmake --build build_output --target mvgal-info      # single tool
+cmake --build build_output --target VK_LAYER_MVGAL  # Vulkan layer
+cmake --build build_output --target mvgal_opencl    # OpenCL layer
 ```
 
 ---
@@ -104,87 +93,103 @@ cmake -B build -G Ninja \
 ## Meson Build (Alternative)
 
 ```bash
-# Install meson
-pip install meson  # or: sudo apt install meson
-
-# Configure
-meson setup builddir -Dwith_vulkan=true -Dwith_tests=true
-
-# Build
+meson setup builddir \
+  -Dwith_vulkan=true \
+  -Dwith_opencl=true \
+  -Dwith_daemon=true \
+  -Dwith_tests=true \
+  -Dbuildtype=release
 ninja -C builddir
-
-# Test
 ninja -C builddir test
+```
 
-# Install
-sudo ninja -C builddir install
+### Meson options (`meson_options.txt`)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `with_vulkan` | false | Build Vulkan layer |
+| `with_opencl` | false | Build OpenCL layer |
+| `with_cuda` | false | Build CUDA shim |
+| `with_daemon` | true | Build daemon |
+| `with_tests` | false | Build tests |
+| `with_benchmarks` | false | Build benchmarks |
+| `with_kernel_module` | false | Build kernel module |
+
+---
+
+## Zig Build
+
+```bash
+zig build                                    # build all defaults
+zig build -Dbuild-runtime=true              # daemon + frame pacer
+zig build -Dbuild-tools=true                # CLI tools
+zig build -Dbuild-tests=true test           # run tests
 ```
 
 ---
 
-## Rust Crates
-
-The Rust safety-critical crates in `safe/` are built separately:
+## Rust Components
 
 ```bash
-# Install Rust (if not already installed)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source ~/.cargo/env
-
-# Build all Rust crates
+# Build all crates
 cargo build --release
 
-# Run Rust tests
+# Build individual crates
+cargo build --release -p fence_manager
+cargo build --release -p memory_safety
+cargo build --release -p capability_model
+
+# Run tests
 cargo test
+cargo test --release
 
-# Check with clippy
-cargo clippy --all-targets -- -D warnings
-
-# Format check
-cargo fmt --all -- --check
+# Check without building
+cargo check --all
 ```
-
-The compiled static libraries (`libmvgal_fence.a`, `libmvgal_memory_safety.a`,
-`libmvgal_capability.a`) are linked into the daemon when CMake finds them.
 
 ---
 
 ## Kernel Module
 
+The kernel module requires kernel headers and must be built with kbuild:
+
 ```bash
-# Install kernel headers
-sudo apt-get install linux-headers-$(uname -r)  # Ubuntu/Debian
-sudo dnf install kernel-devel                    # Fedora
+cd kernel
+make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
 
-# Build kernel module
-cmake -B build -G Ninja -DWITH_KERNEL_MODULE=ON
-cmake --build build --target mvgal_kernel
-
-# Or build directly with make
-make -C src/kernel
-
-# Load module
-sudo insmod build/src/kernel/mvgal.ko
+# Load (requires pkexec)
+pkexec insmod mvgal.ko
+pkexec insmod mvgal.ko enable_debug=1   # with debug logging
 
 # Verify
-ls /dev/mvgal0
 dmesg | grep MVGAL
+ls /dev/mvgal0
 
 # Unload
-sudo rmmod mvgal
+pkexec rmmod mvgal
 ```
 
-### DKMS Installation
+The kernel module is tested on Linux 6.19. It uses `class_create` compatibility shims for kernels 6.4+.
+
+---
+
+## Qt Dashboard
 
 ```bash
-# Install DKMS
-sudo apt-get install dkms
+mkdir -p ui/build && cd ui/build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+./mvgal-dashboard
+```
 
-# Register with DKMS
-sudo cp -r . /usr/src/mvgal-0.2.0
-sudo dkms add mvgal/0.2.0
-sudo dkms build mvgal/0.2.0
-sudo dkms install mvgal/0.2.0
+Requires Qt5 or Qt6 with Widgets and Network modules.
+
+## Go REST Server
+
+```bash
+cd ui
+go build -o mvgal-rest-server ./mvgal_rest_server.go
+./mvgal-rest-server --listen :7474
 ```
 
 ---
@@ -192,18 +197,42 @@ sudo dkms install mvgal/0.2.0
 ## Running Tests
 
 ```bash
-# All tests
-ctest --test-dir build --output-on-failure
+# C tests (via CTest)
+cd build_output
+ctest --output-on-failure --timeout 60
 
-# Specific test
-ctest --test-dir build -R test_gpu_detection --output-on-failure
+# Rust tests
+cargo test
 
-# With verbose output
-ctest --test-dir build -V
+# Standalone tool tests
+./tools/mvgal-info
+./tools/mvgal-bench all
+./tools/mvgal-compat --system
+```
 
-# Vulkan layer test (requires lavapipe)
-sudo apt-get install mesa-vulkan-drivers
-ctest --test-dir build -R test_vulkan_layer_submit --output-on-failure
+---
+
+## Installation
+
+### Generic installer (recommended)
+
+```bash
+bash build/install.sh [--prefix /usr] [--no-kernel] [--no-daemon]
+```
+
+All privileged steps use `pkexec`:
+- Kernel module → `/lib/modules/$(uname -r)/extra/mvgal.ko`
+- udev rules → `/etc/udev/rules.d/99-mvgal.rules`
+- Vulkan layer → `/usr/share/vulkan/implicit_layer.d/VK_LAYER_MVGAL.json`
+- OpenCL ICD → `/etc/OpenCL/vendors/mvgal.icd`
+- Systemd service → `/etc/systemd/system/mvgald.service`
+- Config → `/etc/mvgal/mvgal.conf`
+
+### CMake install
+
+```bash
+cd build_output
+pkexec make install   # or: pkexec cmake --install .
 ```
 
 ---
@@ -211,55 +240,36 @@ ctest --test-dir build -R test_vulkan_layer_submit --output-on-failure
 ## Cross-Compilation (ARM64)
 
 ```bash
-# Install cross-compiler
-sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
-# Configure for ARM64
-cmake -B build-arm64 -G Ninja \
-    -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/aarch64-linux-gnu.cmake \
-    -DWITH_VULKAN=OFF \
-    -DWITH_KERNEL_MODULE=OFF
-
-cmake --build build-arm64
+cmake .. \
+  -DCMAKE_TOOLCHAIN_FILE=build/cmake/toolchains/aarch64-linux-gnu.cmake \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DMVGAL_BUILD_KERNEL=OFF   # kernel module requires native build
+make -j$(nproc)
 ```
 
----
-
-## Static Analysis
-
+Requires `aarch64-linux-gnu-gcc` cross-compiler:
 ```bash
-# clang-tidy
-cmake -B build -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-clang-tidy -p build src/userspace/intercept/vulkan/vk_layer.c
-
-# clang-format check
-find src -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror
-
-# Apply clang-format
-find src -name "*.c" -o -name "*.h" | xargs clang-format -i
-
-# shellcheck
-find . -name "*.sh" | xargs shellcheck
+sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 ```
 
 ---
 
 ## Packaging
 
-### Debian/Ubuntu
+### Debian / Ubuntu
 
 ```bash
-cd packaging
-./build_deb.sh
-# Output: mvgal_0.2.0_amd64.deb
-sudo dpkg -i mvgal_0.2.0_amd64.deb
+cd packaging && bash build_deb.sh
+# Output: packaging/build/mvgal_0.2.1_amd64.deb
+pkexec dpkg -i packaging/build/mvgal_0.2.1_amd64.deb
 ```
 
-### Fedora/RHEL
+### RPM (Fedora / RHEL / openSUSE)
 
 ```bash
-rpmbuild -ba packaging/rpm/mvgal.spec
-# Output in ~/rpmbuild/RPMS/
+rpmbuild -bb packaging/rpm/mvgal.spec
+# Output: ~/rpmbuild/RPMS/x86_64/mvgal-0.2.1-1.x86_64.rpm
+pkexec rpm -ivh ~/rpmbuild/RPMS/x86_64/mvgal-0.2.1-1.x86_64.rpm
 ```
 
 ### Arch Linux
@@ -271,31 +281,50 @@ makepkg -si
 
 ---
 
+## CI / GitHub Actions
+
+Both workflows are **manual-only** (`workflow_dispatch`). To run:
+
+1. Go to **Actions** tab on GitHub
+2. Select **CI** or **Build on Fedora COPR**
+3. Click **Run workflow**
+
+The CI workflow runs:
+- Build matrix: Ubuntu 22.04 + 24.04, GCC + Clang
+- Unit tests via CTest
+- Vulkan layer smoke test (lavapipe)
+- clang-tidy static analysis
+- clang-format check
+- Rust clippy + rustfmt
+- Packaging check
+- shellcheck on all `.sh` files
+
+---
+
 ## Troubleshooting
 
-**Build fails: `vulkan/vulkan.h` not found**
+### `libdrm not found`
 ```bash
-sudo apt-get install libvulkan-dev
-# or disable Vulkan:
-cmake -B build -DWITH_VULKAN=OFF
+sudo apt install libdrm-dev   # Ubuntu
+sudo dnf install libdrm-devel  # Fedora
 ```
 
-**Build fails: `libdrm` not found**
+### `vulkan/vulkan.h not found`
 ```bash
-sudo apt-get install libdrm-dev
+sudo apt install libvulkan-dev
+cmake .. -DMVGAL_BUILD_API=ON
 ```
 
-**Kernel module fails to load: `-EBUSY`**
+### Kernel module fails to load: `-EBUSY`
+The module uses `alloc_chrdev_region` to avoid conflicts. If `/dev/mvgal0` already exists from a previous load:
 ```bash
-# Check if another module holds the device number
-ls /dev/mvgal*
-sudo rmmod mvgal
-sudo insmod build/src/kernel/mvgal.ko
+pkexec rmmod mvgal
+pkexec insmod kernel/mvgal.ko
 ```
 
-**Tests fail: `lavapipe ICD not found`**
+### Rust build fails: `MSRV`
+MVGAL requires Rust 1.75+:
 ```bash
-sudo apt-get install mesa-vulkan-drivers
-# Verify:
-VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json vulkaninfo
+rustup update stable
+rustup default stable
 ```

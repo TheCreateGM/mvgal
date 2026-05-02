@@ -1,384 +1,158 @@
-# MVGAL Steam & Proton Integration Guide
+# MVGAL Steam & Proton Integration
 
-This document explains how to use MVGAL with Steam and Proton for gaming workloads.
+**Version:** 0.2.1
 
 ---
 
 ## Overview
 
-MVGAL enables multi-GPU rendering for Steam games through Vulkan API interception. When configured correctly, Steam games running under Proton (Steam Play) will automatically utilize all available GPUs as a unified device.
+MVGAL integrates with Steam via two mechanisms:
+
+1. **Vulkan implicit layer** (`VK_LAYER_MVGAL`) — automatically active for all Vulkan applications, including those launched through Proton. No configuration needed.
+2. **Steam compatibility tool** — select MVGAL in game Properties → Compatibility for per-game control.
 
 ---
 
-## Requirements
+## Installation as Steam Compatibility Tool
 
-### Hardware
-- At least 2 GPUs from different vendors (AMD, NVIDIA, Intel, Moore Threads)
-- GPUs must be properly installed with drivers
-- PCIe bandwidth sufficient for cross-GPU communication
+Copy the Steam compatibility tool files to Steam's compatibility tools directory:
 
-### Software
-- Steam installed
-- Proton enabled (Steam Play)
-- Vulkan drivers installed for all GPUs
-- MVGAL installed and configured
+```bash
+# User-level (recommended)
+mkdir -p ~/.steam/root/compatibilitytools.d/MVGAL
+cp steam/toolmanifest.vdf steam/compatibilitytool.vdf steam/mvgal_steam_compat.sh \
+   ~/.steam/root/compatibilitytools.d/MVGAL/
+
+# Or system-level
+pkexec cp -r steam/ /usr/share/steam/compatibilitytools.d/MVGAL/
+```
+
+Restart Steam. The tool appears as **MVGAL 0.2.1** in the compatibility tool selector.
 
 ---
 
-## Installation
+## Per-Game Launch Option
 
-### 1. Install MVGAL
+The simplest way to enable MVGAL for a specific game:
 
-#### From Package
-```bash
-# Debian/Ubuntu
-sudo dpkg -i mvgal_0.1.0_amd64.deb
+1. Right-click game in Steam library → **Properties**
+2. In **Launch Options**, enter:
 
-# Fedora/RHEL
-sudo rpm -ivh mvgal-0.1.0-1.x86_64.rpm
-
-# Arch Linux
-sudo pacman -U mvgal-0.1.0-1-x86_64.pkg.tar.xz
 ```
-
-#### From Source
-```bash
-cd mvgal
-./build.sh
-sudo make install
-```
-
-### 2. Enable MVGAL Vulkan Layer
-
-The current Vulkan bootstrap uses an implicit layer manifest. In a normal install, the manifest lives under `/usr/share/vulkan/implicit_layer.d/` and the layer is activated by environment variable rather than `VK_LAYER_PATH`.
-
-For local testing from a build tree:
-
-```bash
-export VK_IMPLICIT_LAYER_PATH=/path/to/build/src/userspace
-export MVGAL_VULKAN_ENABLE=1
+ENABLE_MVGAL=1 MVGAL_STRATEGY=afr %command%
 ```
 
 ---
 
-## Configuration
-
-### Environment Variables
-
-Set these in your shell or Steam launch options:
-
-```bash
-# Enable MVGAL
-export MVGAL_ENABLED=1
-
-# Enable Vulkan layer
-export MVGAL_VULKAN_ENABLE=1
-
-# Select distribution strategy for gaming
-# Options: afr, sfr, hybrid, single, round_robin
-export MVGAL_STRATEGY=afr
-
-# Enable debug logging (if troubleshooting)
-export MVGAL_DEBUG=0
-export MVGAL_LOG_LEVEL=3
-
-# Explicitly specify GPUs to use (comma-separated indices)
-export MVGAL_GPUS="0,1"
-```
-
-### Steam Launch Options
-
-1. Right-click on a game in Steam
-2. Select "Properties"
-3. Under "Launch Options", add:
-   ```
-   sh -c 'export MVGAL_ENABLED=1; export MVGAL_VULKAN_ENABLE=1; export MVGAL_STRATEGY=afr; exec "$@"'
-   ```
-
-Or simpler:
-```
-MVGAL_ENABLED=1 MVGAL_VULKAN_ENABLE=1 MVGAL_STRATEGY=afr %command%
-```
-
-### Proton Configuration
-
-Edit `~/.steam/steam/steamapps/common/Proton-*/proton` and add:
-
-```bash
-export MVGAL_ENABLED=1
-export MVGAL_VULKAN_ENABLE=1
-export MVGAL_STRATEGY=afr
-```
-
----
-
-## Strategy Selection for Gaming
-
-### Alternate Frame Rendering (AFR) - Recommended for Gaming
-- Each GPU renders alternate frames
-- Low latency, good for FPS-sensitive games
-- Works well with frame pacing
-- **Best for:** First-person shooters, racing games, esports titles
-
-```bash
-export MVGAL_STRATEGY=afr
-```
-
-### Split Frame Rendering (SFR) - For High-Resolution
-- Frame divided into horizontal or vertical slices
-- Each GPU renders a portion of each frame
-- Higher throughput, but may have artifacts at split lines
-- **Best for:** 4K gaming, RTX games, simulation games
-
-```bash
-export MVGAL_STRATEGY=sfr
-```
-
-### Hybrid - Adaptive
-- Automatically selects between AFR and SFR
-- Monitors frame times and switches dynamically
-- **Best for:** General gaming with varying workloads
-
-```bash
-export MVGAL_STRATEGY=hybrid
-```
-
----
-
-## Performance Tuning
-
-### Load Balancing
-```bash
-# Enable thermal-aware scheduling
-export MVGAL_THERMAL_AWARE=1
-
-# Enable power-aware scheduling  
-export MVGAL_POWER_AWARE=1
-
-# Load balance check interval (ms)
-export MVGAL_BALANCE_INTERVAL=1000
-```
-
-### Memory Settings
-```bash
-# Enable DMA-BUF for zero-copy sharing
-export MVGAL_USE_DMABUF=1
-
-# Enable P2P transfers (if available)
-export MVGAL_P2P_ENABLED=1
-
-# Data size threshold for replication (bytes)
-export MVGAL_REPLICATE_THRESHOLD=16777216
-```
-
----
-
-## Game-Specific Configuration
-
-### Per-Game Settings File
-
-Create `~/.config/mvgal/games.conf`:
-
-```ini
-[GameName]
-strategy = afr
-gpus = 0,1
-enabled = true
-
-[AnotherGame]
-strategy = sfr
-gpus = 0,1,2
-enabled = true
-memory_replicate_threshold = 33554432
-```
-
-### Game Detection
-
-MVGAL can automatically detect games and apply settings:
-
-```bash
-# Enable per-game profiles
-export MVGAL_GAME_PROFILES=1
-
-# Enable automatic game detection
-export MVGAL_auto_detect_games=1
-```
-
----
-
-## Supported Games
-
-### Fully Supported (Tested)
-- DOOM Eternal
-- Quake II RTX
-- Portal 2
-- Team Fortress 2
-- Half-Life: Alyx
-- Cyberpunk 2077
-- Metro Exodus
-- Shadow of the Tomb Raider
-
-### Partially Supported
-- Games using custom engines (may need manual configuration)
-- Games with anti-cheat (may block Vulkan layers)
-- DirectX 11/12 via Proton (translation overhead)
-
-### Known Issues
-- **Anti-cheat systems**: Some games (EAC, BattlEye) may block Vulkan layers
-- **Fullscreen exclusive**: Some games using exclusive fullscreen may not work
-- **VR games**: May require additional configuration for good performance
-
----
-
-## Troubleshooting
-
-### Game Crashes on Start
-```bash
-# Check if Vulkan layer is loading
-MVGAL_VULKAN_ENABLE=1 vkcube
-
-# Verify layer is detected
-vulkaninfo | grep MVGAL
-
-# Check for errors
-MVGAL_DEBUG=1 MVGAL_LOG_LEVEL=5 game_executable
-```
-
-### Performance Worse Than Single GPU
-```bash
-# Try different strategies
-MVGAL_STRATEGY=afr game_executable
-MVGAL_STRATEGY=sfr game_executable
-MVGAL_STRATEGY=hybrid game_executable
-
-# Check GPU utilization
-watch -n 1 nvidia-smi  # NVIDIA
-watch -n 1 rocm-smi   # AMD
-```
-
-### Stuttering or Frame Drops
-```bash
-# Enable frame pacing
-export MVGAL_FRAME_PACING=1
-
-# Reduce scheduling overhead
-export MVGAL_BALANCE_INTERVAL=500
-```
-
-### Black Screen or Rendering Artifacts
-```bash
-# Disable MVGAL for this game
-export MVGAL_ENABLED=0
-```
-
----
-
-## Advanced Configuration
-
-### Environment Variable Reference
+## Environment Variables
 
 | Variable | Values | Default | Description |
 |----------|--------|---------|-------------|
-| `MVGAL_ENABLED` | 0/1 | 1 | Master enable switch |
-| `MVGAL_VULKAN_ENABLE` | 0/1 | 1 | Enable Vulkan implicit layer |
-| `MVGAL_VULKAN_DEBUG` | 0/1 | 0 | Enable Vulkan debug layer |
-| `MVGAL_STRATEGY` | afr/sfr/task/compute/hybrid/single/round_robin | hybrid | Distribution strategy |
-| `MVGAL_GPUS` | comma-separated indices | all | GPUs to use |
-| `MVGAL_LOG_LEVEL` | 0-5 | 3 | Logging verbosity |
-| `MVGAL_DEBUG` | 0/1 | 0 | Enable debug mode |
-| `MVGAL_THERMAL_AWARE` | 0/1 | 1 | Thermal-aware scheduling |
-| `MVGAL_POWER_AWARE` | 0/1 | 1 | Power-aware scheduling |
-| `MVGAL_USE_DMABUF` | 0/1 | 1 | Use DMA-BUF |
-| `MVGAL_P2P_ENABLED` | 0/1 | 1 | Enable P2P transfers |
-| `MVGAL_REPLICATE_THRESHOLD` | bytes | 16777216 | Replication threshold |
-| `VK_IMPLICIT_LAYER_PATH` | path | - | Override implicit-layer manifest search path for local testing |
+| `ENABLE_MVGAL` | `0` / `1` | `0` | Enable MVGAL for this launch |
+| `MVGAL_STRATEGY` | `afr`, `sfr`, `hybrid`, `single`, `round_robin`, `compute_offload` | `hybrid` | Scheduling strategy |
+| `MVGAL_FRAME_PACING` | `0` / `1` | `1` (with AFR) | Enable vsync-aligned frame pacing |
+| `MVGAL_GPU_MASK` | hex bitmask | `0xFF` | Which GPUs to use (e.g. `0x3` = GPU 0+1) |
+| `MVGAL_VULKAN_DEBUG` | `0` / `1` | `0` | Enable Vulkan layer debug logging |
+| `MVGAL_VULKAN_LOG_PATH` | file path | stderr | Redirect Vulkan layer log to file |
 
 ---
 
-## Verification
+## Frame Pacing
 
-### Check MVGAL is Working
-```bash
-# List detected GPUs
-MVGAL_LOG_LEVEL=5 vkcube 2>&1 | grep "GPU"
+Multi-GPU AFR can cause microstutter if frames arrive at uneven intervals. The frame pacer (`steam/mvgal_frame_pacer.c`) holds completed frames in a ring buffer (depth 8) and releases them at vsync-aligned intervals.
 
-# Check unified device properties
-MVGAL_VULKAN_ENABLE=1 vulkaninfo | grep -A 10 "MVGAL"
-```
+**Implementation details:**
+- Background thread using `CLOCK_MONOTONIC` for nanosecond precision
+- `sleep_until_ns()` using `nanosleep()` for accurate timing
+- Ring buffer: 8 slots, head/tail pointers, mutex-protected
+- Statistics: `frames_paced`, `frames_dropped`, `avg_jitter_us`
 
-### Benchmark Performance
-```bash
-# Single GPU
-vkcube
-
-# Multi-GPU with MVGAL
-MVGAL_ENABLED=1 MVGAL_STRATEGY=afr vkcube
+**API:**
+```c
+mvgal_frame_pacer_t *mvgal_fp_create(uint32_t refresh_hz);
+void                 mvgal_fp_destroy(mvgal_frame_pacer_t *fp);
+int                  mvgal_fp_submit_frame(mvgal_frame_pacer_t *fp,
+                                            uint64_t frame_id,
+                                            uint32_t gpu_index);
+void                 mvgal_fp_get_stats(const mvgal_frame_pacer_t *fp,
+                                         uint64_t *frames_paced,
+                                         uint64_t *frames_dropped,
+                                         double   *avg_jitter_us);
+void                 mvgal_fp_set_refresh_hz(mvgal_frame_pacer_t *fp, uint32_t hz);
 ```
 
 ---
 
-## Proton-Specific Tips
+## DXVK Compatibility
 
-### Proton Version Compatibility
-- Proton 7.0+: Full support
-- Proton 6.0+: Basic support
-- Proton Experimental: Latest features
-- Custom Proton GE: Best compatibility
+DXVK 2.x translates Direct3D 9/10/11 to Vulkan. MVGAL's Vulkan layer sits above DXVK in the layer stack and intercepts `vkQueueSubmit` calls. No special configuration is needed.
 
-### Proton Launch Options
-Add to Steam game launch options:
-```
-PROTON_USE_WINED3D=1 %command%
-```
+**Tested:** DXVK 2.3, 2.4
 
-For Vulkan games:
+**Recommended launch option:**
 ```
-PROTON_USE_WINED3D=1 MVGAL_ENABLED=1 MVGAL_VULKAN_ENABLE=1 %command%
-```
-
-### Proton Logs
-Check logs for Vulkan layer loading:
-```bash
-# Find Proton logs
-ls ~/.steam/steam/logs/proton_* | tail -1 | xargs cat | grep -i mvgal
+ENABLE_MVGAL=1 MVGAL_STRATEGY=afr MVGAL_FRAME_PACING=1 %command%
 ```
 
 ---
 
-## Performance Testing
+## VKD3D-Proton Compatibility
 
-### Frame Rate Comparison
-```bash
-# Without MVGAL
-vkcube
-# Note FPS
+VKD3D-Proton translates Direct3D 12 to Vulkan. Same as DXVK — MVGAL intercepts at the Vulkan queue submission level.
 
-# With MVGAL (AFR)
-MVGAL_ENABLED=1 MVGAL_STRATEGY=afr vkcube
-# Note FPS
-
-# With MVGAL (SFR)
-MVGAL_ENABLED=1 MVGAL_STRATEGY=sfr vkcube
+DX12 titles use explicit GPU synchronization, making frame pacing more important:
 ```
-
-### Synthetic Benchmarks
-```bash
-# glmark2
-MVGAL_ENABLED=1 MVGAL_STRATEGY=afr glmark2
-
-# Unigine Heaven/Valley
-MVGAL_ENABLED=1 MVGAL_STRATEGY=afr ./Heaven
+ENABLE_MVGAL=1 MVGAL_STRATEGY=afr MVGAL_FRAME_PACING=1 %command%
 ```
 
 ---
 
-## Links
+## Steam Profile Generation
 
-- [MVGAL GitHub](https://github.com/TheCreateGM/mvgal)
-- [Proton GitHub](https://github.com/ValveSoftware/Proton)
-- [ProtonDB](https://www.protondb.com/) - Game compatibility
-- [DXVK](https://github.com/doitsujin/dxvk) - DirectX to Vulkan translation
+MVGAL can generate optimized Steam/Proton profiles via the execution engine:
+
+```c
+mvgal_steam_profile_request_t req = {
+    .app_name       = "MyGame",
+    .strategy       = MVGAL_STRATEGY_AFR,
+    .steam_mode     = true,
+    .proton_mode    = true,
+    .vulkan_mode    = true,
+    .low_latency    = true,
+};
+
+mvgal_steam_profile_t profile;
+mvgal_execution_get_steam_profile(&req, &profile);
+// profile.launch_options contains the recommended env vars
+// profile.gpu_list contains the recommended GPU indices
+```
 
 ---
 
-*Last updated: 2026-04-21*
+## Known Limitations
+
+| Issue | Workaround |
+|-------|-----------|
+| EasyAntiCheat blocks Vulkan layers | `ENABLE_MVGAL=0 %command%` |
+| BattlEye blocks Vulkan layers | `ENABLE_MVGAL=0 %command%` |
+| Ray tracing doesn't scale across GPUs | Disable ray tracing in game settings |
+| Some DX12 titles with aggressive sync | Use `MVGAL_STRATEGY=single` |
+
+---
+
+## Debugging
+
+```bash
+# Enable Vulkan layer debug output
+MVGAL_VULKAN_DEBUG=1 ENABLE_MVGAL=1 %command%
+
+# Log to file
+MVGAL_VULKAN_LOG_PATH=/tmp/mvgal_vk.log ENABLE_MVGAL=1 %command%
+cat /tmp/mvgal_vk.log
+
+# Check layer is in the chain
+vulkaninfo 2>/dev/null | grep -A2 MVGAL
+
+# Check daemon is running
+mvgal-compat --system
+```

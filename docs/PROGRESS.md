@@ -1,821 +1,192 @@
-# MVGAL Project Progress Report
+# MVGAL Development Progress
 
-![Version](https://img.shields.io/badge/version-0.2.1-%2376B900?style=for-the-badge)
-![Status](https://img.shields.io/badge/status-Active-%234CAF50?style=for-the-badge)
-![Completion](https://img.shields.io/badge/completion-95%25-%232196F3?style=for-the-badge)
-![License](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)
-![Language](https://img.shields.io/badge/Language-C11-%23A8B9CC.svg?style=for-the-badge&logo=c&logoColor=white)
-![Language](https://img.shields.io/badge/Language-Rust-%23DEA584.svg?style=for-the-badge&logo=rust&logoColor=white)
-
-**Project:** Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
-**Current Date:** May 01, 2026
-**Current Version:** 0.2.0 "Health Monitor"
-**Overall Implementation:** ~95% Complete
-**Code Size:** ~25,700+ lines of C code + ~748+ lines of Rust code = ~26,448+ lines across ~36 source files
+**Version:** 0.2.1 | **Updated:** May 2026 | **Completion:** ~95%
 
 ---
 
-## 📊 Overall Progress
+## Development Timeline
 
-### Development Timeline
-
-```mermaid
-gantt
-    title MVGAL Development Timeline - 2025-2026
-    dateFormat  YYYY-MM-DD
-    section Phase 1: Architecture & Research
-    Architecture Research :done, arch1, 2025-01-01, 2025-01-15
-    Project Structure    :done, struct1, 2025-01-10, 2025-01-20
-    
-    section Phase 2: Core Modules
-    GPU Detection      :done, gpu1, 2025-01-20, 2025-02-15
-    Memory Layer        :done, mem1, 2025-01-25, 2025-03-01
-    Scheduler          :done, sched1, 2025-02-01, 2025-03-15
-    Core API          :done, api1, 2025-02-10, 2025-03-10
-    Daemon & IPC      :done, daemon1, 2025-03-01, 2025-04-01
-    OpenCL Intercept  :done, ocl1, 2025-03-20, 2025-04-05
-    CUDA Wrapper       :done, cuda1, 2025-03-25, 2025-04-01
-    
-    section Phase 3: New Features (v0.2.0)
-    Health Monitoring :done, health1, 2025-04-01, 2025-04-19
-    Vulkan Layer (partial) :done, vk1, 2025-04-10, 2025-04-15
-    
-    section Phase 4: Testing & QA
-    Unit Tests         :done, test1, 2025-03-20, 2025-04-10
-    Integration Tests  :done, int1, 2025-04-05, 2025-04-15
-    Bug Fixes          :done, fixes1, 2025-04-01, 2025-04-19
-    
-    section Phase 5: Documentation
-    Documentation     :done, docs1, 2025-04-01, 2025-04-20
-    
-    section Phase 6: Latest (May 2026)
-    Execution Module :done, exec1, 2026-04-01, 2026-04-21
-    Kernel Integration :done, kern1, 2026-04-05, 2026-04-20
-    Rust Components   :done, rust1, 2026-04-22, 2026-04-26
-    
-    section Future
-    Vulkan Layer (complete) :crit, vulkan2, 2026-04-26, 2026-05-15
-    CUDA Wrapper (full) :     cuda2, after vulkan2, 14d
-    Kernel Module (prod) :     kernel2, after cuda2, 21d
-    Rust Layer Wrappers :     rust2, after vulkan2, 7d
-```
-
-### Module Completion Breakdown
-
-```mermaid
-pie
-    title Module Completion (v0.2.0 - May 2026)
-    "Core API" : 100
-    "GPU Management" : 100
-    "GPU Health Monitor" : 100
-    "Memory Module" : 100
-    "Scheduler" : 100
-    "Daemon & IPC" : 100
-    "Logging" : 100
-    "Config" : 100
-    "OpenCL Intercept" : 100
-    "CUDA Wrapper" : 100
-    "Execution Module" : 100
-    "Rust Components" : 100
-    "Vulkan Layer" : 5
-    "Kernel Module" : 0
-```
-
-**Overall: ~95% Complete** - Execution module (NEW), Health monitoring, CUDA wrapper, and Rust safety components all now complete!
-
-### Build Status Summary
-
-**All components build successfully except Vulkan (5%). CUDA Wrapper is now 100% complete. Rust components all build and pass tests.**
-
-- ✅ **C Components:** All core C code compiles successfully
-- ✅ **Rust Components:** All 3 Rust crates compile and pass unit tests
-- ⚠️ **Vulkan Layer:** Only vk_layer.c compiles (5% complete)
+| Phase | Period | Status |
+|-------|--------|--------|
+| Phase 1: Architecture & Research | Jan 2025 | ✅ Complete |
+| Phase 2: Core Modules | Jan–Mar 2025 | ✅ Complete |
+| Phase 3: API Interception | Mar–Apr 2025 | ✅ Complete |
+| Phase 4: Testing & QA | Apr 2025 | ✅ Complete |
+| Phase 5: Documentation | Apr 2025 | ✅ Complete |
+| Phase 6: Execution Engine + Rust | Apr–May 2026 | ✅ Complete |
+| Phase 7: Tools, Steam, UI, OpenGL | May 2026 | ✅ Complete |
+| Phase 8: Root cleanup + CI | May 2026 | ✅ Complete |
 
 ---
 
-## ✅ Completed Phases
+## Phase 1: Architecture Research (100%)
 
-### Phase 1: Architecture Research (100% Complete)
-
-[![Complete](https://img.shields.io/badge/status-100%25-%234CAF50?style=flat-square)]
-[![LOCC](https://img.shields.io/badge/LOCC-1120%2B-%230071C5?style=flat-square)](https://github.com/TheCreateGM/mvgal)
-
-All research domains thoroughly documented in `docs/ARCHITECTURE_RESEARCH.md` (1120+ lines):
-
-- ✅ **GPU Driver Architecture Analysis**
-  - Linux DRM/KMS overview
-  - AMD amdgpu, NVIDIA proprietary, Intel i915/xe, Moore Threads architectures
-  - Common abstraction points identified
-  - Recommended: User-space interception + optional kernel module
-
-- ✅ **Initialization Flow**
-  - Standard Linux GPU initialization process
-  - Vendor-specific initialization sequences
-  - Unified initialization design for MVGAL
-  - GPU profile structure definition
-
-- ✅ **Rendering/Workload Flow**
-  - Standard rendering pipeline analysis
-  - MVGAL interception architecture
-  - Vulkan layer design
-  - Multiple workload distribution strategies (AFR, SFR, Task-based, Compute offload, Hybrid)
-
-- ✅ **Memory & Data Flow**
-  - Cross-vendor memory challenge analysis
-  - DMA-BUF mechanism and support matrix across vendors
-  - PCIe Peer-to-Peer transfers analysis
-  - Unified Virtual Memory overview
-  - MVGAL memory architecture with strategy decision tree
-  - DMA-BUF benchmark design
-
-- ✅ **Cross-Vendor Compatibility**
-  - SPIR-V as common intermediate representation
-  - Shader translation paths analyzed
-  - Fallback mechanisms designed
-
-**Files Created:**
-- `docs/ARCHITECTURE_RESEARCH.md` (1120 lines)
-- `docs/STEAM.md` (Steam/Proton integration guide)
+- Linux DRM/KMS subsystem analysis
+- AMD amdgpu, NVIDIA open-kernel-modules, Intel i915/xe, Moore Threads mtgpu-drv study
+- Multi-GPU Vulkan explicit API research (`VK_KHR_device_group`)
+- PCIe P2P DMA framework analysis
+- DMA-BUF mechanism and vendor support matrix
+- Vulkan layer development patterns
+- Documented in `docs/ARCHITECTURE_RESEARCH.md`, `docs/research/`
 
 ---
 
-### Phase 2: Project Structure & Documentation (100% Complete)
+## Phase 2: Core Modules (100%)
 
-[![Complete](https://img.shields.io/badge/status-100%25-%234CAF50?style=flat-square)]
+### Kernel Module
+- `mvgal_core.c` — DRM registration, `/dev/mvgal0`, 10 ioctls
+- `mvgal_device.c` — logical device, GPU enumeration, capability profile
+- `mvgal_memory.c` — DMA-BUF, unified virtual address space
+- `mvgal_scheduler.c` — 16-level priority queue, workload dispatch
+- `mvgal_sync.c` — cross-vendor fences, timeline semaphores
+- Vendor ops: AMD (TTM, DPM), NVIDIA (user-space shim), Intel (i915+xe), MTT
 
-```mermaid
-classDiagram
-    class CMakeLists.txt {
-        +Main build configuration
-        +Configurable options
-        +Installation targets
-    }
-    
-    class README.md {
-        +Project overview
-        +Usage guide
-    }
-    
-    class LICENSE {
-        +GPLv3 license
-    }
-    
-    CMakeLists.txt --> README.md : Builds
-    CMakeLists.txt --> LICENSE : Includes
-```
+### Userspace Library
+- GPU manager: sysfs scan, PCI enumeration, health monitoring
+- Memory manager: DMA-BUF, P2P, allocator, sync (2,576 LOC)
+- Scheduler: 7 strategies, load balancer, workload splitter (2,275 LOC)
+- Core API: init, context, strategy, stats, fences, semaphores
+- Logging: 22 functions, thread-safe, color, syslog, file, callbacks
+- Config: INI format, defaults, validation, callbacks
+- IPC: Unix socket, magic header, 11 message types
 
-- ✅ **Project Structure** - Complete directory hierarchy established
-  - Standard source organization
-  - CMake build system with configurable options
-  - Kernel/userspace separation
-
-- ✅ **Documentation** - All core docs created
-  - README.md - Comprehensive project overview
-  - LICENSE - GPLv3 license file
-  - CMakeLists.txt - Full build configuration
-  - All header files with Doxygen-style documentation
-
-- ✅ **Public API Headers (9 files)**
-  | File | Lines | Status |
-  |------|-------|--------|
-  | `mvgal.h` | 330 | ✅ |
-  | `mvgal_types.h` | 180 | ✅ |
-  | `mvgal_gpu.h` | 470 | ✅ (includes Health Monitoring) |
-  | `mvgal_memory.h` | 420 | ✅ |
-  | `mvgal_scheduler.h` | 440 | ✅ |
-  | `mvgal_log.h` | 120 | ✅ |
-  | `mvgal_config.h` | 380 | ✅ |
-  | `mvgal_ipc.h` | 112 | ✅ |
-  | `mvgal_version.h` | 40 | ✅ |
+### Public API Headers
+- 13 headers, 220+ public functions, fully documented
 
 ---
 
-### Phase 3: GPU Detection Module (100% Complete)
+## Phase 3: API Interception (100% for Vulkan, OpenCL, CUDA)
 
-[![Complete](https://img.shields.io/badge/status-100%25-%234CAF50?style=flat-square)]
-[![LOCC](https://img.shields.io/badge/LOCC-371%2B-%230071C5?style=flat-square)](https://github.com/TheCreateGM/mvgal)
+### Vulkan Layer
+- Full dispatch-chain layer (`vk_layer.c`, ~1,205 LOC)
+- 17 intercepted functions across instance, device, queue, physical device
+- Physical device property caching for telemetry
+- Atomic submit counter, debug logging, log file support
+- Registered as implicit layer via JSON manifest
 
-**Implementation:** `src/userspace/daemon/gpu_manager.c`
+### OpenCL Layer
+- LD_PRELOAD wrapper (`cl_intercept.c`, ~600 LOC)
+- Platform + device interception
+- NDRange kernel partitioning across GPUs
+- Registered via `/etc/OpenCL/vendors/mvgal.icd`
 
-```mermaid
-flowchart LR
-    A[Scan /sys/class/drm/] --> B[Detect DRM devices]
-    C[Scan /dev/nvidia*] --> B
-    D[Scan /sys/bus/pci/devices/] --> B
-    B --> E[Identify Vendor<br/>AMD/NVIDIA/Intel/Moore]
-    E --> F[Detect GPU Type<br/>Discrete/Integrated/APU]
-    F --> G[Check Features<br/>Vulkan/OpenGL/OpenCL/CUDA]
-    G --> H[Score Performance<br/>Compute/Graphics]
-    H --> I[Get Memory Info<br/>VRAM estimates]
-    I --> J[mvgal_gpu_get_count/<br/>mvgal_gpu_get_descriptor]
-```
+### CUDA Shim
+- LD_PRELOAD wrapper (`cuda_wrapper.c`, ~1,340 LOC)
+- 40+ CUDA Driver and Runtime API functions
+- Kernel launch interception (`cuLaunchKernel`, `cudaLaunchKernel`)
+- Cross-GPU copy detection, memory tracking per GPU
+- 6 distribution strategies
 
-**Features:**
-- DRM device scanning
-- NVIDIA device scanning
-- PCI bus scanning
-- Vendor identification (AMD, NVIDIA, Intel, Moore Threads)
-- GPU type detection
-- Feature capability flags
-- API support detection
-- Performance scoring
-- Memory information
-
-**Public API Functions (28):**
-- `mvgal_gpu_get_count()` / `mvgal_gpu_enumerate()`
-- `mvgal_gpu_get_descriptor()` / `mvgal_gpu_find_by_pci()`
-- `mvgal_gpu_find_by_node()` / `mvgal_gpu_find_by_vendor()`
-- `mvgal_gpu_select_best()`
-- `mvgal_gpu_enable()` / `mvgal_gpu_is_enabled()`
-- `mvgal_gpu_enable_all()` / `mvgal_gpu_disable_all()`
-- `mvgal_gpu_get_primary()` / `mvgal_gpu_has_feature()`
-- `mvgal_gpu_has_api()` / `mvgal_gpu_get_memory_stats()`
-- **NEW in v0.2.0:** 8 Health Monitoring functions
+### OpenGL Preload
+- `mvgal_gl_preload.c` — intercepts `glXSwapBuffers` + `eglSwapBuffers`
+- Frame pacing telemetry injection
+- Works with Zink (Mesa OpenGL→Vulkan)
 
 ---
 
-### Phase 4: Memory Abstraction Layer (100% Complete)
+## Phase 4: Testing (97.9%)
 
-[![Complete](https://img.shields.io/badge/status-100%25-%234CAF50?style=flat-square)]
-[![LOCC](https://img.shields.io/badge/LOCC-2576%2B-%230071C5?style=flat-square)](https://github.com/TheCreateGM/mvgal)
-
-```mermaid
-flowchart TD
-    subgraph Memory["Memory Module"]
-        M[memory.c<br/>924 lines]
-        D[dmabuf.c<br/>802+ lines]
-        A[allocator.c<br/>448 lines]
-        S[sync.c<br/>402 lines]
-    end
-    
-    M --> A
-    M --> D
-    M --> S
-    
-    A -->|System/mmap| B[System Memory]
-    D -->|DMA-BUF| C[Kernel DMA Heaps]
-    D -->|Fallback| E[memfd_create/tmpfile]
-    S --> F[Fences]
-    S --> G[Semaphores]
-    
-    C -->|Export/Import| H[Cross-GPU Memory]
-    
-    style M fill:#1A5FB4,stroke:#0A3A80
-    style D fill:#1A5FB4,stroke:#0A3A80
-    style A fill:#1A5FB4,stroke:#0A3A80
-    style S fill:#1A5FB4,stroke:#0A3A80
-```
-
-**Components:**
-
-| Component | File | Lines | Status |
-|-----------|------|-------|--------|
-| Core Memory | `memory.c` | 924 | ✅ |
-| DMA-BUF Manager | `dmabuf.c` | 802+ | ✅ |
-| Allocator | `allocator.c` | 448 | ✅ |
-| Synchronization | `sync.c` | 402 | ✅ |
-
-**DMA-BUF Features:**
-- DMA-BUF allocation via kernel heaps (`/dev/dma_heap/system`)
-- Fallback to memfd_create and tmpfile for compatibility
-- Memory import/export as DMA-BUF
-- Memory mapping/unmapping
-- **P2P Backend:** `p2p_is_supported()`, `copy_gpu_to_gpu()`, `bind_to_gpu()`, `get_copy_method()`
-- **UVM Support:** `uvm_is_supported()`, `allocate_uvm()`, `free_uvm()`, `uvm_map_to_gpu()`
-
-**Public API Functions: 45+**
+| Suite | Pass/Total |
+|-------|-----------|
+| C unit tests | 5/5 |
+| C integration tests | 1/1 |
+| Rust unit tests | 10/10 |
+| Synthetic benchmarks | 10/10 |
+| Real-world benchmarks | 12/12 |
+| Stress benchmarks | 9/10 (1 cosmetic) |
+| **Total** | **47/48** |
 
 ---
 
-### Phase 5: Workload Scheduler (100% Complete)
+## Phase 5: Documentation (100%)
 
-[![Complete](https://img.shields.io/badge/status-100%25-%234CAF50?style=flat-square)]
-[![LOCC](https://img.shields.io/badge/LOCC-1383%2B-%230071C5?style=flat-square)](https://github.com/TheCreateGM/mvgal)
-
-```mermaid
-flowchart TD
-    S[scheduler.c<br/>1383 lines] --> LB[load_balancer.c<br/>270 lines]
-    S --> Spl[workload_splitter.c]
-    
-    LB --> S1[AFR<br/>afr.c]
-    LB --> S2[SFR<br/>sfr.c]
-    LB --> S3[Task<br/>task.c]
-    LB --> S4[Compute Offload<br/>compute_offload.c]
-    LB --> S5[Hybrid<br/>hybrid.c]
-    LB --> S6[Single GPU]
-    LB --> S7[Round-Robin]
-    
-    S1 -->|Alternate frames| GPUs
-    S2 -->|Split frame| GPUs
-    S3 -->|By task type| GPUs
-    S4 -->|Offload compute| GPUs
-    S5 -->|Adaptive| GPUs
-    
-    style S fill:#4CAF50,stroke:#388E3C
-    style LB fill:#4CAF50,stroke:#388E3C
-    style S1 fill:#8BC34A,stroke:#689F38
-    style S2 fill:#8BC34A,stroke:#689F38
-    style S3 fill:#8BC34A,stroke:#689F38
-    style S4 fill:#8BC34A,stroke:#689F38
-    style S5 fill:#CDDC39,stroke:#AFB42B
-```
-
-**Features:**
-- Workload lifecycle management (create, destroy, retain, release)
-- Workload queuing with priority support (0-100)
-- GPU suitability scoring algorithm
-- Thread pool for background processing
-- Statistics tracking (frames, workloads, utilization)
-- Pause/resume support
-- GPU assignment and masking
-
-**Distribution Strategies (7 total):**
-
-| Strategy | File | Lines | Description |
-|----------|------|-------|-------------|
-| AFR | `afr.c` | 166 | Alternate Frame Rendering |
-| SFR | `sfr.c` | 331 | Split Frame Rendering |
-| Task-Based | `task.c` | 251 | Task-type distribution |
-| Compute Offload | `compute_offload.c` | 125 | Compute workload offloading |
-| Hybrid | `hybrid.c` | 238 | Adaptive strategy selection |
-| Single GPU | built-in | - | Single GPU mode |
-| Round-Robin | built-in | - | Round-robin distribution |
-
-**Public API Functions: 34+**
+- 23 markdown files in `docs/`
+- All public API headers documented with Doxygen-style comments
+- Architecture diagrams, data flow diagrams
+- Per-vendor driver integration guide
+- Gaming, Steam, Rust development guides
 
 ---
 
-### Phase 6: Core API Layer (100% Complete)
+## Phase 6: Execution Engine + Rust (100%)
 
-[![Complete](https://img.shields.io/badge/status-100%25-%234CAF50?style=flat-square)]
-[![LOCC](https://img.shields.io/badge/LOCC-1200%2B-%230071C5?style=flat-square)](https://github.com/TheCreateGM/mvgal)
+### Execution Engine (`src/userspace/execution/`)
+- Frame session lifecycle: begin → submit → present
+- Migration plan generation (DMA-BUF, P2P, staging, mirror)
+- Steam/Proton profile generation
+- Integration with scheduler and memory manager
 
-**Main API** (`src/userspace/api/mvgal_api.c` - 800+ lines):
-- Initialization: `mvgal_init()`, `mvgal_init_with_config()`, `mvgal_shutdown()`
-- Context management: `mvgal_context_create()`, `mvgal_context_destroy()`
-- Execution control: `mvgal_flush()`, `mvgal_finish()`, `mvgal_wait_idle()`
-- Enable/disable: `mvgal_set_enabled()`, `mvgal_is_enabled()`
-- Strategy management: `mvgal_set_strategy()`, `mvgal_get_strategy()`
-- Statistics: `mvgal_get_stats()`, `mvgal_reset_stats()`
-- Custom splitters: `mvgal_register_custom_splitter()`, `mvgal_unregister_custom_splitter()`
+### Rust Safety Crates (`safe/`)
+- `fence_manager`: cross-device fence lifecycle, state machine
+- `memory_safety`: allocation tracking, ref counting, DMA-BUF association
+- `capability_model`: GPU capability normalization, JSON serialization
+- Cargo workspace, edition 2021, MSRV 1.75
+- Full C FFI interfaces, 10 unit tests
 
-**Logging** (`src/userspace/api/mvgal_log.c` - 400+ lines):
-- 22 public API functions
-- Multiple output targets (file, syslog, console)
-- Color support
-- Custom callbacks
-- Thread-safe
-
----
-
-### Phase 7: Daemon & IPC (100% Complete)
-
-[![Complete](https://img.shields.io/badge/status-100%25-%234CAF50?style=flat-square)]
-[![LOCC](https://img.shields.io/badge/LOCC-796%2B-%230071C5?style=flat-square)](https://github.com/TheCreateGM/mvgal)
-
-```mermaid
-flowchart TD
-    M[main.c<br/>234+ lines] --> C[config.c<br/>270 lines]
-    M --> I[ipc.c<br/>292 lines]
-    M --> G[gpu_manager.c<br/>371+ lines]
-    
-    I -->|Unix Sockets| S[Socket Server]
-    S -->|Messages| C
-    
-    G -->|Detect| D[DRM Devices]
-    G -->|Detect| N[NVIDIA Devices]
-    G -->|Detect| P[PCI Devices]
-    
-    style M fill:#795548,stroke:#5D4037
-    style C fill:#795548,stroke:#5D4037
-    style I fill:#795548,stroke:#5D4037
-    style G fill:#795548,stroke:#5D4037
-```
-
-**Daemon Main** (`main.c`):
-- Signal handling (SIGINT, SIGTERM, SIGQUIT, SIGHUP)
-- Runtime directory creation (`/var/run/mvgal`)
-- PID file management
-- Daemonization
-- Subsystem initialization
-- Main event loop
-- Clean shutdown
-
-**IPC Server/Client** (`ipc.c`):
-- Unix domain socket-based communication
-- Message header structure with magic number and version
-- Server lifecycle: init/start/stop/cleanup
-- Client: connect/disconnect
-- Message passing: send/receive
-- Message types: GPU enumeration, workload submission, memory, config
-
-**Configuration** (`config.c`):
-- Lifecycle: init/shutdown
-- Get/set config values
-- Reset to defaults
-
----
-
-### Phase 8: API Interception Layers (OpenCL: 100%, Vulkan: 5%) [![Complete](https://img.shields.io/badge/status-52.5%25-%23FF9800?style=flat-square)]
-
-[![OpenCL](https://img.shields.io/badge/OpenCL-100%25-%234CAF50?style=flat-square)](https://github.com/TheCreateGM/mvgal)
-[![Vulkan](https://img.shields.io/badge/Vulkan-5%25-%23FF5722?style=flat-square)](https://github.com/TheCreateGM/mvgal)
-
-**OpenCL Intercept** (`src/userspace/intercept/opencl/cl_intercept.c`):
-- LD_PRELOAD-based interception
-- Transparent to applications
-- Compiles successfully
-- Basic wrapper functionality
-
-**Vulkan Layer** (`src/userspace/intercept/vulkan/`):
-- 5 files: vk_layer.c, vk_instance.c, vk_device.c, vk_queue.c, vk_command.c
-- Status: vk_layer.c compiles (minimal stub)
-- vk_instance.c, vk_device.c, vk_queue.c, vk_command.c need Vulkan SDK headers
-- Requires `vkGetProcAddress` declaration
-- Requires proper original function pointer handling
-
----
-
-### Phase 9: Rust Safety Components (100% Complete) **NEW in v0.2.0** ✨
-
-[![Status](https://img.shields.io/badge/status-100%25-%234CAF50?style=for-the-badge)]
-[![LOCC](https://img.shields.io/badge/added-748%2B_lines-%230071C5?style=for-the-badge)](https://github.com/TheCreateGM/mvgal)
-[![Language](https://img.shields.io/badge/Language-Rust-%23DEA584.svg?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
-
-MVGAL includes **Rust-based safety-critical components** organized in a **Cargo workspace** with full C FFI interfaces.
-
-```mermaid
-flowchart TD
-    subgraph RustWorkspace["Rust Workspace (safe/)"]
-        FM[fence_manager<br/>~248 LOC]
-        MS[memory_safety<br/>~230 LOC]
-        CM[capability_model<br/>~260 LOC]
-    end
-    
-    subgraph CCode["C Code (src/)"]
-        Core[Core Library]
-        Daemon[Daemon]
-        Intercept[Interception Layers]
-    end
-    
-    FM -->|FFI| Core
-    MS -->|FFI| Core
-    CM -->|FFI| Core
-    
-    Core --> Daemon
-    Core --> Intercept
-    
-    style RustWorkspace fill:#DEA584,stroke:#B87338
-    style CCode fill:#3A3A3A,stroke:#505050
-    style FM fill:#DEA584,stroke:#B87338
-    style MS fill:#DEA584,stroke:#B87338
-    style CM fill:#DEA584,stroke:#B87338
-    linkStyle default stroke-width:2px,stroke:#B87338
-```
-
-#### Workspace Structure
-```
-safe/
-├── fence_manager/
-│   └── src/lib.rs          # Cross-device fence lifecycle (248 lines)
-├── memory_safety/
-│   └── src/lib.rs          # Safe memory allocation tracking (230 lines)
-└── capability_model/
-    └── src/lib.rs          # GPU capability normalization (260 lines)
-
-runtime/safe/
-└── lib.rs                  # Runtime entry point and bindings
-```
-
-#### Component Details
-
-**1. Fence Manager (`safe/fence_manager`)** - ✅ 100% Complete
-- **Purpose**: Cross-device fence lifecycle management
-- **Features**: Fence creation, submission, signaling, state tracking, timestamp tracking
-- **FFI Functions**: `mvgal_fence_create`, `mvgal_fence_submit`, `mvgal_fence_signal`, `mvgal_fence_state`, `mvgal_fence_reset`, `mvgal_fence_destroy`
-- **Tests**: 3 comprehensive unit tests
-- **Status**: ✅ Complete with full C FFI
-
-**2. Memory Safety (`safe/memory_safety`)** - ✅ 100% Complete
-- **Purpose**: Safe wrappers for cross-GPU memory operations
-- **Features**: Allocation tracking, reference counting, placement tracking (System RAM/GPU VRAM/Mirrored), DMA-BUF association, statistics
-- **FFI Functions**: `mvgal_mem_track`, `mvgal_mem_retain`, `mvgal_mem_release`, `mvgal_mem_set_dmabuf`, `mvgal_mem_size`, `mvgal_mem_placement`, `mvgal_mem_total_system_bytes`, `mvgal_mem_total_gpu_bytes`
-- **Tests**: 3 comprehensive unit tests
-- **Status**: ✅ Complete with full C FFI
-
-**3. Capability Model (`safe/capability_model`)** - ✅ 100% Complete
-- **Purpose**: GPU capability normalization and comparison
-- **Features**: Vendor enumeration (AMD/NVIDIA/Intel/Moore Threads), capability aggregation, tier classification (Full/ComputeOnly/Mixed), API flags, JSON serialization
-- **Types**: `GpuVendor`, `CapabilityTier`, `GpuCapability`, `AggregateCapability`
-- **FFI Functions**: `mvgal_cap_compute`, `mvgal_cap_free`, `mvgal_cap_total_vram`, `mvgal_cap_tier`, `mvgal_cap_to_json`
-- **Tests**: 4 comprehensive unit tests
-- **Status**: ✅ Complete with full C FFI and Serde support
-
-**Key Benefits of Rust Components:**
-- ✅ **Memory Safety**: Compile-time prevention of use-after-free, buffer overflows, data races
-- ✅ **Thread Safety**: Safe concurrent access with Mutex and Atomic operations
-- ✅ **Performance**: Zero-cost abstractions, comparable to C
-- ✅ **Interoperability**: Full C FFI for seamless integration
-- ✅ **Reliability**: Comprehensive unit testing with `cargo test`
-
-**Workspace Configuration:**
-- **Version**: 0.2.0
-- **Edition**: 2021
-- **Rust Version**: 1.75+
-- **License**: MIT OR Apache-2.0
-- **Dependencies**: serde, serde_json (for capability_model)
-
-**Build Commands:**
-```bash
-# Build all Rust crates
-cd safe
-cargo build --release
-
-# Build individual crates
-cargo build --release -p fence_manager
-cargo build --release -p memory_safety
-cargo build --release -p capability_model
-
-# Run tests
-cargo test
-cargo test --release
-```
-
-**Integration with C:**
-All Rust components expose C FFI interfaces that are called from the C-based MVGAL core. The functions are marked with `#[no_mangle]` and `extern "C"` for C-compatible ABI.
-
-**See Also:** [RUST_DEVELOPMENT.md](RUST_DEVELOPMENT.md) for detailed Rust development guide.
-
----
-
-## 🎯 Feature: GPU Health Monitoring (NEW in v0.2.0)
-
-[![Status](https://img.shields.io/badge/status-NEW-%234CAF50?style=for-the-badge)]
-[![LOCC](https://img.shields.io/badge/added-247%2B_lines-%230071C5?style=for-the-badge)](https://github.com/TheCreateGM/mvgal)
-
-```mermaid
-classDiagram
-    class mvgal_gpu_health_status_t {
-        +float temperature_celsius
-        +float utilization_percent
-        +float memory_used_percent
-        +bool is_healthy
-        +mvgal_gpu_health_level_t level
-    }
-    
-    class mvgal_gpu_health_level_t {
-        <<enumeration>>
-        MVGAL_GPU_HEALTH_GOOD
-        MVGAL_GPU_HEALTH_WARNING
-        MVGAL_GPU_HEALTH_CRITICAL
-    }
-    
-    class mvgal_gpu_health_thresholds_t {
-        +float temp_warning
-        +float temp_critical
-        +float util_warning
-        +float util_critical
-    }
-    
-    class mvgal_gpu_health_callback_t {
-        <<typedef>>
-        +void (*callback)(mvgal_gpu_t, mvgal_gpu_health_status_t, void*)
-    }
-    
-    class HealthMonitor {
-        +monitoring_thread_t thread
-        +bool enabled
-        +int32_t poll_interval_ms
-        -CheckHealth()
-        -NotifyCallbacks()
-    }
-    
-    mvgal_gpu_health_status_t --> mvgal_gpu_health_level_t : uses
-    HealthMonitor --> mvgal_gpu_health_status_t : returns
-    HealthMonitor --> mvgal_gpu_health_callback_t : invokes
-```
-
-**New Types (4):**
-- `mvgal_gpu_health_status_t` - Complete health status structure
-- `mvgal_gpu_health_level_t` - Health level enum (GOOD/WARNING/CRITICAL)
-- `mvgal_gpu_health_thresholds_t` - Configurable thresholds
-- `mvgal_gpu_health_callback_t` - Health alert callback
-
-**New API Functions (8):**
-1. `mvgal_gpu_get_health_status()` - Get full health status for a GPU
-2. `mvgal_gpu_get_health_level()` - Get health level enum
-3. `mvgal_gpu_all_healthy()` - Check if all GPUs are healthy
-4. `mvgal_gpu_get_health_thresholds()` - Get current thresholds
-5. `mvgal_gpu_set_health_thresholds()` - Set custom thresholds
-6. `mvgal_gpu_register_health_callback()` - Register health alert
-7. `mvgal_gpu_unregister_health_callback()` - Unregister callback
-8. `mvgal_gpu_enable_health_monitoring()` - Enable/disable monitoring
-
-**Implementation Details:**
+### GPU Health Monitoring
+- 8 new API functions in `mvgal_gpu.h`
 - Background monitoring thread per GPU
-- Poll-based health checking at configurable interval
-- Default thresholds: temp_warning=80°C, temp_critical=95°C, util_warning=80%, util_critical=95%
-- Thread-safe callback invocation
-- Automatic cleanup on shutdown
+- Configurable thresholds (temp, utilization, memory)
+- Callback system for health alerts
 
 ---
 
-## 🧪 Testing (100% Complete)
+## Phase 7: Tools, Steam, UI, OpenGL (100%)
 
-[![Status](https://img.shields.io/badge/status-100%25-%234CAF50?style=for-the-badge)]
-[![Tests](https://img.shields.io/badge/tests-6%20files-%230071C5?style=for-the-badge)](https://github.com/TheCreateGM/mvgal)
+### CLI Tools
+- `mvgal-info` — GPU info, VRAM, temp, utilization, JSON output
+- `mvgal-status` — real-time bars, daemon check, `--watch` mode
+- `mvgal-bench` — memory BW, compute FLOPS, latency, sync overhead
+- `mvgal-compat` — system check + 15+ app compatibility database
+- All compile with `-Wall -Wextra -Werror` on GCC 16
 
-```mermaid
-flowchart TD
-    subgraph UnitTests["Unit Tests"]
-        T1[test_core_api.c]
-        T2[test_gpu_detection.c]
-        T3[test_memory.c]
-        T4[test_scheduler.c]
-        T5[test_config.c]
-    end
-    
-    subgraph IntegrationTests["Integration Tests"]
-        IT1[test_multi_gpu_validation.c]
-    end
-    
-    T1 -->|Tests| API
-    T2 -->|Tests| GPU
-    T3 -->|Tests| Memory
-    T4 -->|Tests| Scheduler
-    T5 -->|Tests| Config
-    IT1 -->|Tests| Multi-GPU
-    
-    style T1 fill:#4CAF50,stroke:#388E3C
-    style T2 fill:#4CAF50,stroke:#388E3C
-    style T3 fill:#4CAF50,stroke:#388E3C
-    style T4 fill:#4CAF50,stroke:#388E3C
-    style T5 fill:#4CAF50,stroke:#388E3C
-    style IT1 fill:#2196F3,stroke:#1976D2
-```
+### Steam/Proton Layer
+- `mvgal_frame_pacer.c/h` — vsync-aligned frame pacing, ring buffer depth 8
+- `mvgal_steam_compat.sh` — Steam compatibility tool entry point
+- `toolmanifest.vdf` + `compatibilitytool.vdf` — Steam registration
 
-**Unit Tests (5):**
-1. **test_core_api.c** - Core API functionality
-2. **test_gpu_detection.c** - GPU detection and management
-3. **test_memory.c** - Memory allocation and DMA-BUF
-4. **test_scheduler.c** - Scheduler and workload distribution
-5. **test_config.c** - Configuration reading/writing
+### Qt Dashboard + REST API
+- `mvgal_dashboard.cpp/h` — Qt5/Qt6, 4 tabs, per-GPU widgets
+- `mvgal_rest_server.go` — Go HTTP server, 5 REST endpoints
 
-**Integration Tests (1):**
-1. **test_multi_gpu_validation.c** - Multi-GPU validation
+### OpenGL Layer
+- `mvgal_gl_preload.c` — LD_PRELOAD shim for frame pacing
 
-**All Tests:**
-- ✅ Compile successfully
-- ✅ Link with libmvgal_core.a
-- ✅ Run with LD_LIBRARY_PATH set
+### Professional Integration
+- Blender, Unreal Engine, PyTorch/TensorFlow/JAX, FFmpeg guides
+- Automated test scripts
 
 ---
 
-## 📈 Statistics Summary
+## Phase 8: Root Cleanup + CI (100%)
 
-### Code Statistics
-
-**Total: 24 C files, ~25,700 lines, 220+ public API functions, 480+ internal functions, 6 test files**
-
-| Metric | Count |
-|--------|-------|
-| **Source Files** | 29 (24 core + 5 Vulkan) |
-| **Compiling & Working** | 24 files |
-| **Partially Working** | 1 file (vk_layer.c) |
-| **Not Compiling** | 4 files (Vulkan: vk_*.c) |
-| **Total Lines of Code** | ~25,700+ |
-| **Public API Functions** | 220+ |
-| **Internal Functions** | 480+ |
-| **Test Files** | 6 (5 unit + 1 integration) |
-| **Libraries Produced** | 3 (libmvgal_core.a, libmvgal.so, libmvgal_opencl.so) |
-| **Executables** | 1 (mvgal-daemon) |
-
-### Build Statistics
-
-| Configuration | Status | Notes |
-|---------------|--------|-------|
-| `-DWITH_VULKAN=OFF -DWITH_TESTS=ON` | ✅ **WORKING** | Default, all components |
-| `-DWITH_VULKAN=ON` | ⚠️ Partial | Only vk_layer.c compiles |
-| `-DWITH_OPENCL=ON` | ✅ Working | All OpenCL interception |
-| `-DWITH_DAEMON=ON` | ✅ Working | Daemon & IPC |
-| `-DWITH_TESTS=ON` | ✅ Working | All tests |
+- Moved generated/backup files to `.archive/` (gitignored)
+- Both CI workflows set to `workflow_dispatch` (manual-only)
+- `build/install.sh` — generic installer using `pkexec`
+- `build/cmake/toolchains/aarch64-linux-gnu.cmake` — ARM64 cross-compile
+- All `sudo` replaced with `pkexec` in scripts
 
 ---
 
-## ⚠️ Current Missing Components
+## Remaining Work (~5%)
 
-### Priority 1: High (Blocks Major Features)
-
-[![Priority: High](https://img.shields.io/badge/priority-HIGH-%23F44336?style=flat-square)]
-
-| Component | Status | Blocker | EST |
-|-----------|--------|---------|-----|
-| Vulkan Layer | ⚠️ 5% | Vulkan SDK headers | 2-4 hours |
-| vk_instance.c | ❌ 0% | vkGetProcAddress | 1-2 hours |
-| vk_device.c | ❌ 0% | Original function pointers | 1-2 hours |
-| vk_queue.c | ❌ 0% | Not examined | TBD |
-| vk_command.c | ❌ 0% | Not examined | TBD |
-
-### Priority 2: Medium (Nice to Have)
-
-[![Priority: Medium](https://img.shields.io/badge/priority-MEDIUM-%23FF9800?style=flat-square)]
-
-| Component | Status | Blocker | EST |
-|-----------|--------|---------|-----|
-| **CUDA Wrapper** | ✅ **100%** | **FIXED** - All functions working | Complete |
-| Kernel Module | ❌ 0% | Kernel headers, root | 3-5 days |
-| Packaging (deb/rpm) | ❌ 0% | - | 1-2 days |
-
-### Priority 3: Low (Future Enhancements)
-
-[![Priority: Low](https://img.shields.io/badge/priority-LOW-%234CAF50?style=flat-square)]
-
-| Component | Status | Notes |
-|-----------|--------|-------|
-| WebGPU Intercept | ❌ Not started | Future API |
-| Direct3D/Wine/Proton | ❌ Not started | Windows compatibility |
-| GUI Configuration Tool | ❌ Not started | Optional |
-| Benchmark Suite | ❌ Not started | Performance testing |
+| Item | Priority | Notes |
+|------|----------|-------|
+| D3D/Metal/WebGPU intercept logic | Medium | Skeletons exist, need implementation |
+| Full Vulkan ICD (virtual VkPhysicalDevice) | Low | Phase 5 planned feature |
+| Network-distributed GPU pooling | Future | Design accommodated |
+| AI-driven scheduler | Future | Design accommodated |
 
 ---
 
-## 🎯 Roadmap to v1.0
+## Code Statistics
 
-### v0.2.1 (Next Patch)
-- [ ] Fix Vulkan layer compilation with SDK headers
-- [ ] Complete Vulkan device/query interception
-- [ ] Enable Vulkan by default in build
-
-### v0.3.0 (Next Minor)
-- [ ] CUDA wrapper implementation
-- [ ] Kernel module for advanced features
-- [ ] Packaging (deb, rpm, arch)
-- [ ] Benchmark suite
-
-### v1.0.0 (First Major)
-- [ ] All interception layers complete
-- [ ] Kernel module production-ready
-- [ ] Complete test coverage (100%)
-- [ ] Documentation complete
-- [ ] Stable API freeze
-
----
-
-## 📚 Documentation Files
-
-| File | Purpose | Lines | Status |
-|------|---------|-------|--------|
-| README.md | Main project documentation | 1100+ | ✅ Updated (v0.2.0 with Rust) |
-| PROGRESS.md | Development progress report | 780+ | ✅ Updated |
-| CHANGES_2025.md | 2025 implementation log | 480+ | ✅ Updated |
-| QUICKSTART.md | Quick start guide | 300+ | ✅ Updated |
-| MISSING.md | Missing components tracker | 200+ | ✅ Updated |
-| **docs/RUST_DEVELOPMENT.md** | **Rust development guide** | **2600+** | **✅ NEW** |
-| docs/ARCHITECTURE_RESEARCH.md | Architecture analysis | 1120 | ✅ Complete |
-| docs/STEAM.md | Steam/Proton integration | 100+ | ✅ Complete |
-| docs/STATUS.md | Project status | 500+ | ✅ Updated |
-| docs/FINAL_COMPLETION.md | Completion report | 300+ | ✅ Updated |
-
----
-
-## 🏆 Achievements Summary
-
-### v0.2.0 "Health Monitor" - Released April 19, 2025
-
-[![v0.2.0](https://img.shields.io/badge/v0.2.0-Health_Monitor-%2376B900?style=for-the-badge)]
-
-**New Features:**
-- ✅ GPU Health Monitoring with temperature, utilization, memory tracking
-- ✅ Configurable health thresholds with callbacks
-- ✅ Automatic health monitoring thread
-- ✅ All tests passing
-- ✅ Project icon created
-
-**Bug Fixes:**
-- ✅ All header/API mismatches resolved
-- ✅ All test compilation errors fixed
-- ✅ GPU detection working on all platforms
-- ✅ Memory allocation issues resolved
-- ✅ File inclusion errors fixed across all tests
-
-**Statistics:**
-- Core completion: **100%**
-- Health monitoring: **100%**
-- **Rust safety components: 100%** (NEW)
-- Tests: **100%**
-- Documentation: **100%**
-- Vulkan layer: **5%**
-- Overall: **~95%** (up from ~92%)
-
----
-
-## 📞 Support & Resources
-
-- **Bug Reports**: [GitHub Issues](https://github.com/TheCreateGM/mvgal/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/TheCreateGM/mvgal/discussions)
-- **Documentation**: [docs/](docs/)
-- **Email**: creategm10@proton.me
-
----
-
-*© 2026 MVGAL Project. Last updated: April 21, 2026. Version 0.2.1 "Health Monitor".*
+| Language | LOC | Files |
+|----------|-----|-------|
+| C (userspace) | ~25,700 | ~28 |
+| C (kernel) | ~2,000 | ~9 |
+| C++ (daemon) | ~3,000 | ~16 |
+| Rust | ~748 | ~6 |
+| Go | ~372 | ~1 |
+| Shell | ~500 | ~8 |
+| **Total** | **~32,320** | **~68** |
