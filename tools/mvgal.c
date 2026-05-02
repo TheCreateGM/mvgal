@@ -322,14 +322,14 @@ int main(int argc, char *argv[]) {
         printf("Configuration reloaded\n");
     } else if (strcmp(command, "load-module") == 0) {
         printf("Loading kernel module...\n");
-        if (system("sudo modprobe mvgal 2>/dev/null") == 0) {
+        if (system("pkexec modprobe mvgal 2>/dev/null") == 0) {
             printf("Module loaded\n");
         } else {
             printf("Failed to load module (may already be loaded)\n");
         }
     } else if (strcmp(command, "unload-module") == 0) {
         printf("Unloading kernel module...\n");
-        if (system("sudo modprobe -r mvgal 2>/dev/null") == 0) {
+        if (system("pkexec modprobe -r mvgal 2>/dev/null") == 0) {
             printf("Module unloaded\n");
         } else {
             printf("Failed to unload module (may not be loaded)\n");
