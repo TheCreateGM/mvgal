@@ -1,3 +1,17 @@
+# SPDX-License-Identifier: MIT
+# MVGAL — Fedora COPR Build
+#
+# Builds an SRPM from the current source tree and submits it to
+# https://copr.fedorainfracloud.org/coprs/axogm/mvgal/
+#
+# Trigger: manual only (workflow_dispatch)
+# Required secrets: COPR_LOGIN, COPR_TOKEN
+#
+# To obtain COPR credentials:
+#   1. Log in at https://copr.fedorainfracloud.org/
+#   2. Go to your profile → API → Generate token
+#   3. Add COPR_LOGIN and COPR_TOKEN as GitHub repository secrets
+
 name: Build on Fedora COPR
 
 on:
@@ -9,32 +23,77 @@ on:
         default: 'main'
 
 jobs:
-  build:
-    runs-on: fedora-latest
+  copr-build:
+    name: "Submit to COPR (axogm/mvgal)"
+    runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.inputs.branch }}
           fetch-depth: 0
 
-      - name: Install dependencies
+      - name: Install build tools
         run: |
-          sudo dnf install -y rpm copr-cli
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            rpm rpmbuild python3-pip
 
-      - name: Configure COPR
+      - name: Install copr-cli
+        run: pip3 install copr-cli
+
+      - name: Configure COPR credentials
         run: |
           mkdir -p ~/.config
-          echo "[copr-cli]
+          cat > ~/.config/copr <<EOF
+          [copr-cli]
           login = ${{ secrets.COPR_LOGIN }}
           username = axogm
           token = ${{ secrets.COPR_TOKEN }}
-          copr_url = https://copr.fedorainfracloud.org" > ~/.config/copr
+          copr_url = https://copr.fedorainfracloud.org
+          EOF
+          chmod 600 ~/.config/copr
+
+      - name: Read version from spec
+        id: version
+        run: |
+          VERSION=$(grep "^Version:" packaging/rpm/mvgal.spec | awk '{print $2}')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Building version: ${VERSION}"
+
+      - name: Create source tarball
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          git archive \
+            --prefix="mvgal-${VERSION}/" \
+            --format=tar.gz \
+            -o "mvgal-${VERSION}.tar.gz" \
+            HEAD
+          echo "Created mvgal-${VERSION}.tar.gz"
+          ls -lh "mvgal-${VERSION}.tar.gz"
 
       - name: Build SRPM
         run: |
-          VERSION=$(grep "^Version:" pkg/rpm/mvgal.spec | awk '{print $2}')
-          git archive --prefix=mvgal-${VERSION}/ -o mvgal-${VERSION}.tar.gz HEAD
-          rpmbuild -bs pkg/rpm/mvgal.spec --define "_sourcedir $(pwd)" --define "_srcrpmdir $(pwd)"
+          VERSION=${{ steps.version.outputs.version }}
+          mkdir -p ~/rpmbuild/{SOURCES,SPECS,SRPMS}
+          cp "mvgal-${VERSION}.tar.gz" ~/rpmbuild/SOURCES/
+          cp packaging/rpm/mvgal.spec ~/rpmbuild/SPECS/
+          # Copy config files referenced by the spec
+          cp packaging/rpm/mvgal.conf ~/rpmbuild/SOURCES/ 2>/dev/null || true
+          cp packaging/rpm/mvgal-daemon.service ~/rpmbuild/SOURCES/ 2>/dev/null || true
+          rpmbuild -bs ~/rpmbuild/SPECS/mvgal.spec \
+            --define "_sourcedir ~/rpmbuild/SOURCES" \
+            --define "_srcrpmdir $(pwd)"
+          ls -lh mvgal-*.src.rpm
 
       - name: Submit to COPR
         run: |
           copr-cli build axogm/mvgal mvgal-*.src.rpm
+
+      - name: Upload SRPM as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mvgal-srpm-${{ steps.version.outputs.version }}
+          path: mvgal-*.src.rpm
+          retention-days: 30

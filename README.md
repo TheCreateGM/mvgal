@@ -12,9 +12,11 @@
 ![Language](https://img.shields.io/badge/Rust-DEA584?style=for-the-badge&logo=rust&logoColor=white)
 ![Language](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)
 
+[![Copr build status](https://copr.fedorainfracloud.org/coprs/axogm/mvgal/package/mvgal/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/axogm/mvgal/package/mvgal/)
+
 **Combine multiple GPUs from different vendors into one logical device — transparently, without modifying your applications.**
 
-[Quick Start](#quick-start) · [Architecture](#architecture) · [Build](#building) · [Tools](#cli-tools) · [Docs](docs/)
+[Quick Start](#quick-start) · [Architecture](#architecture) · [Build](#building) · [Tools](#cli-tools) · [Docs](docs/) · [COPR](https://copr.fedorainfracloud.org/coprs/axogm/mvgal/)
 
 </div>
 
@@ -72,6 +74,22 @@ MVGAL solves this by aggregating all available GPUs — regardless of vendor —
 | **NVIDIA** | Turing (RTX 20xx), Ampere (RTX 30xx), Ada (RTX 40xx), Pascal | `nvidia-open` / proprietary |
 | **Intel** | Gen 9–12 (iGPU), Xe / Arc (discrete) | `i915` / `xe` |
 | **Moore Threads** | MTT S60, S80, S2000 | `mtgpu-drv` |
+
+---
+
+## Install from COPR (Fedora / RHEL / CentOS Stream)
+
+MVGAL is published on Fedora COPR at [copr.fedorainfracloud.org/coprs/axogm/mvgal](https://copr.fedorainfracloud.org/coprs/axogm/mvgal/).
+
+```bash
+# Enable the COPR repository
+sudo dnf copr enable axogm/mvgal
+
+# Install MVGAL
+sudo dnf install mvgal
+```
+
+Supported targets: Fedora 40, 41, 42, 43, 44, Rawhide · RHEL/AlmaLinux/Rocky 9 & 10 · CentOS Stream 9 & 10 · openSUSE Tumbleweed · Amazon Linux 2023
 
 ---
 
@@ -301,6 +319,11 @@ cd packaging/arch && makepkg -si
 # Generic tarball installer
 bash build/install.sh
 ```
+
+> **Pre-built RPMs** are available via Fedora COPR — no need to build from source on Fedora/RHEL:
+> ```bash
+> sudo dnf copr enable axogm/mvgal && sudo dnf install mvgal
+> ```
 
 ---
 
