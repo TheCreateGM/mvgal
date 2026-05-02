@@ -2,6 +2,8 @@
 
 <div align="center">
 
+<img src="assets/icons/mvgal.svg" alt="MVGAL Logo" width="128" height="128" />
+
 ![Version](https://img.shields.io/badge/version-0.2.1-76B900?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-95%25_complete-4CAF50?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-GPL--2.0-blue?style=for-the-badge)
