@@ -71,3 +71,70 @@ if(MVGAL_BUILD_API AND OpenCL_FOUND)
 
     add_test(NAME test_opencl_intercept COMMAND test_opencl_intercept)
 endif()
+
+# D3D11/D3D12 wrapper interception tests
+if(MVGAL_BUILD_API)
+    add_executable(test_d3d_wrapper
+        test_d3d_wrapper.c
+    )
+
+    target_link_libraries(test_d3d_wrapper
+        PRIVATE
+            mvgal_d3d
+            dl
+            m
+    )
+
+    # Suppress unused variable warnings in test file (mock variables for documentation)
+    if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(test_d3d_wrapper PRIVATE -Wno-unused-variable)
+    endif()
+
+    add_test(NAME test_d3d_wrapper COMMAND test_d3d_wrapper)
+endif()
+
+# Metal wrapper interception tests
+if(MVGAL_BUILD_API)
+    add_executable(test_metal_wrapper
+        test_metal_wrapper.c
+    )
+
+    target_link_libraries(test_metal_wrapper
+        PRIVATE
+            mvgal_metal
+            mvgal_core
+            dl
+            m
+            pthread
+    )
+
+    # Suppress unused variable warnings in test file (mock variables for documentation)
+    if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(test_metal_wrapper PRIVATE -Wno-unused-variable)
+    endif()
+
+    add_test(NAME test_metal_wrapper COMMAND test_metal_wrapper)
+endif()
+
+# WebGPU wrapper interception tests
+if(MVGAL_BUILD_API)
+    add_executable(test_webgpu_wrapper_synthetic
+        test_webgpu_wrapper_synthetic.c
+    )
+
+    target_link_libraries(test_webgpu_wrapper_synthetic
+        PRIVATE
+            mvgal_webgpu
+            mvgal_core
+            dl
+            m
+            pthread
+    )
+
+    # Suppress unused variable warnings in test file (mock variables for documentation)
+    if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(test_webgpu_wrapper_synthetic PRIVATE -Wno-unused-variable)
+    endif()
+
+    add_test(NAME test_webgpu_wrapper_synthetic COMMAND test_webgpu_wrapper_synthetic)
+endif()

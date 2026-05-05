@@ -233,6 +233,11 @@ if(MVGAL_BUILD_API AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/userspace/CMakeLi
     add_subdirectory(src/userspace)
 endif()
 
+# Vulkan ICD (Phase 5 - Virtual VkPhysicalDevice)
+if(MVGAL_BUILD_API AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/userspace/vulkan_icd/CMakeLists.txt")
+    add_subdirectory(src/userspace/vulkan_icd)
+endif()
+
 # Memory management module
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/memory/CMakeLists.txt")
     add_subdirectory(memory)
@@ -258,8 +263,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/opengl/CMakeLists.txt")
     add_subdirectory(opengl)
 endif()
 
-# UI dashboard
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ui/CMakeLists.txt")
+# UI dashboard (optional)
+option(MVGAL_BUILD_UI "Build UI dashboard" OFF)
+if(MVGAL_BUILD_UI AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ui/CMakeLists.txt")
     add_subdirectory(ui)
 endif()
 

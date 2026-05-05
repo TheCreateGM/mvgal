@@ -79,3 +79,9 @@ dist/
 
 # Stakpak session files
 .stakpak/session*
+
+# Build and test output directories
+build_output/
+build_test/
+test_results/
+thoughts/

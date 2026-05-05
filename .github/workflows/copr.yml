@@ -77,13 +77,12 @@ jobs:
         run: |
           VERSION=${{ steps.version.outputs.version }}
           mkdir -p ~/rpmbuild/{SOURCES,SPECS,SRPMS}
+          # The tarball (created by git archive) already contains all files
+          # including packaging/rpm/mvgal.conf and packaging/rpm/mvgal-daemon.service.
+          # The spec references them by their in-tree paths, so no extra copies needed.
           cp "mvgal-${VERSION}.tar.gz" ~/rpmbuild/SOURCES/
           cp packaging/rpm/mvgal.spec ~/rpmbuild/SPECS/
-          # Copy config files referenced by the spec
-          cp packaging/rpm/mvgal.conf ~/rpmbuild/SOURCES/ 2>/dev/null || true
-          cp packaging/rpm/mvgal-daemon.service ~/rpmbuild/SOURCES/ 2>/dev/null || true
           rpmbuild -bs ~/rpmbuild/SPECS/mvgal.spec \
-            --define "_sourcedir ~/rpmbuild/SOURCES" \
             --define "_srcrpmdir $(pwd)"
           ls -lh mvgal-*.src.rpm
 
