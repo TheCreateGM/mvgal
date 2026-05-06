@@ -92,8 +92,8 @@ else()
         message(STATUS "Vulkan found via find_package: ${VULKAN_INCLUDE_DIRS}")
     else()
         # Try manual search for vulkan headers (fallback for some distros)
-        find_path(VULKAN_INCLUDE_DIRS vulkan/vulkan.h
-            PATHS /usr/include /usr/local/include
+        find_path(VULKAN_INCLUDE_DIRS NAMES vulkan/vulkan.h
+            HINTS /usr/include /usr/local/include
             PATH_SUFFIXES vulkan
         )
         if(VULKAN_INCLUDE_DIRS)
