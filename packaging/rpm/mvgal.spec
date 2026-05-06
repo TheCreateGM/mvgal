@@ -117,7 +117,8 @@ fi
 # Core library (static)
 %{_libdir}/libmvgal_core.a
 # API interception libraries
-%{_libdir}/libVK_LAYER_MVGAL.so
+%{_libdir}/VK_LAYER_MVGAL.so
+%{_libdir}/libmvgal_opencl.so
 %{_libdir}/libmvgal_d3d.so
 %{_libdir}/libmvgal_metal.so
 %{_libdir}/libmvgal_webgpu.so
