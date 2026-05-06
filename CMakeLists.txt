@@ -66,7 +66,7 @@ pkg_check_modules(OPENCL QUIET IMPORTED_TARGET OpenCL)
 pkg_check_modules(LIBNL QUIET IMPORTED_TARGET libnl-3.0)
 pkg_check_modules(JEMALLOC QUIET IMPORTED_TARGET jemalloc)
 
-# Find Vulkan - try pkg-config first, then CMake's find_package
+# Find Vulkan - try pkg-config first, then CMake's find_package, then manual search
 pkg_check_modules(VULKAN QUIET vulkan)
 if(VULKAN_FOUND)
     # pkg-config found vulkan, variables are VULKAN_INCLUDE_DIRS, VULKAN_LINK_LIBRARIES
@@ -91,7 +91,17 @@ else()
         endif()
         message(STATUS "Vulkan found via find_package: ${VULKAN_INCLUDE_DIRS}")
     else()
-        message(WARNING "Vulkan not found - Vulkan ICD and layer will not be built")
+        # Try manual search for vulkan headers (fallback for some distros)
+        find_path(VULKAN_INCLUDE_DIRS vulkan/vulkan.h
+            PATHS /usr/include /usr/local/include
+            PATH_SUFFIXES vulkan
+        )
+        if(VULKAN_INCLUDE_DIRS)
+            set(VULKAN_FOUND TRUE)
+            message(STATUS "Vulkan found via manual search: ${VULKAN_INCLUDE_DIRS}")
+        else()
+            message(WARNING "Vulkan not found - Vulkan ICD and layer will not be built")
+        endif()
     endif()
 endif()
 
