@@ -31,11 +31,23 @@ option(MVGAL_USE_CCACHE "Use ccache for faster rebuilds" ON)
 option(MVGAL_INSTALL "Enable installation" ON)
 
 # Installation paths
-set(CMAKE_INSTALL_INCLUDEDIR include CACHE PATH "Include directory")
-set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Library directory")
-set(CMAKE_INSTALL_BINDIR bin CACHE PATH "Binary directory")
-set(CMAKE_INSTALL_DOCDIR share/doc/mvgal CACHE PATH "Documentation directory")
-set(CMAKE_INSTALL_MANDIR share/man CACHE PATH "Man pages directory")
+include(GNUInstallDirs)
+# Use GNUInstallDirs defaults, allow override via -DCMAKE_INSTALL_*DIR=...
+if(NOT CMAKE_INSTALL_INCLUDEDIR)
+  set(CMAKE_INSTALL_INCLUDEDIR include CACHE PATH "Include directory")
+endif()
+if(NOT CMAKE_INSTALL_LIBDIR)
+  set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Library directory")
+endif()
+if(NOT CMAKE_INSTALL_BINDIR)
+  set(CMAKE_INSTALL_BINDIR bin CACHE PATH "Binary directory")
+endif()
+if(NOT CMAKE_INSTALL_DOCDIR)
+  set(CMAKE_INSTALL_DOCDIR share/doc/mvgal CACHE PATH "Documentation directory")
+endif()
+if(NOT CMAKE_INSTALL_MANDIR)
+  set(CMAKE_INSTALL_MANDIR share/man CACHE PATH "Man pages directory")
+endif()
 
 # =============================================================================
 # Dependencies

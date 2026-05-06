@@ -4,7 +4,7 @@ Release: 1%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
-URL: https://github.com/TheCreateGM/mvgal
+URL: https://github.com/axogm/mvgal
 Source0: mvgal-%{version}.tar.gz
 
 BuildRequires: gcc
@@ -16,6 +16,8 @@ BuildRequires: libdrm-devel
 BuildRequires: systemd-devel
 BuildRequires: pciutils-devel
 BuildRequires: pkgconfig(pciaccess)
+BuildRequires: vulkan-headers
+BuildRequires: vulkan-loader
 
 Requires: libdrm
 Requires: systemd
@@ -94,31 +96,32 @@ make_versioned() {
     ln -sf "${libname}.so.${MAJOR}" "${LIBDIR}/${libname}.so"
 }
 
-# Vulkan layer - cmake installs it as VK_LAYER_MVGAL.so
-make_versioned "VK_LAYER_MVGAL"
+# Vulkan ICD (mvgal_vulkan_icd.so) - cmake installs it to libdir/mvgal/
+%install
+rm -rf %{buildroot}
+%cmake_install
 
-# Config - cmake_install may not install this; ensure it exists
-if [ ! -f %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf ]; then
-    install -D -m 0644 \
-        packaging/rpm/mvgal.conf \
-        %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf
-fi
+# Create symlink for daemon binary
+install -d -m 0755 %{buildroot}%{_sbindir}
+ln -sf ../bin/mvgald %{buildroot}%{_sbindir}/mvgal-daemon
 
-# Systemd service unit - cmake_install may not install this; ensure it exists
-if [ ! -f %{buildroot}%{_unitdir}/mvgal-daemon.service ]; then
-    install -D -m 0644 \
-        packaging/rpm/mvgal-daemon.service \
-        %{buildroot}%{_unitdir}/mvgal-daemon.service
-fi
-
-# Daemon binary - cmake installs mvgald to bin; also link from sbin
-if [ -f %{buildroot}%{_bindir}/mvgald ] && [ ! -f %{buildroot}%{_sbindir}/mvgal-daemon ]; then
-    install -d %{buildroot}%{_sbindir}
-    ln -sf %{_bindir}/mvgald %{buildroot}%{_sbindir}/mvgal-daemon
-fi
-
-# Log directory
+# Create log directory
 install -d -m 0755 %{buildroot}/var/log/mvgal
+
+# Install config file if not already installed
+%if %{with runtime}
+if [ ! -f %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf ]; then
+    install -D -m 0644 packaging/rpm/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf
+fi
+
+# Install systemd service file if not already installed
+if [ ! -f %{buildroot}%{_unitdir}/mvgal-daemon.service ]; then
+    install -D -m 0644 packaging/rpm/mvgal-daemon.service %{buildroot}%{_unitdir}/mvgal-daemon.service
+fi
+%endif
+
+# Create ldconfig config for mvgal libraries
+echo "%{_libdir}" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/mvgal.conf
 
 # ldconfig drop-in so the dynamic linker finds libmvgal without a full
 # ldconfig run being required at install time on systems that use
@@ -160,11 +163,9 @@ fi
 %doc README.md CONTRIBUTING.md
 # Static core library (always built)
 %{_libdir}/libmvgal_core.a
-# Vulkan layer shared library - versioned real file
-%{_libdir}/VK_LAYER_MVGAL.so.%{version}
-# Major-version symlink (.so.N) - ldconfig keeps this in sync
-%{_libdir}/VK_LAYER_MVGAL.so.0
-# Unversioned symlink for compile-time linking
+# Vulkan ICD shared library
+%{_libdir}/mvgal_vulkan_icd.so
+# Vulkan Layer shared library
 %{_libdir}/VK_LAYER_MVGAL.so
 # Headers
 %{_includedir}/mvgal/
@@ -175,7 +176,9 @@ fi
 %config(noreplace) %{_sysconfdir}/mvgal/mvgal.conf
 # ldconfig fragment
 %{_sysconfdir}/ld.so.conf.d/mvgal.conf
-# Vulkan layer JSON manifest
+# Vulkan ICD manifest (installed by vulkan_icd CMakeLists.txt)
+%{_datadir}/vulkan/icd.d/mvgal_icd.json
+# Vulkan Layer manifest (installed by userspace CMakeLists.txt)
 %{_datadir}/vulkan/implicit_layer.d/VK_LAYER_MVGAL.json
 # Systemd service
 %{_unitdir}/mvgal-daemon.service

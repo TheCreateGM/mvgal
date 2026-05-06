@@ -28,7 +28,7 @@ set_target_properties(mvgal_vulkan_icd PROPERTIES
 
 # Install ICD library
 install(TARGETS mvgal_vulkan_icd
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/mvgal
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 # Install ICD manifest JSON
