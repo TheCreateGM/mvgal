@@ -99,7 +99,7 @@ if(MVGAL_BUILD_API AND (Vulkan_FOUND OR VULKAN_FOUND))
 
     install(
         TARGETS mvgal_vulkan_layer
-        LIBRARY DESTINATION lib
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         COMPONENT runtime
     )
 
@@ -134,7 +134,7 @@ if(MVGAL_BUILD_API AND OpenCL_FOUND)
 
     install(
         TARGETS mvgal_opencl
-        LIBRARY DESTINATION lib
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         COMPONENT runtime
     )
 endif()
@@ -161,7 +161,7 @@ if(MVGAL_BUILD_API)
 
     install(
         TARGETS mvgal_d3d
-        LIBRARY DESTINATION lib
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         COMPONENT runtime
     )
 endif()
@@ -188,7 +188,7 @@ if(MVGAL_BUILD_API)
 
     install(
         TARGETS mvgal_metal
-        LIBRARY DESTINATION lib
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         COMPONENT runtime
     )
 endif()
@@ -215,7 +215,7 @@ if(MVGAL_BUILD_API)
 
     install(
         TARGETS mvgal_webgpu
-        LIBRARY DESTINATION lib
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         COMPONENT runtime
     )
 endif()
@@ -244,7 +244,7 @@ if(WITH_CUDA AND CUDAToolkit_FOUND)
 
     install(
         TARGETS mvgal_cuda
-        LIBRARY DESTINATION lib
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         COMPONENT runtime
     )
 endif()
@@ -284,8 +284,8 @@ endif()
 # Install core library
 install(
     TARGETS mvgal_core
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     COMPONENT development
 )
 

@@ -65,8 +65,8 @@ if(EXISTS "${MVGAL_WRAPPER_SRC}")
     # Install the library and the primary UAPI header so consumers can compile/link.
     install(TARGETS ${LIBMVGAL_TARGET}
         EXPORT ${LIBMVGAL_TARGET}Targets
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION bin
         PUBLIC_HEADER DESTINATION include/mvgal
     )
@@ -100,7 +100,7 @@ endif()
 
 # Export CMake config files for find_package support within this project/package.
 include(CMakePackageConfigHelpers)
-set(CONFIG_INSTALL_DIR "lib/cmake/${LIBMVGAL_TARGET}")
+set(CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${LIBMVGAL_TARGET}")
 
 # Generate a simple version/config file.
 write_basic_package_version_file(

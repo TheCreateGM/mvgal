@@ -45,7 +45,7 @@ target_compile_options(mvgal_memory
 # Install
 install(
     TARGETS mvgal_memory
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     COMPONENT development
 )

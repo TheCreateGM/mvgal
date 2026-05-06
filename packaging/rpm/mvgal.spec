@@ -61,71 +61,10 @@ Features:
 %cmake_build
 
 %install
-%cmake_install
-
-# The cmake install targets handle most files. We supplement here with
-# versioned symlinks for shared libraries so ldconfig sees proper .so.N chains.
-#
-# Pattern: libfoo.so.MAJOR.MINOR.PATCH  (real file, installed by cmake)
-#          libfoo.so.MAJOR              (symlink -> versioned, created here)
-#          libfoo.so                    (symlink -> .so.MAJOR, created here)
-#
-# cmake installs unversioned .so files; we rename to versioned and add symlinks.
-
-LIBDIR=%{buildroot}%{_libdir}
-VERSION=%{version}
-MAJOR=0
-
-make_versioned() {
-    local libname="$1"
-    local sofile="${LIBDIR}/${libname}.so"
-
-    if [ ! -f "${sofile}" ]; then
-        echo "INFO: ${sofile} not found (optional component), skipping"
-        return 0
-    fi
-
-    # Rename the unversioned .so to the versioned real file
-    mv "${sofile}" "${LIBDIR}/${libname}.so.${VERSION}"
-
-    # Create the major-version symlink (.so.N) - ldconfig will keep this in sync,
-    # but providing it explicitly avoids "not a symbolic link" warnings.
-    ln -sf "${libname}.so.${VERSION}" "${LIBDIR}/${libname}.so.${MAJOR}"
-
-    # Recreate the unversioned symlink for compile-time linking (-lfoo)
-    ln -sf "${libname}.so.${MAJOR}" "${LIBDIR}/${libname}.so"
-}
-
-# Vulkan ICD (mvgal_vulkan_icd.so) - cmake installs it to libdir/mvgal/
-%install
 rm -rf %{buildroot}
 %cmake_install
 
-# Create symlink for daemon binary
-install -d -m 0755 %{buildroot}%{_sbindir}
-ln -sf ../bin/mvgald %{buildroot}%{_sbindir}/mvgal-daemon
-
-# Create log directory
-install -d -m 0755 %{buildroot}/var/log/mvgal
-
-# Install config file if not already installed
-%if %{with runtime}
-if [ ! -f %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf ]; then
-    install -D -m 0644 packaging/rpm/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf
-fi
-
-# Install systemd service file if not already installed
-if [ ! -f %{buildroot}%{_unitdir}/mvgal-daemon.service ]; then
-    install -D -m 0644 packaging/rpm/mvgal-daemon.service %{buildroot}%{_unitdir}/mvgal-daemon.service
-fi
-%endif
-
-# Create ldconfig config for mvgal libraries
-echo "%{_libdir}" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/mvgal.conf
-
-# ldconfig drop-in so the dynamic linker finds libmvgal without a full
-# ldconfig run being required at install time on systems that use
-# /etc/ld.so.conf.d/ fragments.
+# ldconfig drop-in so the dynamic linker finds mvgal libraries
 install -d %{buildroot}%{_sysconfdir}/ld.so.conf.d
 echo "%{_libdir}" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/mvgal.conf
 
@@ -161,15 +100,23 @@ fi
 %files
 %license LICENSE
 %doc README.md CONTRIBUTING.md
-# Static core library (always built)
+# Static core library (always built with MVGAL_BUILD_RUNTIME=ON)
 %{_libdir}/libmvgal_core.a
 # Vulkan ICD shared library
 %{_libdir}/mvgal_vulkan_icd.so
 # Vulkan Layer shared library
 %{_libdir}/VK_LAYER_MVGAL.so
+# OpenCL interception library (built with MVGAL_BUILD_API=ON)
+%{_libdir}/libmvgal_opencl.so
+# D3D wrapper library (built with MVGAL_BUILD_API=ON)
+%{_libdir}/libmvgal_d3d.so
+# Metal wrapper library (built with MVGAL_BUILD_API=ON)
+%{_libdir}/libmvgal_metal.so
+# WebGPU wrapper library (built with MVGAL_BUILD_API=ON)
+%{_libdir}/libmvgal_webgpu.so
 # Headers
 %{_includedir}/mvgal/
-# Daemon binary (installed to bin by cmake, sbin symlink added in %install)
+# Daemon binary (installed to bin by cmake)
 %{_bindir}/mvgald
 %{_sbindir}/mvgal-daemon
 # Config (preserve user edits on upgrade)
@@ -186,6 +133,14 @@ fi
 %dir /var/log/mvgal
 
 %changelog
+* Wed May 06 2026 AxoGM <creategm10@proton.me> - 0.2.1-2
+- Fix CMake install paths to use CMAKE_INSTALL_LIBDIR instead of hardcoded "lib"
+  This ensures libraries install to lib64 on 64-bit systems automatically
+- Remove complex versioned symlink logic from spec %%install (now handled by CMake)
+- Add missing API interception libraries to %%files section:
+  libmvgal_opencl.so, libmvgal_d3d.so, libmvgal_metal.so, libmvgal_webgpu.so
+- Simplify spec file by relying on CMake GNUInstallDirs for proper paths
+
 * Mon May 04 2026 AxoGM <creategm10@proton.me> - 0.2.1-1
 - Fix ldconfig "not a symbolic link" warnings for libmvgal shared libs
   by installing versioned .so.MAJOR.MINOR.PATCH files with proper symlinks

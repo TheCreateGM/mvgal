@@ -14,4 +14,4 @@ add_library(mvgal_gl SHARED mvgal_gl_preload.c)
 target_link_libraries(mvgal_gl PRIVATE ${DL_LIB} Threads::Threads)
 target_compile_options(mvgal_gl PRIVATE -Wall -Wextra -O2)
 
-install(TARGETS mvgal_gl LIBRARY DESTINATION lib)
+install(TARGETS mvgal_gl LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
