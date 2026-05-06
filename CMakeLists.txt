@@ -62,14 +62,35 @@ pkg_check_modules(PCIACCESS REQUIRED IMPORTED_TARGET pciaccess)
 
 # Optional dependencies
 pkg_check_modules(LIBUDEV QUIET IMPORTED_TARGET libudev udev)
-pkg_check_modules(VULKAN QUIET IMPORTED_TARGET vulkan)
 pkg_check_modules(OPENCL QUIET IMPORTED_TARGET OpenCL)
 pkg_check_modules(LIBNL QUIET IMPORTED_TARGET libnl-3.0)
 pkg_check_modules(JEMALLOC QUIET IMPORTED_TARGET jemalloc)
 
-# Find Vulkan (alternative method)
-if(NOT VULKAN_FOUND)
+# Find Vulkan - try pkg-config first, then CMake's find_package
+pkg_check_modules(VULKAN QUIET vulkan)
+if(VULKAN_FOUND)
+    # pkg-config found vulkan, variables are VULKAN_INCLUDE_DIRS, VULKAN_LINK_LIBRARIES
+    message(STATUS "Vulkan found via pkg-config: ${VULKAN_INCLUDE_DIRS}")
+else()
+    # Try CMake's find_package (finds Vulkan headers and loader)
     find_package(Vulkan QUIET)
+    if(Vulkan_FOUND)
+        # find_package sets Vulkan_INCLUDE_DIR (singular) and Vulkan::Vulkan target
+        # Convert to the variable names used by the rest of the codebase
+        if(Vulkan_INCLUDE_DIR)
+            set(VULKAN_INCLUDE_DIRS ${Vulkan_INCLUDE_DIR})
+        elseif(Vulkan_INCLUDE_DIRS)
+            set(VULKAN_INCLUDE_DIRS ${Vulkan_INCLUDE_DIRS})
+        endif()
+        if(Vulkan_LIBRARY)
+            set(VULKAN_LINK_LIBRARIES ${Vulkan_LIBRARY})
+        elseif(Vulkan_LIBRARIES)
+            set(VULKAN_LINK_LIBRARIES ${Vulkan_LIBRARIES})
+        endif()
+        message(STATUS "Vulkan found via find_package: ${VULKAN_INCLUDE_DIRS}")
+    else()
+        message(WARNING "Vulkan not found - Vulkan ICD and layer will not be built")
+    endif()
 endif()
 
 # Find OpenCL (alternative method)
