@@ -75,6 +75,8 @@ else()
     # Try CMake's find_package (finds Vulkan headers and loader)
     find_package(Vulkan QUIET)
     if(Vulkan_FOUND)
+        # Set VULKAN_FOUND so the rest of the codebase knows Vulkan is available
+        set(VULKAN_FOUND TRUE)
         # find_package sets Vulkan_INCLUDE_DIR (singular) and Vulkan::Vulkan target
         # Convert to the variable names used by the rest of the codebase
         if(Vulkan_INCLUDE_DIR)
