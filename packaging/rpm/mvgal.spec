@@ -53,6 +53,7 @@ Features:
 %build
 %cmake \
     -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_LIBDIR=%{_libdir} \
     -DMVGAL_BUILD_KERNEL=OFF \
     -DMVGAL_BUILD_RUNTIME=ON \
     -DMVGAL_BUILD_API=ON \
