@@ -18,6 +18,7 @@ BuildRequires: pciutils-devel
 BuildRequires: pkgconfig(pciaccess)
 BuildRequires: vulkan-headers
 BuildRequires: vulkan-loader
+BuildRequires: opencl-headers
 
 Requires: libdrm
 Requires: systemd
@@ -64,6 +65,17 @@ Features:
 rm -rf %{buildroot}
 %cmake_install
 
+# Install config file
+install -d %{buildroot}%{_sysconfdir}/mvgal
+install -m 644 %{_builddir}/%{name}-%{version}/config/mvgal.conf %{buildroot}%{_sysconfdir}/mvgal/mvgal.conf
+
+# Install systemd service file
+install -d %{buildroot}%{_unitdir}
+install -m 644 %{_builddir}/%{name}-%{version}/packaging/rpm/mvgal-daemon.service %{buildroot}%{_unitdir}/mvgal-daemon.service
+
+# Create symlink for daemon binary name expected by service file
+ln -sf mvgald %{buildroot}%{_bindir}/mvgal-daemon
+
 # ldconfig drop-in so the dynamic linker finds mvgal libraries
 install -d %{buildroot}%{_sysconfdir}/ld.so.conf.d
 echo "%{_libdir}" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/mvgal.conf
@@ -98,37 +110,27 @@ fi
 /sbin/ldconfig 2>&1 | grep -v "is not a symbolic link" || true
 
 %files
-%license LICENSE
-%doc README.md CONTRIBUTING.md
-# Static core library (always built with MVGAL_BUILD_RUNTIME=ON)
-%{_libdir}/libmvgal_core.a
-# Vulkan ICD shared library
-%{_libdir}/mvgal_vulkan_icd.so
-# Vulkan Layer shared library
-%{_libdir}/VK_LAYER_MVGAL.so
-# OpenCL interception library (built with MVGAL_BUILD_API=ON)
-%{_libdir}/libmvgal_opencl.so
-# D3D wrapper library (built with MVGAL_BUILD_API=ON)
-%{_libdir}/libmvgal_d3d.so
-# Metal wrapper library (built with MVGAL_BUILD_API=ON)
-%{_libdir}/libmvgal_metal.so
-# WebGPU wrapper library (built with MVGAL_BUILD_API=ON)
-%{_libdir}/libmvgal_webgpu.so
-# Headers
-%{_includedir}/mvgal/
-# Daemon binary (installed to bin by cmake)
+# Daemon binary (with symlink for service file compatibility)
 %{_bindir}/mvgald
-%{_sbindir}/mvgal-daemon
-# Config (preserve user edits on upgrade)
-%config(noreplace) %{_sysconfdir}/mvgal/mvgal.conf
-# ldconfig fragment
-%{_sysconfdir}/ld.so.conf.d/mvgal.conf
-# Vulkan ICD manifest (installed by vulkan_icd CMakeLists.txt)
-%{_datadir}/vulkan/icd.d/mvgal_icd.json
-# Vulkan Layer manifest (installed by userspace CMakeLists.txt)
+%{_bindir}/mvgal-daemon
+# Core library (static)
+%{_libdir}/libmvgal_core.a
+# API interception libraries
+%{_libdir}/libVK_LAYER_MVGAL.so
+%{_libdir}/libmvgal_d3d.so
+%{_libdir}/libmvgal_metal.so
+%{_libdir}/libmvgal_webgpu.so
+%{_libdir}/libmvgal_gl.so
+%{_libdir}/mvgal_vulkan_icd.so
+# Vulkan layer manifest
 %{_datadir}/vulkan/implicit_layer.d/VK_LAYER_MVGAL.json
+%{_datadir}/vulkan/icd.d/mvgal_icd.json
+# Config file
+%config(noreplace) %{_sysconfdir}/mvgal/mvgal.conf
 # Systemd service
 %{_unitdir}/mvgal-daemon.service
+# ldconfig config
+%config(noreplace) %{_sysconfdir}/ld.so.conf.d/mvgal.conf
 # Log directory
 %dir /var/log/mvgal
 
