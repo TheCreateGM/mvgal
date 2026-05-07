@@ -19,7 +19,7 @@ set(PROJECT_LICENSE "MIT")
 
 option(MVGAL_BUILD_KERNEL "Build kernel module" ON)
 option(MVGAL_BUILD_RUNTIME "Build runtime daemon and libraries" ON)
-option(MVGAL_BUILD_API "Build API layers (OpenGL, OpenCL, CUDA, SYCL, Vulkan)" OFF)
+option(MVGAL_BUILD_API "Build API layers (OpenGL, OpenCL, CUDA, SYCL, Vulkan)" ON)
 option(MVGAL_BUILD_GAMING "Build gaming integration (Wine, DXVK, Proton)" OFF)
 option(MVGAL_BUILD_TOOLS "Build tools and utilities" ON)
 option(MVGAL_ENABLE_RUST "Enable Rust safety components" ON)
