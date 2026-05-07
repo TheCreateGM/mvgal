@@ -1,11 +1,14 @@
 Name: mvgal
 Version: 0.2.1
-Release: 2%{?dist}
+Release: 3%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
 URL: https://github.com/axogm/mvgal
 Source0: mvgal-%{version}.tar.gz
+
+# OpenCL support is conditional - enable by default, disable with --without opencl
+%bcond_without opencl
 
 BuildRequires: gcc
 BuildRequires: gcc-c++
@@ -19,6 +22,7 @@ BuildRequires: pkgconfig(pciaccess)
 BuildRequires: vulkan-headers
 BuildRequires: vulkan-loader
 BuildRequires: opencl-headers
+BuildRequires: ocl-icd-devel
 
 Requires: libdrm
 Requires: systemd
@@ -81,6 +85,9 @@ ln -sf mvgald %{buildroot}%{_bindir}/mvgal-daemon
 install -d %{buildroot}%{_sysconfdir}/ld.so.conf.d
 echo "%{_libdir}" > %{buildroot}%{_sysconfdir}/ld.so.conf.d/mvgal.conf
 
+# Create log directory (owned by package)
+install -d -m 0755 %{buildroot}%{_localstatedir}/log/mvgal
+
 %post
 # ldconfig - update the dynamic linker cache for libmvgal.so.*
 # Using /sbin/ldconfig directly here (not the macro) so we can also
@@ -117,12 +124,16 @@ fi
 # Core library (static)
 %{_libdir}/libmvgal_core.a
 # API interception libraries
-%{_libdir}/VK_LAYER_MVGAL.so*
-%{_libdir}/libmvgal_opencl.so
+%{_libdir}/libVK_LAYER_MVGAL.so*
 %{_libdir}/libmvgal_d3d.so
 %{_libdir}/libmvgal_metal.so
 %{_libdir}/libmvgal_webgpu.so
 %{_libdir}/libmvgal_gl.so
+# Conditionally built (OpenCL support - enabled by default)
+%if %{with opencl}
+%{_libdir}/libmvgal_opencl.so
+%endif
+# Conditionally built (Vulkan ICD)
 %{_libdir}/mvgal_vulkan_icd.so
 # Vulkan layer manifest
 %{_datadir}/vulkan/implicit_layer.d/VK_LAYER_MVGAL.json
@@ -133,10 +144,19 @@ fi
 %{_unitdir}/mvgal-daemon.service
 # ldconfig config
 %config(noreplace) %{_sysconfdir}/ld.so.conf.d/mvgal.conf
-# Log directory
-%dir /var/log/mvgal
+# Log directory (created in %install)
+%dir %{_localstatedir}/log/mvgal
 
 %changelog
+* Thu May 07 2026 AxoGM <creategm10@proton.me> - 0.2.1-3
+- Fix missing files in COPR build: libmvgal_opencl.so, libmvgal_gl.so,
+  mvgal_vulkan_icd.so, and /var/log/mvgal directory
+- Add proper %%bcond_without opencl for conditional OpenCL library inclusion
+- Add ocl-icd-devel to BuildRequires (was missing for OpenCL support)
+- Remove duplicate BuildRequires: opencl-headers
+- Add %%dir %%{_localstatedir}/log/mvgal to %%files and %%install sections
+- Fix %%files section to properly conditionally include libmvgal_opencl.so
+
 * Wed May 06 2026 AxoGM <creategm10@proton.me> - 0.2.1-2
 - Fix CMake install paths to use CMAKE_INSTALL_LIBDIR instead of hardcoded "lib"
   This ensures libraries install to lib64 on 64-bit systems automatically
