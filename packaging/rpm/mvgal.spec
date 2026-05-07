@@ -24,6 +24,9 @@ BuildRequires: vulkan-loader
 BuildRequires: opencl-headers
 BuildRequires: ocl-icd-devel
 
+# Disable automatic debuginfo generation to avoid conflicts
+%global debug_package %{nil}
+
 Requires: libdrm
 Requires: systemd
 Requires: vulkan-loader
@@ -144,7 +147,7 @@ fi
 %{_unitdir}/mvgal-daemon.service
 # ldconfig config
 %config(noreplace) %{_sysconfdir}/ld.so.conf.d/mvgal.conf
-# Log directory (created in %install)
+# Log directory (created in the install section)
 %dir %{_localstatedir}/log/mvgal
 
 # Development headers
