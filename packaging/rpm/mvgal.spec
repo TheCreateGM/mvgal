@@ -1,6 +1,6 @@
 Name: mvgal
 Version: 0.2.1
-Release: 3%{?dist}
+Release: 4%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -147,10 +147,16 @@ fi
 # Log directory (created in %install)
 %dir %{_localstatedir}/log/mvgal
 
+# Development headers
+%{_includedir}/mvgal/
+
+# Documentation
+%{_datadir}/doc/mvgal/
+
 %changelog
-* Thu May 07 2026 AxoGM <creategm10@proton.me> - 0.2.1-3
-- Fix missing files in COPR build: libmvgal_opencl.so, libmvgal_gl.so,
-  mvgal_vulkan_icd.so, and /var/log/mvgal directory
+* Thu May 07 2026 AxoGM <creategm10@proton.me> - 0.2.1-4
+- Fix unpackaged files error: add headers (%%{_includedir}/mvgal/) and
+  documentation (%%{_datadir}/doc/mvgal/) to %%files section
 - Add proper %%bcond_without opencl for conditional OpenCL library inclusion
 - Add ocl-icd-devel to BuildRequires (was missing for OpenCL support)
 - Remove duplicate BuildRequires: opencl-headers
