@@ -10,6 +10,9 @@ Source0: mvgal-%{version}.tar.gz
 # OpenCL support is conditional - enable by default, disable with --without opencl
 %bcond_without opencl
 
+# Disable automatic debuginfo generation to avoid conflicts
+%global debug_package %{nil}
+
 BuildRequires: gcc
 BuildRequires: gcc-c++
 BuildRequires: make
@@ -23,9 +26,6 @@ BuildRequires: vulkan-headers
 BuildRequires: vulkan-loader
 BuildRequires: opencl-headers
 BuildRequires: ocl-icd-devel
-
-# Disable automatic debuginfo generation to avoid conflicts
-%global debug_package %{nil}
 
 Requires: libdrm
 Requires: systemd
