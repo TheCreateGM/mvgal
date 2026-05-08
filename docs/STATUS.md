@@ -4,11 +4,12 @@
 
 ---
 
-## Overall: ~97% Complete
+## Overall: ~98% Complete
 
 ### Recent Updates (May 2026)
-- ✅ **C Tests**: 10/10 now passing (100% pass rate) - D3D, Metal, WebGPU wrappers fixed
-- ✅ **Build System**: `MVGAL_BUILD_API=ON` now enables all API interception layers
+- ✅ **Rust Tests**: 11/11 now passing (100% pass rate) — fixed `test_api_version` assertion, `test_gpu_memory_address` contract, and `test_capability_model_tier` deadlock
+- ✅ **C Tests**: 10/10 passing (100% pass rate) — D3D, Metal, WebGPU wrappers verified
+- ✅ **Build System**: `MVGAL_BUILD_API=ON` enables all API interception layers
 - 🔧 **Phase 5**: Vulkan ICD skeleton in progress
 
 ---
@@ -60,7 +61,7 @@
 |-------|-----|-------|-------------|
 | `fence_manager` | ~248 | 3 | Cross-device fence lifecycle, state machine |
 | `memory_safety` | ~230 | 3 | Allocation tracking, ref counting, DMA-BUF association |
-| `capability_model` | ~260 | 4 | GPU capability normalization, JSON serialization |
+| `capability_model` | ~260 | 5 | GPU capability normalization, JSON serialization |
 
 ---
 
@@ -232,7 +233,7 @@
 |-------|------|-------|-------|
 | C unit tests | 5 | 5 | test_core_api, gpu_detection, memory, scheduler, config |
 | C integration tests | 1 | 1 | test_multi_gpu_validation |
-| Rust unit tests | 10 | 10 | fence_manager (3), memory_safety (3), capability_model (4) |
+| Rust unit tests | 11 | 11 | fence_manager (3), memory_safety (3), capability_model (5) |
 | Synthetic benchmarks | 10 | 10 | |
 | Real-world benchmarks | 12 | 12 | |
 | Stress benchmarks | 9 | 10 | 1 cosmetic threading artifact |

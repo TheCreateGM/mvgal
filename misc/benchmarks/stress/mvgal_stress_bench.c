@@ -303,7 +303,8 @@ struct thread_arg {
 // Helper wrapper for pthread_barrier_wait
 static void *barrier_wait_wrapper(void *arg) {
     struct thread_arg *thread_arg = (struct thread_arg *)arg;
-    pthread_barrier_wait(thread_arg->barrier);
+    int ret = pthread_barrier_wait(thread_arg->barrier);
+    (void)ret;
     return NULL;
 }
 
@@ -332,7 +333,8 @@ static void test_context_switching(void *data) {
     }
     
     // Wait for all threads to reach barrier
-    pthread_barrier_wait(&barrier);
+    int barrier_ret = pthread_barrier_wait(&barrier);
+    (void)barrier_ret;
     
     // Let them all proceed and contest for CPU
     usleep(100000); // 100ms
@@ -462,7 +464,7 @@ int main(int argc, char *argv[]) {
     benchmark_record_result(&ctx, &r8);
     
     // Stress Test 9: Rapid context switching
-    if (0) { // Temporarily disabled - pthread_barrier issue
+    if (0) { // HWM-014: Disabled - pthread_barrier_wait race condition on rapid thread creation; barrier count mismatch when threads exit before all arrive
         benchmark_result_t r9 = benchmark_run(&ctx, "Context Switching (100 threads)",
                                              test_context_switching, NULL, NULL);
         benchmark_record_result(&ctx, &r9);

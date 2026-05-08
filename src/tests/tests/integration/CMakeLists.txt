@@ -87,7 +87,7 @@ if(MVGAL_BUILD_API)
 
     # Suppress unused variable warnings in test file (mock variables for documentation)
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(test_d3d_wrapper PRIVATE -Wno-unused-variable)
+        target_compile_options(test_d3d_wrapper PRIVATE -Wno-unused-variable -Wno-format-zero-length)
     endif()
 
     add_test(NAME test_d3d_wrapper COMMAND test_d3d_wrapper)
@@ -110,7 +110,7 @@ if(MVGAL_BUILD_API)
 
     # Suppress unused variable warnings in test file (mock variables for documentation)
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(test_metal_wrapper PRIVATE -Wno-unused-variable)
+        target_compile_options(test_metal_wrapper PRIVATE -Wno-unused-variable -Wno-format-zero-length)
     endif()
 
     add_test(NAME test_metal_wrapper COMMAND test_metal_wrapper)
@@ -133,7 +133,7 @@ if(MVGAL_BUILD_API)
 
     # Suppress unused variable warnings in test file (mock variables for documentation)
     if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(test_webgpu_wrapper_synthetic PRIVATE -Wno-unused-variable)
+        target_compile_options(test_webgpu_wrapper_synthetic PRIVATE -Wno-unused-variable -Wno-format-zero-length)
     endif()
 
     add_test(NAME test_webgpu_wrapper_synthetic COMMAND test_webgpu_wrapper_synthetic)

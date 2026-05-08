@@ -357,21 +357,25 @@ impl CapabilityModel {
 
     /// Add or update a GPU's capabilities
     pub fn update_gpu(&self, index: usize, capabilities: GpuCapabilities) {
-        let mut gpus = self.gpu_capabilities.write().unwrap();
-        if index >= gpus.len() {
-            gpus.resize(index + 1, GpuCapabilities::new(GpuVendor::Unknown));
+        {
+            let mut gpus = self.gpu_capabilities.write().unwrap();
+            if index >= gpus.len() {
+                gpus.resize(index + 1, GpuCapabilities::new(GpuVendor::Unknown));
+            }
+            gpus[index] = capabilities;
         }
-        gpus[index] = capabilities;
         self.recompute_unified();
     }
 
     /// Remove a GPU
     pub fn remove_gpu(&self, index: usize) {
-        let mut gpus = self.gpu_capabilities.write().unwrap();
-        if index < gpus.len() {
-            gpus.remove(index);
-            self.recompute_unified();
+        {
+            let mut gpus = self.gpu_capabilities.write().unwrap();
+            if index < gpus.len() {
+                gpus.remove(index);
+            }
         }
+        self.recompute_unified();
     }
 
     /// Get GPU capabilities by index
@@ -594,9 +598,19 @@ mod tests {
 
     #[test]
     fn test_api_version() {
+        // Vulkan 1.3.0 packed as (major << 22) | (minor << 12) | patch
         let v1 = ApiVersion::new(1, 3, 0);
-        assert_eq!(v1.to_hex(), 0x004B0000);
-        assert_eq!(ApiVersion::from_hex(0x004B0000).to_hex(), 0x004B0000);
+        let expected = (1u32 << 22) | (3u32 << 12);
+        assert_eq!(v1.to_hex(), expected);
+        assert_eq!(ApiVersion::from_hex(expected), v1);
+
+        // Round-trip for 1.0.0
+        let v2 = ApiVersion::new(1, 0, 0);
+        assert_eq!(ApiVersion::from_hex(v2.to_hex()), v2);
+
+        // Round-trip for 1.3.217
+        let v3 = ApiVersion::new(1, 3, 217);
+        assert_eq!(ApiVersion::from_hex(v3.to_hex()), v3);
     }
 
     #[test]

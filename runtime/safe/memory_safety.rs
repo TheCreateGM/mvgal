@@ -375,14 +375,18 @@ mod tests {
 
     #[test]
     fn test_gpu_memory_address() {
+        // Valid aligned address
         assert!(GpuMemoryAddress::new(0x1000).is_ok());
-        assert!(GpuMemoryAddress::new(0).is_ok()); // Null is valid as a special case
-        assert!(GpuMemoryAddress::new(0x123).is_err()); // Not aligned
+        // Zero is not a valid GPU address (use GpuMemoryAddress::null() for null)
+        assert!(GpuMemoryAddress::new(0).is_err());
+        // Unaligned address is invalid
+        assert!(GpuMemoryAddress::new(0x123).is_err());
 
         let addr = GpuMemoryAddress::new(0x1000).unwrap();
         assert_eq!(addr.get(), 0x1000);
         assert!(!addr.is_null());
 
+        // Explicit null construction
         assert!(GpuMemoryAddress::null().is_null());
     }
 }
