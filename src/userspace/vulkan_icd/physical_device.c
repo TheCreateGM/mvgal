@@ -114,6 +114,7 @@ mvgal_virtual_physical_device_t* mvgal_physical_device_create(void) {
             VK_MAX_PHYSICAL_DEVICE_NAME_SIZE - 1);
     
     /* Aggregate memory properties from all real GPUs */
+    void mvgal_aggregate_memory_properties(VkPhysicalDeviceMemoryProperties* out);
     mvgal_aggregate_memory_properties(&dev->memoryProperties);
     
     /* Generate pipeline cache UUID from real GPU data */
@@ -129,16 +130,14 @@ mvgal_virtual_physical_device_t* mvgal_physical_device_create(void) {
     
     /* Aggregate device features from all GPUs */
     {
-        bool any_compute = false;
         bool any_graphics = false;
         for (int32_t i = 0; i < gpu_count; i++) {
             mvgal_gpu_descriptor_t desc;
             if (mvgal_gpu_get_descriptor((uint32_t)i, &desc) == MVGAL_SUCCESS) {
-                if (desc.features & MVGAL_FEATURE_COMPUTE)  any_compute = true;
                 if (desc.features & MVGAL_FEATURE_GRAPHICS) any_graphics = true;
             }
         }
-        if (gpu_count <= 0) { any_compute = true; any_graphics = true; }
+        if (gpu_count <= 0) { any_graphics = true; }
         dev->features = (VkPhysicalDeviceFeatures){
             .robustBufferAccess = VK_TRUE,
             .fullDrawIndexUint32 = VK_TRUE,
@@ -168,7 +167,6 @@ mvgal_virtual_physical_device_t* mvgal_physical_device_create(void) {
             .largePoints = VK_TRUE,
             .alphaToOne = VK_TRUE,
             .inheritedQueries = VK_TRUE,
-            .computeShader = any_compute ? VK_TRUE : VK_FALSE,
         };
         (void)any_graphics;
     }
@@ -238,6 +236,11 @@ void mvgal_get_queue_family_properties(uint32_t* pCount,
      */
     
     if (!pCount) return;
+    
+    /* TODO: Aggregate from real GPUs */
+    uint32_t gfx_queues = 2;
+    uint32_t compute_queues = 4;
+    uint32_t transfer_queues = 1;
     
     uint32_t count = 3; /* Graphics, Compute, Transfer */
     

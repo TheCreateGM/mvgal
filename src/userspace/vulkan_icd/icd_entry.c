@@ -1218,9 +1218,6 @@ VkResult VKAPI_CALL mvgal_vkResetCommandBuffer(
     return VK_SUCCESS;
 }
 
-/* Track the single logical device (simplification — no multi-device yet) */
-static mvgal_logical_device_t* g_active_logical_device = NULL;
-
 /* ============================================================================
  * mvgal_vkQueueSubmit — accept submission, signal fence
  * ============================================================================ */
