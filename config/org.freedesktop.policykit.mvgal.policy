@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<policyconfig>
+
+  <!--
+    MVGAL (Multi-Vendor GPU Aggregation Layer) PolicyKit Configuration
+    
+    This file defines the security policies for MVGAL operations that
+    require elevated privileges. All privileged operations use pkexec
+    for secure privilege escalation.
+  -->
+
+  <vendor>MVGAL Project</vendor>
+  <vendor_url>https://github.com/TheCreateGM/mvgal</vendor_url>
+
+  <!-- ============================================================================
+       Kernel Module Management
+       ============================================================================ -->
+
+  <action id="org.freedesktop.policykit.mvgal.load-module">
+    <description>Load MVGAL kernel module</description>
+    <message>Authentication is required to load the MVGAL kernel module</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/sbin/modprobe</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">mvgal</annotate>
+  </action>
+
+  <action id="org.freedesktop.policykit.mvgal.unload-module">
+    <description>Unload MVGAL kernel module</description>
+    <message>Authentication is required to unload the MVGAL kernel module</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/sbin/modprobe</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">-r</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv2">mvgal</annotate>
+  </action>
+
+  <!-- ============================================================================
+       Daemon Management
+       ============================================================================ -->
+
+  <action id="org.freedesktop.policykit.mvgal.start-daemon">
+    <description>Start MVGAL daemon</description>
+    <message>Authentication is required to start the MVGAL daemon</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/systemctl</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">start</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv2">mvgald</annotate>
+  </action>
+
+  <action id="org.freedesktop.policykit.mvgal.stop-daemon">
+    <description>Stop MVGAL daemon</description>
+    <message>Authentication is required to stop the MVGAL daemon</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/systemctl</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">stop</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv2">mvgald</annotate>
+  </action>
+
+  <action id="org.freedesktop.policykit.mvgal.restart-daemon">
+    <description>Restart MVGAL daemon</description>
+    <message>Authentication is required to restart the MVGAL daemon</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/systemctl</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">restart</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv2">mvgald</annotate>
+  </action>
+
+  <action id="org.freedesktop.policykit.mvgal.enable-daemon">
+    <description>Enable MVGAL daemon at boot</description>
+    <message>Authentication is required to enable the MVGAL daemon at boot</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/systemctl</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">enable</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv2">mvgald</annotate>
+  </action>
+
+  <!-- ============================================================================
+       GPU Hardware Control
+       ============================================================================ -->
+
+  <action id="org.freedesktop.policykit.mvgal.gpu-enable">
+    <description>Enable GPU in MVGAL</description>
+    <message>Authentication is required to enable a GPU in MVGAL</message>
+    <icon_name>video-display</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.freedesktop.policykit.mvgal.gpu-disable">
+    <description>Disable GPU in MVGAL</description>
+    <message>Authentication is required to disable a GPU in MVGAL</message>
+    <icon_name>video-display</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.freedesktop.policykit.mvgal.gpu-power-control">
+    <description>Control GPU power state</description>
+    <message>Authentication is required to change GPU power states</message>
+    <icon_name>video-display</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ============================================================================
+       Configuration Management
+       ============================================================================ -->
+
+  <action id="org.freedesktop.policykit.mvgal.edit-config">
+    <description>Edit MVGAL configuration</description>
+    <message>Authentication is required to edit the MVGAL configuration file</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.freedesktop.policykit.mvgal.reload-config">
+    <description>Reload MVGAL configuration</description>
+    <message>Authentication is required to reload the MVGAL configuration</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ============================================================================
+       Vulkan Layer Injection
+       ============================================================================ -->
+
+  <action id="org.freedesktop.policykit.mvgal.vulkan-layer">
+    <description>Install/Remove MVGAL Vulkan layer</description>
+    <message>Authentication is required to install or remove the MVGAL Vulkan layer</message>
+    <icon_name>applications-graphics</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ============================================================================
+       Performance Tuning
+       ============================================================================ -->
+
+  <action id="org.freedesktop.policykit.mvgal.performance-tuning">
+    <description>Modify MVGAL performance settings</description>
+    <message>Authentication is required to modify MVGAL performance settings</message>
+    <icon_name>preferences-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ============================================================================
+       System-wide GPU Access
+       ============================================================================ -->
+
+  <action id="org.freedesktop.policykit.mvgal.gpu-info">
+    <description>Access GPU information</description>
+    <message>Access detailed GPU information</message>
+    <icon_name>video-display</icon_name>
+    <defaults>
+      <allow_any>yes</allow_any>
+      <allow_inactive>yes</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.freedesktop.policykit.mvgal.gpu-stats">
+    <description>Access GPU statistics</description>
+    <message>Access GPU utilization, temperature, and performance statistics</message>
+    <icon_name>video-display</icon_name>
+    <defaults>
+      <allow_any>yes</allow_any>
+      <allow_inactive>yes</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ============================================================================
+       Debugging and Diagnostics
+       ============================================================================ -->
+
+  <action id="org.freedesktop.policykit.mvgal.debug">
+    <description>Enable MVGAL debug mode</description>
+    <message>Authentication is required to enable MVGAL debug mode</message>
+    <icon_name>applications-development</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.freedesktop.policykit.mvgal.capture-trace">
+    <description>Capture MVGAL trace</description>
+    <message>Authentication is required to capture MVGAL GPU execution traces</message>
+    <icon_name>applications-development</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+</policyconfig>

@@ -1,0 +1,413 @@
+   0.016014804s  INFO prepare_target{force=false package_id=capability_model v0.2.0 (/home/axogm/Documents/mvgal/safe/capability_model) target="mvgal_capability"}: cargo::core::compiler::fingerprint: fingerprint error for capability_model v0.2.0 (/home/axogm/Documents/mvgal/safe/capability_model)/Check { test: false }/TargetInner { ..: lib_target("mvgal_capability", ["staticlib", "rlib"], "/home/axogm/Documents/mvgal/safe/capability_model/src/lib.rs", Edition2021) }
+   0.016031206s  INFO prepare_target{force=false package_id=capability_model v0.2.0 (/home/axogm/Documents/mvgal/safe/capability_model) target="mvgal_capability"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/capability_model-1b9774d286ed4699/lib-mvgal_capability`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: __libc_start_call_main
+  17: __libc_start_main@@GLIBC_2.34
+  18: <unknown>
+   0.016776394s  INFO prepare_target{force=false package_id=serde v1.0.228 target="serde"}: cargo::core::compiler::fingerprint: fingerprint error for serde v1.0.228/Check { test: false }/TargetInner { ..: lib_target("serde", ["lib"], "/home/axogm/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs", Edition2021) }
+   0.016785346s  INFO prepare_target{force=false package_id=serde v1.0.228 target="serde"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/serde-421ae6d06259f627/lib-serde`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: <unknown>
+  17: __libc_start_call_main
+  18: __libc_start_main@@GLIBC_2.34
+  19: <unknown>
+   0.017020182s  INFO prepare_target{force=false package_id=serde_core v1.0.228 target="serde_core"}: cargo::core::compiler::fingerprint: fingerprint error for serde_core v1.0.228/Check { test: false }/TargetInner { ..: lib_target("serde_core", ["lib"], "/home/axogm/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/lib.rs", Edition2021) }
+   0.017028435s  INFO prepare_target{force=false package_id=serde_core v1.0.228 target="serde_core"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/serde_core-906fd831067f16cf/lib-serde_core`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: <unknown>
+  17: <unknown>
+  18: __libc_start_call_main
+  19: __libc_start_main@@GLIBC_2.34
+  20: <unknown>
+   0.017610151s  INFO prepare_target{force=false package_id=serde_json v1.0.149 target="serde_json"}: cargo::core::compiler::fingerprint: fingerprint error for serde_json v1.0.149/Check { test: false }/TargetInner { ..: lib_target("serde_json", ["lib"], "/home/axogm/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.149/src/lib.rs", Edition2021) }
+   0.017618473s  INFO prepare_target{force=false package_id=serde_json v1.0.149 target="serde_json"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/serde_json-862bd18ebeea1a0c/lib-serde_json`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: <unknown>
+  17: __libc_start_call_main
+  18: __libc_start_main@@GLIBC_2.34
+  19: <unknown>
+   0.017796921s  INFO prepare_target{force=false package_id=itoa v1.0.18 target="itoa"}: cargo::core::compiler::fingerprint: fingerprint error for itoa v1.0.18/Check { test: false }/TargetInner { ..: lib_target("itoa", ["lib"], "/home/axogm/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.18/src/lib.rs", Edition2021) }
+   0.017806760s  INFO prepare_target{force=false package_id=itoa v1.0.18 target="itoa"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/itoa-38af66bc9d41de92/lib-itoa`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: <unknown>
+  17: <unknown>
+  18: __libc_start_call_main
+  19: __libc_start_main@@GLIBC_2.34
+  20: <unknown>
+   0.017915074s  INFO prepare_target{force=false package_id=memchr v2.8.0 target="memchr"}: cargo::core::compiler::fingerprint: fingerprint error for memchr v2.8.0/Check { test: false }/TargetInner { benched: false, ..: lib_target("memchr", ["lib"], "/home/axogm/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.0/src/lib.rs", Edition2021) }
+   0.017924612s  INFO prepare_target{force=false package_id=memchr v2.8.0 target="memchr"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/memchr-a89b03adf830c7e2/lib-memchr`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: <unknown>
+  17: <unknown>
+  18: __libc_start_call_main
+  19: __libc_start_main@@GLIBC_2.34
+  20: <unknown>
+   0.018146704s  INFO prepare_target{force=false package_id=zmij v1.0.21 target="zmij"}: cargo::core::compiler::fingerprint: fingerprint error for zmij v1.0.21/Check { test: false }/TargetInner { ..: lib_target("zmij", ["lib"], "/home/axogm/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zmij-1.0.21/src/lib.rs", Edition2021) }
+   0.018154373s  INFO prepare_target{force=false package_id=zmij v1.0.21 target="zmij"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/zmij-f6a02efe31770042/lib-zmij`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: <unknown>
+  17: <unknown>
+  18: __libc_start_call_main
+  19: __libc_start_main@@GLIBC_2.34
+  20: <unknown>
+   0.018390242s  INFO prepare_target{force=false package_id=capability_model v0.2.0 (/home/axogm/Documents/mvgal/safe/capability_model) target="mvgal_capability"}: cargo::core::compiler::fingerprint: fingerprint error for capability_model v0.2.0 (/home/axogm/Documents/mvgal/safe/capability_model)/Check { test: true }/TargetInner { ..: lib_target("mvgal_capability", ["staticlib", "rlib"], "/home/axogm/Documents/mvgal/safe/capability_model/src/lib.rs", Edition2021) }
+   0.018399038s  INFO prepare_target{force=false package_id=capability_model v0.2.0 (/home/axogm/Documents/mvgal/safe/capability_model) target="mvgal_capability"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/capability_model-7588eebc753e5b82/test-lib-mvgal_capability`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: __libc_start_call_main
+  17: __libc_start_main@@GLIBC_2.34
+  18: <unknown>
+   0.018563899s  INFO prepare_target{force=false package_id=fence_manager v0.2.0 (/home/axogm/Documents/mvgal/safe/fence_manager) target="mvgal_fence"}: cargo::core::compiler::fingerprint: fingerprint error for fence_manager v0.2.0 (/home/axogm/Documents/mvgal/safe/fence_manager)/Check { test: false }/TargetInner { ..: lib_target("mvgal_fence", ["staticlib", "rlib"], "/home/axogm/Documents/mvgal/safe/fence_manager/src/lib.rs", Edition2021) }
+   0.018572548s  INFO prepare_target{force=false package_id=fence_manager v0.2.0 (/home/axogm/Documents/mvgal/safe/fence_manager) target="mvgal_fence"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/fence_manager-8e4c44a7ce550bd4/lib-mvgal_fence`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: __libc_start_call_main
+  17: __libc_start_main@@GLIBC_2.34
+  18: <unknown>
+   0.018729083s  INFO prepare_target{force=false package_id=fence_manager v0.2.0 (/home/axogm/Documents/mvgal/safe/fence_manager) target="mvgal_fence"}: cargo::core::compiler::fingerprint: fingerprint error for fence_manager v0.2.0 (/home/axogm/Documents/mvgal/safe/fence_manager)/Check { test: true }/TargetInner { ..: lib_target("mvgal_fence", ["staticlib", "rlib"], "/home/axogm/Documents/mvgal/safe/fence_manager/src/lib.rs", Edition2021) }
+   0.018737294s  INFO prepare_target{force=false package_id=fence_manager v0.2.0 (/home/axogm/Documents/mvgal/safe/fence_manager) target="mvgal_fence"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/fence_manager-9d5fb2683fa02d3f/test-lib-mvgal_fence`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: __libc_start_call_main
+  17: __libc_start_main@@GLIBC_2.34
+  18: <unknown>
+   0.018878245s  INFO prepare_target{force=false package_id=memory_safety v0.2.0 (/home/axogm/Documents/mvgal/safe/memory_safety) target="mvgal_memory_safety"}: cargo::core::compiler::fingerprint: fingerprint error for memory_safety v0.2.0 (/home/axogm/Documents/mvgal/safe/memory_safety)/Check { test: false }/TargetInner { ..: lib_target("mvgal_memory_safety", ["staticlib", "rlib"], "/home/axogm/Documents/mvgal/safe/memory_safety/src/lib.rs", Edition2021) }
+   0.018886292s  INFO prepare_target{force=false package_id=memory_safety v0.2.0 (/home/axogm/Documents/mvgal/safe/memory_safety) target="mvgal_memory_safety"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/memory_safety-798284c29badbf78/lib-mvgal_memory_safety`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: __libc_start_call_main
+  17: __libc_start_main@@GLIBC_2.34
+  18: <unknown>
+   0.019036984s  INFO prepare_target{force=false package_id=memory_safety v0.2.0 (/home/axogm/Documents/mvgal/safe/memory_safety) target="mvgal_memory_safety"}: cargo::core::compiler::fingerprint: fingerprint error for memory_safety v0.2.0 (/home/axogm/Documents/mvgal/safe/memory_safety)/Check { test: true }/TargetInner { ..: lib_target("mvgal_memory_safety", ["staticlib", "rlib"], "/home/axogm/Documents/mvgal/safe/memory_safety/src/lib.rs", Edition2021) }
+   0.019045359s  INFO prepare_target{force=false package_id=memory_safety v0.2.0 (/home/axogm/Documents/mvgal/safe/memory_safety) target="mvgal_memory_safety"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/memory_safety-ba8dab9f21d6927a/test-lib-mvgal_memory_safety`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: __libc_start_call_main
+  17: __libc_start_main@@GLIBC_2.34
+  18: <unknown>
+   0.019239591s  INFO prepare_target{force=false package_id=mvgal_safe v0.2.0 (/home/axogm/Documents/mvgal/runtime/safe) target="mvgal_safe"}: cargo::core::compiler::fingerprint: fingerprint error for mvgal_safe v0.2.0 (/home/axogm/Documents/mvgal/runtime/safe)/Check { test: false }/TargetInner { ..: lib_target("mvgal_safe", ["staticlib", "rlib"], "/home/axogm/Documents/mvgal/runtime/safe/lib.rs", Edition2021) }
+   0.019250835s  INFO prepare_target{force=false package_id=mvgal_safe v0.2.0 (/home/axogm/Documents/mvgal/runtime/safe) target="mvgal_safe"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/mvgal_safe-5cf88f9e0d299ab1/lib-mvgal_safe`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: __libc_start_call_main
+  17: __libc_start_main@@GLIBC_2.34
+  18: <unknown>
+   0.019408296s  INFO prepare_target{force=false package_id=libc v0.2.186 target="libc"}: cargo::core::compiler::fingerprint: fingerprint error for libc v0.2.186/Check { test: false }/TargetInner { ..: lib_target("libc", ["lib"], "/home/axogm/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.186/src/lib.rs", Edition2021) }
+   0.019415866s  INFO prepare_target{force=false package_id=libc v0.2.186 target="libc"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/libc-36c435e952ac297b/lib-libc`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: <unknown>
+  17: __libc_start_call_main
+  18: __libc_start_main@@GLIBC_2.34
+  19: <unknown>
+   0.019696374s  INFO prepare_target{force=false package_id=mvgal_safe v0.2.0 (/home/axogm/Documents/mvgal/runtime/safe) target="mvgal_safe"}: cargo::core::compiler::fingerprint: fingerprint error for mvgal_safe v0.2.0 (/home/axogm/Documents/mvgal/runtime/safe)/Check { test: true }/TargetInner { ..: lib_target("mvgal_safe", ["staticlib", "rlib"], "/home/axogm/Documents/mvgal/runtime/safe/lib.rs", Edition2021) }
+   0.019705400s  INFO prepare_target{force=false package_id=mvgal_safe v0.2.0 (/home/axogm/Documents/mvgal/runtime/safe) target="mvgal_safe"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/axogm/Documents/mvgal/target/debug/.fingerprint/mvgal_safe-ef8d20eb6dcb71b5/test-lib-mvgal_safe`
+
+Caused by:
+    No such file or directory (os error 2)
+
+Stack backtrace:
+   0: <unknown>
+   1: <unknown>
+   2: <unknown>
+   3: <unknown>
+   4: <unknown>
+   5: <unknown>
+   6: <unknown>
+   7: <unknown>
+   8: <unknown>
+   9: <unknown>
+  10: <unknown>
+  11: <unknown>
+  12: <unknown>
+  13: <unknown>
+  14: <unknown>
+  15: <unknown>
+  16: __libc_start_call_main
+  17: __libc_start_main@@GLIBC_2.34
+  18: <unknown>
+    Checking memchr v2.8.0
+    Checking itoa v1.0.18
+    Checking serde_core v1.0.228
+    Checking zmij v1.0.21
+    Checking libc v0.2.186
+    Checking serde v1.0.228
+    Checking serde_json v1.0.149
+    Checking fence_manager v0.2.0 (/home/axogm/Documents/mvgal/safe/fence_manager)
+    Checking memory_safety v0.2.0 (/home/axogm/Documents/mvgal/safe/memory_safety)
+    Checking capability_model v0.2.0 (/home/axogm/Documents/mvgal/safe/capability_model)
+    Checking mvgal_safe v0.2.0 (/home/axogm/Documents/mvgal/runtime/safe)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.09s
