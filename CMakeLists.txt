@@ -10,7 +10,7 @@ project(mvgal VERSION 0.2.1 LANGUAGES C CXX)
 # =============================================================================
 
 set(PROJECT_DESCRIPTION "Multi-Vendor GPU Aggregation Layer for Linux")
-set(PROJECT_HOMEPAGE "https://github.com/mvgal/mvgal")
+set(PROJECT_HOMEPAGE "https://github.com/TheCreateGM/mvgal")
 set(PROJECT_LICENSE "MIT")
 
 # =============================================================================
