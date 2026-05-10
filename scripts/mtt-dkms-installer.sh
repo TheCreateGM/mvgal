@@ -100,11 +100,13 @@ check_auth_required() {
         401|403)
             MTT_AUTH_REQUIRED=1
             log_warn "Authentication required (HTTP $http_code) - loginwall detected"
+            log_info "Please ensure you have an active account at $MTT_LOGINWALL_URL"
             ;;
         000)
             # Network error - assume auth might be required
             MTT_AUTH_REQUIRED=1
-            log_warn "Cannot determine auth status - assuming loginwall"
+            log_warn "Network error or connection refused - assuming loginwall"
+            log_error "Please check your internet connection and proxy settings"
             ;;
         *)
             MTT_AUTH_REQUIRED=1
@@ -333,6 +335,18 @@ check_requirements() {
     KERNEL_VERSION=$(uname -r)
     if [ ! -d "/lib/modules/${KERNEL_VERSION}/build" ]; then
         error_exit "Kernel headers for ${KERNEL_VERSION} not found. Please install kernel headers."
+    fi
+
+    # Check for MUSA SDK
+    if [ ! -d "/opt/musa" ]; then
+        log_warn "MUSA SDK not found in /opt/musa."
+        log_info "The MUSA SDK is required for high-performance compute workloads on MTT GPUs."
+        log_info "Please install it from the Moore Threads developer portal."
+    else
+        log_info "MUSA SDK detected in /opt/musa"
+        if [ -f "/opt/musa/version" ]; then
+            log_info "MUSA SDK Version: $(cat /opt/musa/version)"
+        fi
     fi
     
     # Check for PCI devices

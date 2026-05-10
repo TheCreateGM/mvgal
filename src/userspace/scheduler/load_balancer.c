@@ -11,27 +11,35 @@
 #include "scheduler_internal.h"
 #include "mvgal/mvgal_log.h"
 
-/**
- * @brief Update GPU utilization
- *
- * In a real implementation, this would query GPU drivers for actual utilization.
- * For now, we simulate it based on queue depth.
- */
-static void update_gpu_utilization(mvgal_gpu_state_t *gpu) {
+static void update_gpu_utilization(mvgal_gpu_state_t *gpu, uint32_t index) {
     if (gpu == NULL) {
         return;
     }
     
-    // Calculate utilization based on queue depth
-    // This is a simplified model - real implementation would use GPU queries
-    float queue_util = (float)gpu->queue.count / 10.0f; // Assume 10 is max reasonable queue
+    float util = 0.0f;
+    float temp = 0.0f;
     
-    // Blend with previous utilization
-    gpu->utilization = gpu->utilization * 0.7f + queue_util * 0.3f;
+    /* Query real GPU utilization and temperature from the driver */
+    if (mvgal_gpu_get_utilization(index, &util) == MVGAL_SUCCESS) {
+        /* Convert 0-100 to 0.0-1.0 */
+        float real_util = util / 100.0f;
+        gpu->utilization = gpu->utilization * 0.7f + real_util * 0.3f;
+    } else {
+        /* Fallback to queue-based simulation if driver query fails */
+        float queue_util = (float)gpu->queue.count / 10.0f;
+        gpu->utilization = gpu->utilization * 0.7f + queue_util * 0.3f;
+    }
     
-    // Clamp to 0-1 range
+    if (mvgal_gpu_get_temperature(index, &temp) == MVGAL_SUCCESS) {
+        gpu->temperature = temp;
+    }
+    
+    /* Clamp to 0-1 range */
     if (gpu->utilization < 0.0f) gpu->utilization = 0.0f;
     if (gpu->utilization > 1.0f) gpu->utilization = 1.0f;
+
+    /* Notify the rewrite engine about the updated utilization for tile rebalancing */
+    mvgal_rewrite_update_gpu_utilization(index, gpu->utilization);
 }
 
 /**
@@ -50,7 +58,7 @@ void mvgal_scheduler_balance_load(void) {
     
     // Update utilization for all GPUs
     for (uint32_t i = 0; i < state->gpu_count; i++) {
-        update_gpu_utilization(&state->gpus[i]);
+        update_gpu_utilization(&state->gpus[i], i);
     }
     
     // Check if we need to balance
