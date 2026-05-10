@@ -38,8 +38,6 @@ static void update_gpu_utilization(mvgal_gpu_state_t *gpu, uint32_t index) {
     if (gpu->utilization < 0.0f) gpu->utilization = 0.0f;
     if (gpu->utilization > 1.0f) gpu->utilization = 1.0f;
 
-    /* Notify the rewrite engine about the updated utilization for tile rebalancing */
-    mvgal_rewrite_update_gpu_utilization(index, gpu->utilization);
 }
 
 /**
