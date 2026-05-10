@@ -66,6 +66,9 @@ tmp/
 temp/
 *.tmp
 *.xpm
+.logs/
+.cargo/
+.cache/
 
 # Distribution
 dist/
