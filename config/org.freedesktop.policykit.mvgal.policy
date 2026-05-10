@@ -250,4 +250,92 @@
     </defaults>
   </action>
 
+  <!-- ============================================================================
+       Moore Threads Driver Installer (com.mvgal.* namespace as per requirements)
+       ============================================================================ -->
+
+  <action id="com.mvgal.installer.mtt">
+    <description>Install Moore Threads GPU Driver</description>
+    <message>Authentication is required to install the Moore Threads GPU driver via DKMS</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/share/mvgal/scripts/mtt-dkms-installer.sh</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">install</annotate>
+  </action>
+
+  <action id="com.mvgal.driver.load">
+    <description>Load MVGAL kernel module</description>
+    <message>Authentication is required to load MVGAL kernel module</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/sbin/modprobe</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">mvgal</annotate>
+  </action>
+
+  <action id="com.mvgal.driver.unload">
+    <description>Unload MVGAL kernel module</description>
+    <message>Authentication is required to unload MVGAL kernel module</message>
+    <icon_name>applications-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/sbin/modprobe</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">-r</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv2">mvgal</annotate>
+  </action>
+
+  <action id="com.mvgal.vulkan.layer.register">
+    <description>Register MVGAL Vulkan layer</description>
+    <message>Authentication is required to register the MVGAL Vulkan implicit layer system-wide</message>
+    <icon_name>applications-graphics</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <action id="com.mvgal.power.configure">
+    <description>Configure MVGAL power management</description>
+    <message>Authentication is required to configure GPU power management settings</message>
+    <icon_name>preferences-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="com.mvgal.scheduler.configure">
+    <description>Configure MVGAL scheduler</description>
+    <message>Authentication is required to configure the MVGAL workload scheduler</message>
+    <icon_name>preferences-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="com.mvgal.memory.configure">
+    <description>Configure MVGAL memory management</description>
+    <message>Authentication is required to configure cross-GPU memory management</message>
+    <icon_name>preferences-system</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
 </policyconfig>

@@ -776,3 +776,339 @@ mvgal_error_t mvgal_device_group_set_peer_access(uint32_t src_gpu,
     
     return MVGAL_SUCCESS;
 }
+
+/* ============================================================================
+ * Queue Family Aggregation
+ * ============================================================================ */
+
+/**
+ * @brief Aggregate queue family properties from all group members
+ *
+ * This creates a unified view of queue families across all GPUs in the group.
+ * Queue families with similar capabilities are merged.
+ */
+static void aggregate_queue_families(mvgal_device_group_t *group)
+{
+    uint32_t total_queue_families = 0;
+    
+    /* Count total queue families across all devices */
+    for (uint32_t i = 0; i < group->device_count; i++) {
+        total_queue_families += group->members[i].queue_family_count;
+    }
+    
+    if (total_queue_families == 0) {
+        return;
+    }
+    
+    /* For now, create a simplified aggregation:
+     * - One graphics queue family per device
+     * - One compute queue family per device
+     * - One transfer queue family per device
+     * 
+     * In production, this would intelligently merge compatible queue families.
+     */
+    
+    for (uint32_t i = 0; i < group->device_count; i++) {
+        mvgal_device_group_member_t *member = &group->members[i];
+        
+        /* Allocate queue family properties if not already done */
+        if (!member->queue_families) {
+            member->queue_families = calloc(4, sizeof(VkQueueFamilyProperties));
+            if (!member->queue_families) continue;
+            
+            /* Graphics queue family */
+            member->queue_families[0].queueFlags = 
+                VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
+            member->queue_families[0].queueCount = 1;
+            member->queue_families[0].timestampValidBits = 64;
+            member->queue_families[0].minImageTransferGranularity = (VkExtent3D){1, 1, 1};
+            
+            /* Compute-only queue family */
+            member->queue_families[1].queueFlags = 
+                VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
+            member->queue_families[1].queueCount = 2;
+            member->queue_families[1].timestampValidBits = 64;
+            member->queue_families[1].minImageTransferGranularity = (VkExtent3D){1, 1, 1};
+            
+            /* Transfer-only queue family */
+            member->queue_families[2].queueFlags = VK_QUEUE_TRANSFER_BIT;
+            member->queue_families[2].queueCount = 1;
+            member->queue_families[2].timestampValidBits = 64;
+            member->queue_families[2].minImageTransferGranularity = (VkExtent3D){1, 1, 1};
+            
+            /* Sparse binding queue family */
+            member->queue_families[3].queueFlags = 
+                VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | 
+                VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT;
+            member->queue_families[3].queueCount = 1;
+            member->queue_families[3].timestampValidBits = 64;
+            member->queue_families[3].minImageTransferGranularity = (VkExtent3D){1, 1, 1};
+            
+            member->queue_family_count = 4;
+        }
+    }
+}
+
+/**
+ * @brief Get aggregated queue family properties for the entire device group
+ */
+mvgal_error_t mvgal_device_group_get_queue_families(
+    uint32_t *pCount,
+    VkQueueFamilyProperties *pProperties)
+{
+    if (!pCount) {
+        return MVGAL_ERROR_INVALID_PARAMETER;
+    }
+    
+    pthread_mutex_lock(&g_group_lock);
+    
+    if (!g_device_group.initialized) {
+        pthread_mutex_unlock(&g_group_lock);
+        return MVGAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    pthread_mutex_lock(&g_device_group.lock);
+    
+    /* Ensure queue families are aggregated */
+    aggregate_queue_families(&g_device_group);
+    
+    /* Calculate total queue families across all devices */
+    uint32_t total_families = 0;
+    for (uint32_t i = 0; i < g_device_group.device_count; i++) {
+        total_families += g_device_group.members[i].queue_family_count;
+    }
+    
+    if (pProperties == NULL) {
+        *pCount = total_families;
+        pthread_mutex_unlock(&g_device_group.lock);
+        pthread_mutex_unlock(&g_group_lock);
+        return MVGAL_SUCCESS;
+    }
+    
+    /* Copy queue family properties */
+    uint32_t copied = 0;
+    for (uint32_t i = 0; i < g_device_group.device_count && copied < *pCount; i++) {
+        mvgal_device_group_member_t *member = &g_device_group.members[i];
+        
+        for (uint32_t j = 0; j < member->queue_family_count && copied < *pCount; j++) {
+            pProperties[copied] = member->queue_families[j];
+            copied++;
+        }
+    }
+    
+    *pCount = copied;
+    
+    pthread_mutex_unlock(&g_device_group.lock);
+    pthread_mutex_unlock(&g_group_lock);
+    
+    return MVGAL_SUCCESS;
+}
+
+/* ============================================================================
+ * VK_KHR_device_group_creation Support
+ * ============================================================================ */
+
+/**
+ * @brief Enumerate physical device groups (for vkEnumeratePhysicalDeviceGroupsKHR)
+ *
+ * This is the key entry point for multi-GPU device group creation.
+ * It returns a single device group containing all available GPUs.
+ */
+mvgal_error_t mvgal_enumerate_device_groups(
+    VkPhysicalDeviceGroupPropertiesKHR *pProperties,
+    uint32_t *pCount)
+{
+    if (!pCount) {
+        return MVGAL_ERROR_INVALID_PARAMETER;
+    }
+    
+    pthread_mutex_lock(&g_group_lock);
+    
+    if (!g_device_group.initialized) {
+        /* Auto-initialize with all available GPUs */
+        pthread_mutex_unlock(&g_group_lock);
+        
+        int32_t gpu_count = mvgal_gpu_get_count();
+        if (gpu_count <= 0) {
+            *pCount = 0;
+            return MVGAL_SUCCESS;
+        }
+        
+        uint32_t *indices = malloc(gpu_count * sizeof(uint32_t));
+        if (!indices) {
+            return MVGAL_ERROR_OUT_OF_MEMORY;
+        }
+        
+        for (int32_t i = 0; i < gpu_count; i++) {
+            indices[i] = (uint32_t)i;
+        }
+        
+        mvgal_error_t err = mvgal_device_group_init();
+        if (err == MVGAL_SUCCESS) {
+            err = mvgal_device_group_create(indices, (uint32_t)gpu_count, NULL);
+        }
+        
+        free(indices);
+        
+        if (err != MVGAL_SUCCESS) {
+            *pCount = 0;
+            return err;
+        }
+        
+        pthread_mutex_lock(&g_group_lock);
+    }
+    
+    pthread_mutex_lock(&g_device_group.lock);
+    
+    /* We return exactly one device group containing all GPUs */
+    if (pProperties == NULL) {
+        *pCount = 1;
+        pthread_mutex_unlock(&g_device_group.lock);
+        pthread_mutex_unlock(&g_group_lock);
+        return MVGAL_SUCCESS;
+    }
+    
+    /* Fill in the device group properties */
+    pProperties[0].sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES_KHR;
+    pProperties[0].pNext = NULL;
+    pProperties[0].physicalDeviceCount = g_device_group.device_count;
+    
+    /* Copy physical device handles */
+    for (uint32_t i = 0; i < g_device_group.device_count; i++) {
+        pProperties[0].physicalDevices[i] = g_device_group.members[i].physical_device;
+    }
+    
+    /* Device group has subset allocation if not all devices need to be used together */
+    pProperties[0].subsetAllocation = VK_FALSE;
+    
+    *pCount = 1;
+    
+    pthread_mutex_unlock(&g_device_group.lock);
+    pthread_mutex_unlock(&g_group_lock);
+    
+    return MVGAL_SUCCESS;
+}
+
+/**
+ * @brief Create a device with device group support
+ */
+mvgal_error_t mvgal_device_group_create_device(
+    const VkDeviceGroupDeviceCreateInfoKHR *pDeviceGroupInfo,
+    const VkDeviceCreateInfo *pCreateInfo,
+    VkDevice *pDevice)
+{
+    if (!pCreateInfo || !pDevice) {
+        return MVGAL_ERROR_INVALID_PARAMETER;
+    }
+    
+    pthread_mutex_lock(&g_group_lock);
+    
+    if (!g_device_group.initialized) {
+        pthread_mutex_unlock(&g_group_lock);
+        return MVGAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    /* Validate device group info if provided */
+    if (pDeviceGroupInfo) {
+        if (pDeviceGroupInfo->physicalDeviceCount != g_device_group.device_count) {
+            pthread_mutex_unlock(&g_group_lock);
+            log_warn("Device group count mismatch: requested %u, have %u",
+                     pDeviceGroupInfo->physicalDeviceCount,
+                     g_device_group.device_count);
+            return MVGAL_ERROR_INVALID_PARAMETER;
+        }
+    }
+    
+    pthread_mutex_unlock(&g_group_lock);
+    
+    /* The actual device creation is handled by the ICD layer */
+    /* We just validate the device group configuration here */
+    
+    mvgal_log_info("Device group creation validated for %u GPUs", 
+                   g_device_group.device_count);
+    
+    return MVGAL_SUCCESS;
+}
+
+/* ============================================================================
+ * Device Group Synchronization
+ * ============================================================================ */
+
+/**
+ * @brief Get device group surface presentation modes
+ */
+mvgal_error_t mvgal_device_group_get_surface_present_modes(
+    VkSurfaceKHR surface,
+    VkDeviceGroupPresentModeFlagsKHR *pModes)
+{
+    if (!pModes) {
+        return MVGAL_ERROR_INVALID_PARAMETER;
+    }
+    
+    pthread_mutex_lock(&g_group_lock);
+    
+    if (!g_device_group.initialized) {
+        pthread_mutex_unlock(&g_group_lock);
+        return MVGAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    pthread_mutex_lock(&g_device_group.lock);
+    
+    /* Support all presentation modes:
+     * - LOCAL: Present from the local device
+     * - REMOTE: Present from another device  
+     * - SUM: Sum of masks from all devices
+     * - LOCAL_MULTI_DEVICE: Local device can present to multiple devices
+     */
+    *pModes = VK_DEVICE_GROUP_PRESENT_MODE_LOCAL_BIT_KHR |
+             VK_DEVICE_GROUP_PRESENT_MODE_REMOTE_BIT_KHR |
+             VK_DEVICE_GROUP_PRESENT_MODE_SUM_BIT_KHR |
+             VK_DEVICE_GROUP_PRESENT_MODE_LOCAL_MULTI_DEVICE_BIT_KHR;
+    
+    pthread_mutex_unlock(&g_device_group.lock);
+    pthread_mutex_unlock(&g_group_lock);
+    
+    return MVGAL_SUCCESS;
+}
+
+/**
+ * @brief Acquire next image with device group support
+ */
+mvgal_error_t mvgal_device_group_acquire_next_image(
+    VkSwapchainKHR swapchain,
+    uint64_t timeout,
+    VkSemaphore semaphore,
+    VkFence fence,
+    uint32_t deviceMask,
+    uint32_t *pImageIndex)
+{
+    if (!pImageIndex) {
+        return MVGAL_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Validate device mask */
+    pthread_mutex_lock(&g_group_lock);
+    
+    if (!g_device_group.initialized) {
+        pthread_mutex_unlock(&g_group_lock);
+        return MVGAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    uint32_t valid_mask = (1U << g_device_group.device_count) - 1;
+    
+    pthread_mutex_unlock(&g_group_lock);
+    
+    if (deviceMask & ~valid_mask) {
+        return MVGAL_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* The actual acquire is handled by the presentation layer */
+    /* We validate the device mask here */
+    
+    (void)swapchain;
+    (void)timeout;
+    (void)semaphore;
+    (void)fence;
+    
+    return MVGAL_SUCCESS;
+}

@@ -25,6 +25,16 @@ INSTALL_DIR="/usr/src"
 TEMP_DIR="/tmp/mvgal-mtt-install"
 LOG_FILE="/var/log/mvgal-mtt-install.log"
 
+# Loginwall/Authentication Configuration
+MTT_AUTH_REQUIRED=0
+MTT_AUTH_TOKEN=""
+MTT_API_KEY=""
+MTT_LICENSE_KEY=""
+MTT_LOGINWALL_URL="https://developer.moorethreads.com/login"
+MTT_DOWNLOAD_BASE="https://developer.moorethreads.com/api/v1/download"
+MTT_CREDENTIALS_FILE="/etc/mvgal/mtt_credentials.conf"
+MTT_SESSION_COOKIE=""
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -55,6 +65,231 @@ error_exit() {
     log_error "$1"
     cleanup
     exit 1
+}
+
+# ============================================================================
+# Loginwall and Authentication Handling
+# ============================================================================
+
+/**
+ * @brief Check if MTT download requires authentication
+ * 
+ * Moore Threads may require:
+ * - API key authentication
+ * - Login credentials (session-based)
+ * - License key validation
+ * - Developer account access
+ */
+check_auth_required() {
+    log_info "Checking authentication requirements for Moore Threads driver..."
+    
+    # Try to access the download URL without authentication
+    local test_url="${MTT_DOWNLOAD_BASE}/driver/${MTT_VERSION}/check"
+    local http_code
+    
+    if command -v curl >/dev/null 2>&1; then
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" "$test_url" 2>/dev/null || echo "000")
+    else
+        # Assume auth required if curl not available (safer)
+        http_code="401"
+    fi
+    
+    case "$http_code" in
+        200|204)
+            MTT_AUTH_REQUIRED=0
+            log_info "Public download available (HTTP $http_code)"
+            ;;
+        401|403)
+            MTT_AUTH_REQUIRED=1
+            log_warn "Authentication required (HTTP $http_code) - loginwall detected"
+            ;;
+        000)
+            # Network error - assume auth might be required
+            MTT_AUTH_REQUIRED=1
+            log_warn "Cannot determine auth status - assuming loginwall"
+            ;;
+        *)
+            MTT_AUTH_REQUIRED=1
+            log_warn "Unexpected response (HTTP $http_code) - may require authentication"
+            ;;
+    esac
+    
+    return $MTT_AUTH_REQUIRED
+}
+
+# Load saved credentials if they exist
+load_credentials() {
+    if [ -f "$MTT_CREDENTIALS_FILE" ]; then
+        log_info "Loading stored credentials..."
+        # Source the credentials file (must be root-owned and mode 600)
+        local file_perms
+        file_perms=$(stat -c %a "$MTT_CREDENTIALS_FILE" 2>/dev/null || echo "000")
+        if [ "$file_perms" != "600" ]; then
+            log_warn "Credentials file has insecure permissions: $file_perms (expected 600)"
+            chmod 600 "$MTT_CREDENTIALS_FILE"
+        fi
+        # shellcheck source=/dev/null
+        source "$MTT_CREDENTIALS_FILE"
+        return 0
+    fi
+    return 1
+}
+
+# Save credentials securely
+save_credentials() {
+    if [ -n "$MTT_API_KEY" ] || [ -n "$MTT_LICENSE_KEY" ]; then
+        log_info "Saving credentials securely..."
+        mkdir -p "$(dirname "$MTT_CREDENTIALS_FILE")"
+        
+        cat > "$MTT_CREDENTIALS_FILE" << EOF
+# MVGAL Moore Threads Credentials
+# Generated: $(date -Iseconds)
+# Permissions: 600 (owner read/write only)
+# This file should be owned by root
+
+MTT_API_KEY="${MTT_API_KEY}"
+MTT_LICENSE_KEY="${MTT_LICENSE_KEY}"
+EOF
+        
+        chmod 600 "$MTT_CREDENTIALS_FILE"
+        chown root:root "$MTT_CREDENTIALS_FILE"
+        log_info "Credentials saved to $MTT_CREDENTIALS_FILE"
+    fi
+}
+
+# Clear stored credentials
+clear_credentials() {
+    if [ -f "$MTT_CREDENTIALS_FILE" ]; then
+        log_info "Clearing stored credentials..."
+        rm -f "$MTT_CREDENTIALS_FILE"
+    fi
+}
+
+# Interactive credential prompt (for terminal use)
+prompt_for_credentials() {
+    log_info "Moore Threads authentication required"
+    log_info "Please visit $MTT_LOGINWALL_URL to register or log in"
+    echo ""
+    
+    # Check if we can prompt interactively
+    if [ -t 0 ]; then
+        echo -n "Enter MTT API Key (or press Enter to skip): "
+        read -r MTT_API_KEY
+        echo ""
+        
+        echo -n "Enter MTT License Key (or press Enter to skip): "
+        read -rs MTT_LICENSE_KEY
+        echo ""
+        
+        if [ -n "$MTT_API_KEY" ] || [ -n "$MTT_LICENSE_KEY" ]; then
+            echo -n "Save credentials for future use? [y/N]: "
+            read -r save_choice
+            if [[ "$save_choice" =~ ^[Yy]$ ]]; then
+                save_credentials
+            fi
+        fi
+    else
+        log_error "Cannot prompt for credentials in non-interactive mode"
+        log_error "Please set MTT_API_KEY and/or MTT_LICENSE_KEY environment variables"
+        log_error "Or create $MTT_CREDENTIALS_FILE with appropriate values"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Authenticate and obtain session token
+authenticate_session() {
+    log_info "Authenticating with Moore Threads developer portal..."
+    
+    local auth_data=""
+    
+    if [ -n "$MTT_API_KEY" ]; then
+        auth_data="api_key=${MTT_API_KEY}"
+    fi
+    
+    if [ -n "$MTT_LICENSE_KEY" ]; then
+        if [ -n "$auth_data" ]; then
+            auth_data="${auth_data}&license_key=${MTT_LICENSE_KEY}"
+        else
+            auth_data="license_key=${MTT_LICENSE_KEY}"
+        fi
+    fi
+    
+    if [ -z "$auth_data" ]; then
+        log_error "No authentication credentials available"
+        return 1
+    fi
+    
+    # Attempt authentication
+    local auth_url="${MTT_DOWNLOAD_BASE}/auth"
+    local temp_response="${TEMP_DIR}/auth_response.json"
+    
+    mkdir -p "$TEMP_DIR"
+    
+    if command -v curl >/dev/null 2>&1; then
+        if curl -s -X POST -d "$auth_data" -o "$temp_response" "$auth_url" 2>/dev/null; then
+            # Parse session token from response (if JSON)
+            if command -v jq >/dev/null 2>&1; then
+                MTT_SESSION_COOKIE=$(jq -r '.session_token // .token // empty' "$temp_response" 2>/dev/null)
+            else
+                # Basic grep extraction fallback
+                MTT_SESSION_COOKIE=$(grep -o '"session_token"[^,]*' "$temp_response" | cut -d'"' -f4 2>/dev/null)
+            fi
+            
+            if [ -n "$MTT_SESSION_COOKIE" ]; then
+                log_info "Authentication successful"
+                return 0
+            else
+                log_error "Authentication failed - check your API key or license"
+                return 1
+            fi
+        else
+            log_warn "Authentication endpoint unavailable - proceeding with direct download attempt"
+            # Don't fail - the download might still work with API key in header
+            return 0
+        fi
+    else
+        log_warn "curl not available - cannot perform authentication"
+        return 1
+    fi
+}
+
+# Download with authentication headers
+download_with_auth() {
+    local url="$1"
+    local output="$2"
+    
+    local curl_opts="-L --fail --retry 3 --retry-delay 5"
+    
+    # Add authentication headers if available
+    if [ -n "$MTT_API_KEY" ]; then
+        curl_opts="${curl_opts} -H \"X-API-Key: ${MTT_API_KEY}\""
+    fi
+    
+    if [ -n "$MTT_LICENSE_KEY" ]; then
+        curl_opts="${curl_opts} -H \"X-License-Key: ${MTT_LICENSE_KEY}\""
+    fi
+    
+    if [ -n "$MTT_SESSION_COOKIE" ]; then
+        curl_opts="${curl_opts} -H \"Authorization: Bearer ${MTT_SESSION_COOKIE}\""
+    fi
+    
+    # Add progress bar for interactive terminals
+    if [ -t 1 ]; then
+        curl_opts="${curl_opts} --progress-bar"
+    else
+        curl_opts="${curl_opts} -s"
+    fi
+    
+    log_debug "Download command: curl $curl_opts -o $output $url"
+    
+    # shellcheck disable=SC2086
+    if eval curl $curl_opts -o "$output" "$url" 2>>"$LOG_FILE"; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # Cleanup function
@@ -115,43 +350,84 @@ check_requirements() {
     log_info "System requirements satisfied"
 }
 
-# Download MTT driver source
+# Download MTT driver source with loginwall/auth support
 download_driver() {
     log_info "Downloading Moore Threads driver source..."
     
     mkdir -p "$TEMP_DIR"
     cd "$TEMP_DIR"
     
-    # Try git clone first
+    # Check if authentication is required
+    check_auth_required
+    
+    if [ $MTT_AUTH_REQUIRED -eq 1 ]; then
+        log_info "Loginwall detected - authentication required"
+        
+        # Try to load existing credentials
+        if ! load_credentials; then
+            prompt_for_credentials || error_exit "Authentication required but not provided"
+        fi
+        
+        # Attempt to authenticate and get session
+        authenticate_session || log_warn "Session authentication failed, trying direct download with credentials"
+    fi
+    
+    # Try authenticated download from official MTT portal first
+    if [ $MTT_AUTH_REQUIRED -eq 1 ]; then
+        local mtt_direct_url="${MTT_DOWNLOAD_BASE}/driver/${MTT_VERSION}/mtgpu-${MTT_VERSION}.tar.gz"
+        log_info "Attempting authenticated download from Moore Threads portal..."
+        
+        if command -v curl >/dev/null 2>&1; then
+            if download_with_auth "$mtt_direct_url" "mtgpu-${MTT_VERSION}.tar.gz"; then
+                tar -xzf "mtgpu-${MTT_VERSION}.tar.gz"
+                # Handle various extraction scenarios
+                if [ -d "mtgpu-${MTT_VERSION}" ]; then
+                    mv "mtgpu-${MTT_VERSION}" "${MTT_DRIVER_NAME}-${MTT_VERSION}"
+                elif [ -d "mtgpu-drv-${MTT_VERSION}" ]; then
+                    mv "mtgpu-drv-${MTT_VERSION}" "${MTT_DRIVER_NAME}-${MTT_VERSION}"
+                fi
+                log_info "Successfully downloaded driver from authenticated portal"
+                return 0
+            else
+                log_warn "Authenticated download failed, falling back to public sources"
+            fi
+        fi
+    fi
+    
+    # Fallback to git clone (public mirror)
     if command -v git >/dev/null 2>&1; then
-        log_info "Cloning from $MTT_REPO_URL..."
-        if git clone --depth 1 --branch "v${MTT_VERSION}" "$MTT_REPO_URL" "${MTT_DRIVER_NAME}-${MTT_VERSION}"; then
-            log_info "Successfully cloned driver source"
+        log_info "Attempting public git clone from $MTT_REPO_URL..."
+        if git clone --depth 1 --branch "v${MTT_VERSION}" "$MTT_REPO_URL" "${MTT_DRIVER_NAME}-${MTT_VERSION}" 2>/dev/null; then
+            log_info "Successfully cloned driver source from public mirror"
             return 0
         fi
     fi
     
-    # Fallback to curl/wget for tarball
+    # Final fallback to GitHub tarball
     local tarball_url="${MTT_REPO_URL}/archive/refs/tags/v${MTT_VERSION}.tar.gz"
-    log_info "Attempting to download tarball from ${tarball_url}..."
+    log_info "Attempting to download from GitHub mirror: ${tarball_url}..."
     
     if command -v curl >/dev/null 2>&1; then
-        if curl -L -o "mtgpu-${MTT_VERSION}.tar.gz" "$tarball_url"; then
+        if curl -L --fail --retry 3 -o "mtgpu-${MTT_VERSION}.tar.gz" "$tarball_url" 2>/dev/null; then
             tar -xzf "mtgpu-${MTT_VERSION}.tar.gz"
-            mv "mtgpu-drv-${MTT_VERSION}" "${MTT_DRIVER_NAME}-${MTT_VERSION}"
-            log_info "Successfully downloaded and extracted driver"
+            if [ -d "mtgpu-drv-${MTT_VERSION}" ]; then
+                mv "mtgpu-drv-${MTT_VERSION}" "${MTT_DRIVER_NAME}-${MTT_VERSION}"
+            fi
+            log_info "Successfully downloaded from GitHub mirror"
             return 0
         fi
     elif command -v wget >/dev/null 2>&1; then
-        if wget -O "mtgpu-${MTT_VERSION}.tar.gz" "$tarball_url"; then
+        if wget --tries=3 -O "mtgpu-${MTT_VERSION}.tar.gz" "$tarball_url" 2>/dev/null; then
             tar -xzf "mtgpu-${MTT_VERSION}.tar.gz"
-            mv "mtgpu-drv-${MTT_VERSION}" "${MTT_DRIVER_NAME}-${MTT_VERSION}"
-            log_info "Successfully downloaded and extracted driver"
+            if [ -d "mtgpu-drv-${MTT_VERSION}" ]; then
+                mv "mtgpu-drv-${MTT_VERSION}" "${MTT_DRIVER_NAME}-${MTT_VERSION}"
+            fi
+            log_info "Successfully downloaded from GitHub mirror"
             return 0
         fi
     fi
     
-    error_exit "Failed to download Moore Threads driver source"
+    error_exit "Failed to download Moore Threads driver source from all available sources"
 }
 
 # Prepare DKMS structure
