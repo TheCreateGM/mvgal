@@ -156,7 +156,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_C_STANDARD 17)
+# C Standard - use C17 for CMake >= 3.21 (which adds proper C17 support),
+# fall back to C11 for older CMake (Mageia 8 ships CMake 3.20)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
+    set(CMAKE_C_STANDARD 17)
+else()
+    set(CMAKE_C_STANDARD 11)
+endif()
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Position Independent Code

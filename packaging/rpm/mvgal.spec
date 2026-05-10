@@ -3,11 +3,11 @@
 
 Name: mvgal
 Version: 0.2.1
-Release: 4%{?dist}
+Release: 12%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
-URL: https://github.com/axogm/mvgal
+URL: https://github.com/TheCreateGM/mvgal
 Source0: mvgal-%{version}.tar.gz
 
 # OpenCL support is conditional - enable by default, disable with --without opencl
@@ -17,19 +17,31 @@ BuildRequires: gcc
 BuildRequires: gcc-c++
 BuildRequires: make
 BuildRequires: cmake >= 3.20
+%if 0%{?suse_version}
+BuildRequires: ninja
+%else
 BuildRequires: ninja-build
+%endif
 BuildRequires: libdrm-devel
 BuildRequires: systemd-devel
 BuildRequires: pciutils-devel
 BuildRequires: pkgconfig(pciaccess)
 BuildRequires: vulkan-headers
-BuildRequires: vulkan-loader
+BuildRequires: pkgconfig(vulkan)
 BuildRequires: opencl-headers
 BuildRequires: ocl-icd-devel
 
 Requires: libdrm
 Requires: systemd
+%if 0%{?suse_version}
+Requires: libvulkan1
+%else
+%if 0%{?mageia}
+Requires: lib64vulkan-loader1
+%else
 Requires: vulkan-loader
+%endif
+%endif
 
 Obsoletes: mvgallibs <= 0.1.0
 Provides: libmvgal = %{version}
@@ -150,13 +162,69 @@ fi
 # Log directory (created in the install section)
 %dir %{_localstatedir}/log/mvgal
 
+# pkexec and DKMS helper scripts
+%{_prefix}/lib/mvgal/mvgal-pkexec-helper.sh
+%{_prefix}/lib/mvgal/mtt-dkms-installer.sh
+%{_datadir}/mvgal/scripts/mtt-dkms-installer.sh
+
+# udev rules
+%{_prefix}/lib/udev/rules.d/99-mvgal.rules
+
+# PolicyKit policy
+%{_datadir}/polkit-1/actions/org.freedesktop.policykit.mvgal.policy
+
 # Development headers
 %{_includedir}/mvgal/
 
 # Documentation
-%{_datadir}/doc/mvgal/
+%{_docdir}/mvgal/
 
 %changelog
+* Sun May 10 2026 AxoGM <creategm10@proton.me> - 0.2.1-12
+- Fix openSUSE documentation directory: use %%{_docdir}/mvgal/ instead of
+  %%{_datadir}/doc/mvgal/ (%%{_datadir}/doc/ != %%{_docdir}/ on openSUSE)
+- Fix GCC 7.5 (openSUSE Leap 15.6) cmake configure: remove redundant
+  target_compile_features(mvgald PRIVATE cxx_std_20) from runtime/CMakeLists.txt
+  (CMAKE_CXX_STANDARD 20 already set at project level)
+- Fix C17 cmake configure error on older CMake (Mageia 8, CMake 3.20):
+  conditionally use C17 only for CMake >= 3.21, fall back to C11
+
+* Sun May 10 2026 AxoGM <creategm10@proton.me> - 0.2.1-11
+- Fix distro-specific package names: use pkgconfig(vulkan) instead of
+  vulkan-loader for cross-distro portability (Fedora, RHEL, Mageia, openSUSE)
+- Use distro conditionals: ninja-build (Fedora/Mageia) vs ninja (openSUSE);
+  vulkan-loader (Fedora/RHEL) vs lib64vulkan-loader1 (Mageia) vs libvulkan1
+  (openSUSE) for runtime dependency
+
+* Sun May 10 2026 AxoGM <creategm10@proton.me> - 0.2.1-10
+- Fix unpackaged files error: add pkexec helper, DKMS installer scripts,
+  udev rules, and PolicyKit policy to %%files section
+
+* Sun May 10 2026 AxoGM <creategm10@proton.me> - 0.2.1-9
+- Add missing forward declaration for mvgal_get_queue_family_properties
+  in device_group.c fixes implicit-declaration error
+
+* Sun May 10 2026 AxoGM <creategm10@proton.me> - 0.2.1-8
+- Fix implicit declaration error in device_group.c: rename
+  mvgal_gpu_get_queue_family_properties to mvgal_get_queue_family_properties
+  (function never existed, was a code artifact)
+
+* Sun May 10 2026 AxoGM <creategm10@proton.me> - 0.2.1-7
+- Fix fatal error: mvgal/mvgal.h: No such file or directory when building
+  vk_layer.c on Fedora 44+: add missing ${MVGAL_INCLUDE_DIRS} to the
+  vulkan layer CMake target include paths
+
+* Sun May 10 2026 AxoGM <creategm10@proton.me> - 0.2.1-6
+- Fix implicit declaration error on GCC 15+ (Fedora Rawhide): remove dead
+  call to mvgal_rewrite_update_gpu_utilization from load_balancer.c
+
+* Sun May 10 2026 AxoGM <creategm10@proton.me> - 0.2.1-5
+- Add CMake compatibility aliases for subdirectory CMakeLists that reference
+  old-style find_package patterns (DRM_IMPORTED_TARGET, PCI_IMPORTED_TARGET,
+  UDEV_IMPORTED_TARGET)
+- Fix unconditional opengl and vulkan_icd subdirectory builds to be
+  discoverable from parent CMakeLists.txt
+
 * Thu May 07 2026 AxoGM <creategm10@proton.me> - 0.2.1-4
 - Fix unpackaged files error: add headers (%%{_includedir}/mvgal/) and
   documentation (%%{_datadir}/doc/mvgal/) to %%files section

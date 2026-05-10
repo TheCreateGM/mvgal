@@ -96,8 +96,6 @@ set(DAEMON_HEADERS
 # Create daemon executable
 add_executable(mvgald ${DAEMON_SOURCES} ${DAEMON_HEADERS})
 
-target_compile_features(mvgald PRIVATE cxx_std_20)
-
 target_link_libraries(mvgald PRIVATE
     Threads::Threads
     PkgConfig::LIBDRM
