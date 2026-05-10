@@ -44,6 +44,14 @@ typedef struct {
     uint32_t original_height;
 } sfr_workload_data_t;
 
+static mvgal_error_t sfr_create_split_data_weighted(
+    struct mvgal_workload *workload,
+    uint32_t width,
+    uint32_t height,
+    sfr_mode_t mode,
+    const float *weights
+);
+
 /**
  * @brief Distribute workload using SFR strategy
  *
@@ -244,7 +252,7 @@ uint32_t sfr_split_frame(
                 uint32_t row_height = height / rows; // Simple grid for now
                 uint32_t current_x = 0;
                 for (uint32_t c = 0; c < cols && region_count < max_regions; c++) {
-                    uint32_t i = r * cols + col;
+                    uint32_t i = r * cols + c;
                     if (i >= gpu_count) break;
                     
                     float weight = (weights != NULL) ? (weights[i] / total_weight) : (1.0f / (float)gpu_count);
@@ -352,7 +360,7 @@ mvgal_error_t sfr_create_split_data(
 /**
  * @brief Create SFR split data for a workload with weights
  */
-mvgal_error_t sfr_create_split_data_weighted(
+static mvgal_error_t sfr_create_split_data_weighted(
     struct mvgal_workload *workload,
     uint32_t width,
     uint32_t height,

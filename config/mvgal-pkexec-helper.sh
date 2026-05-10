@@ -16,6 +16,7 @@
 #   reload-config     - Reload MVGAL configuration
 #   install-vulkan-layer - Install Vulkan implicit layer
 #   remove-vulkan-layer  - Remove Vulkan implicit layer
+#   install-mtt-driver   - Run the Moore Threads DKMS installer
 #
 # Copyright (C) 2026 MVGAL Project
 # SPDX-License-Identifier: MIT
@@ -264,6 +265,18 @@ remove_vulkan_layer() {
     fi
 }
 
+# Install Moore Threads DKMS driver
+install_mtt_driver() {
+    log "Starting Moore Threads DKMS installer"
+
+    local installer="/usr/share/mvgal/scripts/mtt-dkms-installer.sh"
+    if [ ! -x "$installer" ]; then
+        error_exit "MTT installer not found or not executable: $installer"
+    fi
+
+    "$installer" install
+}
+
 # Main entry point
 main() {
     check_privileges
@@ -298,6 +311,9 @@ main() {
         remove-vulkan-layer)
             remove_vulkan_layer
             ;;
+        install-mtt-driver)
+            install_mtt_driver
+            ;;
         *)
             echo "Usage: $0 <action> [args...]"
             echo ""
@@ -311,6 +327,7 @@ main() {
             echo "  reload-config            Reload MVGAL configuration"
             echo "  install-vulkan-layer     Install Vulkan implicit layer"
             echo "  remove-vulkan-layer      Remove Vulkan implicit layer"
+            echo "  install-mtt-driver       Install Moore Threads DKMS driver"
             exit 1
             ;;
     esac

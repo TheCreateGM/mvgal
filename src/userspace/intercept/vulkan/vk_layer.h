@@ -9,6 +9,15 @@
 #include <vulkan/vk_layer.h>
 #include <vulkan/vulkan.h>
 
+/*
+ * VK_KHX_device_group was promoted to VK_KHR_device_group_creation and then
+ * Vulkan 1.1. Newer headers may omit the KHX function pointer typedef even
+ * though old loaders or applications can still query the legacy symbol name.
+ */
+#ifndef VK_KHX_device_group_creation
+typedef PFN_vkEnumeratePhysicalDeviceGroupsKHR PFN_vkEnumeratePhysicalDeviceGroupsKHX;
+#endif
+
 #define MVGAL_VK_LAYER_NAME "VK_LAYER_MVGAL"
 #define MVGAL_VK_LAYER_DESCRIPTION \
     "MVGAL Vulkan interception layer for multi-vendor GPU aggregation"
@@ -125,6 +134,18 @@ VkLayerDeviceCreateInfo *mvgal_vk_find_device_layer_info(
 /* Physical device property caching */
 void mvgal_vk_cache_physical_device_properties(
     mvgal_physical_device_dispatch_t *dispatch
+);
+
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDeviceGroups(
+    VkInstance instance,
+    uint32_t *pPhysicalDeviceGroupCount,
+    VkPhysicalDeviceGroupProperties *pPhysicalDeviceGroupProperties
+);
+
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDeviceGroupsKHX(
+    VkInstance instance,
+    uint32_t *pPhysicalDeviceGroupCount,
+    VkPhysicalDeviceGroupProperties *pPhysicalDeviceGroupProperties
 );
 
 #endif

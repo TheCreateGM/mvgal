@@ -354,6 +354,39 @@ endif()
 # Install public headers
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT development)
 
+# Install security, helper, and deployment assets used by package builds.
+install(
+    FILES config/org.freedesktop.policykit.mvgal.policy
+    DESTINATION share/polkit-1/actions
+    COMPONENT runtime
+)
+
+install(
+    PROGRAMS
+        config/mvgal-pkexec-helper.sh
+        scripts/mtt-dkms-installer.sh
+    DESTINATION lib/mvgal
+    COMPONENT runtime
+)
+
+install(
+    PROGRAMS scripts/mtt-dkms-installer.sh
+    DESTINATION share/mvgal/scripts
+    COMPONENT runtime
+)
+
+install(
+    FILES config/99-mvgal.rules
+    DESTINATION lib/udev/rules.d
+    COMPONENT runtime
+)
+
+install(
+    FILES config/mvgal.conf
+    DESTINATION /etc/mvgal
+    COMPONENT runtime
+)
+
 # Install documentation
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs")
     install(DIRECTORY docs/ DESTINATION ${CMAKE_INSTALL_DOCDIR} COMPONENT docs)

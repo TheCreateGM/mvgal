@@ -8,7 +8,6 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/drm.h>
 #include <linux/pci.h>
 #include <linux/device.h>
 #include <linux/cdev.h>
@@ -16,6 +15,9 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/version.h>
+#include <drm/drm_drv.h>
+#include <drm/drm_file.h>
+#include <drm/drm_ioctl.h>
 
 #include "mvgal_core.h"
 #include "mvgal_device.h"

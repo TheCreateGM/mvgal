@@ -263,8 +263,8 @@
       <allow_inactive>no</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/share/mvgal/scripts/mtt-dkms-installer.sh</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">install</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/mvgal/mvgal-pkexec-helper.sh</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">install-mtt-driver</annotate>
   </action>
 
   <action id="com.mvgal.driver.load">
@@ -276,8 +276,8 @@
       <allow_inactive>no</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/sbin/modprobe</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">mvgal</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/mvgal/mvgal-pkexec-helper.sh</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">load-module</annotate>
   </action>
 
   <action id="com.mvgal.driver.unload">
@@ -289,9 +289,8 @@
       <allow_inactive>no</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/sbin/modprobe</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">-r</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv2">mvgal</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/mvgal/mvgal-pkexec-helper.sh</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">unload-module</annotate>
   </action>
 
   <action id="com.mvgal.vulkan.layer.register">
@@ -303,6 +302,8 @@
       <allow_inactive>no</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/mvgal/mvgal-pkexec-helper.sh</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">install-vulkan-layer</annotate>
   </action>
 
   <action id="com.mvgal.power.configure">
@@ -314,6 +315,8 @@
       <allow_inactive>no</allow_inactive>
       <allow_active>auth_admin_keep</allow_active>
     </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/mvgal/mvgal-pkexec-helper.sh</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">set-power</annotate>
   </action>
 
   <action id="com.mvgal.scheduler.configure">

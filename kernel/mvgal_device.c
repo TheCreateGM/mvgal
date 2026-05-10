@@ -8,13 +8,14 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/drm.h>
 #include <linux/pci.h>
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/dma-buf.h>
+#include <drm/drm_device.h>
+#include <drm/drm_drv.h>
 
 #include "mvgal_core.h"
 #include "mvgal_device.h"

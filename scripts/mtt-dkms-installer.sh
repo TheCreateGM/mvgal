@@ -18,7 +18,7 @@ set -e
 
 # Configuration
 MTT_REPO_URL="https://github.com/dixyes/mtgpu-drv"
-MTT_VERSION="2.1.0"
+MTT_VERSION="${MTT_VERSION:-2.1.0}"
 MTT_DRIVER_NAME="mtgpu"
 DKMS_MODULE_NAME="mtgpu"
 INSTALL_DIR="/usr/src"
@@ -71,15 +71,13 @@ error_exit() {
 # Loginwall and Authentication Handling
 # ============================================================================
 
-/**
- * @brief Check if MTT download requires authentication
- * 
- * Moore Threads may require:
- * - API key authentication
- * - Login credentials (session-based)
- * - License key validation
- * - Developer account access
- */
+# Check if MTT download requires authentication.
+#
+# Moore Threads may require:
+# - API key authentication
+# - login credentials (session-based)
+# - license key validation
+# - developer account access
 check_auth_required() {
     log_info "Checking authentication requirements for Moore Threads driver..."
     
@@ -303,12 +301,11 @@ cleanup() {
 # Check if running with elevated privileges
 check_privileges() {
     if [ "$(id -u)" -ne 0 ]; then
-        # Try pkexec
         if command -v pkexec >/dev/null 2>&1; then
             log_info "Requesting elevated privileges via pkexec..."
-            exec pkexec "$0" "$@"
+            exec pkexec env MTT_VERSION="$MTT_VERSION" DEBUG="${DEBUG:-0}" "$0" "$@"
         else
-            error_exit "This installer requires root privileges. Please run with sudo or install pkexec."
+            error_exit "This installer requires root privileges and pkexec is not installed."
         fi
     fi
 }
@@ -765,7 +762,7 @@ main() {
     
     case "$command" in
         install)
-            check_privileges
+            check_privileges "$command"
             check_requirements
             download_driver
             prepare_dkms
@@ -780,14 +777,14 @@ main() {
             ;;
         
         uninstall)
-            check_privileges
+            check_privileges "$command"
             uninstall_driver
             cleanup
             log_info "Uninstall complete!"
             ;;
         
         update)
-            check_privileges
+            check_privileges "$command"
             log_info "Updating Moore Threads driver..."
             uninstall_driver
             download_driver
@@ -804,12 +801,12 @@ main() {
             ;;
         
         load)
-            check_privileges
+            check_privileges "$command"
             load_module
             ;;
         
         unload)
-            check_privileges
+            check_privileges "$command"
             if lsmod | grep -q "^mtgpu "; then
                 modprobe -r mtgpu || rmmod mtgpu
                 log_info "Module unloaded"

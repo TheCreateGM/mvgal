@@ -14,9 +14,21 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     return()
 endif()
 
-# Find kernel headers
-find_path(KERNEL_HEADERS Linux/version.h
-    PATHS /usr/src/linux-headers-${CMAKE_SYSTEM_VERSION} /usr/src/linux
+# Find kernel build tree/headers. Prefer the running kernel because DKMS and
+# local module builds use the same layout on Debian, Fedora, and Arch.
+execute_process(
+    COMMAND uname -r
+    OUTPUT_VARIABLE RUNNING_KERNEL_RELEASE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+find_path(KERNEL_HEADERS include/generated/utsrelease.h
+    PATHS
+        /lib/modules/${RUNNING_KERNEL_RELEASE}/build
+        /usr/src/kernels/${RUNNING_KERNEL_RELEASE}
+        /usr/src/linux-headers-${RUNNING_KERNEL_RELEASE}
+        /usr/src/linux
+    NO_DEFAULT_PATH
 )
 
 if(NOT KERNEL_HEADERS)
@@ -28,7 +40,7 @@ message(STATUS "Found kernel headers at: ${KERNEL_HEADERS}")
 
 # Get kernel version
 file(READ "${KERNEL_HEADERS}/include/generated/utsrelease.h" KERNEL_VERSION_FILE)
-string(REGEX MATCH "UTS_RELEASE \"([0-9]+\.[0-9]+\.[0-9]+)\"" KERNEL_VERSION "${KERNEL_VERSION_FILE}")
+string(REGEX MATCH "UTS_RELEASE \"([^\"]+)\"" KERNEL_VERSION "${KERNEL_VERSION_FILE}")
 set(KERNEL_VERSION ${CMAKE_MATCH_1})
 message(STATUS "Building for kernel version: ${KERNEL_VERSION}")
 
@@ -136,20 +148,15 @@ add_custom_command(
 option(MVGAL_KERNEL_USE_MAKE "Use make/Kbuild for kernel module" ON)
 
 if(MVGAL_KERNEL_USE_MAKE)
-    # Create Makefile symlink to Kbuild
-    add_custom_command(
-        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/Makefile"
-        COMMAND ${CMAKE_COMMAND} -E create_symlink "${CMAKE_CURRENT_SOURCE_DIR}/Kbuild" "${CMAKE_CURRENT_BINARY_DIR}/Makefile"
-        COMMENT "Creating Makefile symlink"
-    )
-
     # Build with make
     add_custom_target(mvgal-kernel ALL
         DEPENDS
-            "${CMAKE_CURRENT_BINARY_DIR}/Makefile"
             "${CMAKE_CURRENT_BINARY_DIR}/mvgal_version.h"
-        COMMAND make -C ${KERNEL_HEADERS} M=${CMAKE_CURRENT_BINARY_DIR} modules
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_BINARY_DIR}/mvgal_version.h"
+            "${CMAKE_CURRENT_SOURCE_DIR}/mvgal_version.h"
+        COMMAND make -C ${KERNEL_HEADERS} M=${CMAKE_CURRENT_SOURCE_DIR} modules
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMENT "Building MVGAL kernel module"
     )
 
@@ -187,18 +194,24 @@ if(MVGAL_KERNEL_USE_MAKE)
     install(CODE "
         file(INSTALL DESTINATION \"${CMAKE_INSTALL_LIBDIR}/modules/${KERNEL_VERSION}/kernel/drivers/gpu/drm\"
             TYPE FILE
-            FILES \"${CMAKE_CURRENT_BINARY_DIR}/mvgal.ko\"
+            FILES \"${CMAKE_CURRENT_SOURCE_DIR}/mvgal.ko\"
         )
     " COMPONENT kernel)
 
     # Install module firmware (if any)
-    install(DIRECTORY firmware/ DESTINATION lib/firmware/mvgal COMPONENT kernel)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/firmware")
+        install(DIRECTORY firmware/ DESTINATION lib/firmware/mvgal COMPONENT kernel)
+    endif()
 
     # Install modprobe configuration
-    install(FILES mvgal.modprobe.conf DESTINATION etc/modprobe.d RENAME mvgal.conf COMPONENT kernel)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/mvgal.modprobe.conf")
+        install(FILES mvgal.modprobe.conf DESTINATION etc/modprobe.d RENAME mvgal.conf COMPONENT kernel)
+    endif()
 
     # Install udev rules
-    install(FILES 99-mvgal.rules DESTINATION etc/udev/rules.d COMPONENT kernel)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/99-mvgal.rules")
+        install(FILES 99-mvgal.rules DESTINATION etc/udev/rules.d COMPONENT kernel)
+    endif()
 else()
     install(TARGETS mvgal-module
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/modules/${KERNEL_VERSION}/kernel/drivers/gpu/drm
@@ -217,35 +230,23 @@ install(
 # Module Loading Scripts
 # =============================================================================
 
-# Load script
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/scripts/load-module.sh.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/load-module.sh"
-    @ONLY
-)
+if(EXISTS "${CMAKE_SOURCE_DIR}/config/load-module.sh")
+    install(
+        PROGRAMS "${CMAKE_SOURCE_DIR}/config/load-module.sh"
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+        RENAME mvgal-load
+        COMPONENT kernel
+    )
+endif()
 
-install(
-    FILES "${CMAKE_CURRENT_BINARY_DIR}/load-module.sh"
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-    RENAME mvgal-load
-    PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-    COMPONENT kernel
-)
-
-# Unload script
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/scripts/unload-module.sh.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/unload-module.sh"
-    @ONLY
-)
-
-install(
-    FILES "${CMAKE_CURRENT_BINARY_DIR}/unload-module.sh"
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-    RENAME mvgal-unload
-    PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-    COMPONENT kernel
-)
+if(EXISTS "${CMAKE_SOURCE_DIR}/config/unload-module.sh")
+    install(
+        PROGRAMS "${CMAKE_SOURCE_DIR}/config/unload-module.sh"
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+        RENAME mvgal-unload
+        COMPONENT kernel
+    )
+endif()
 
 # =============================================================================
 # DKMS Support (Optional)

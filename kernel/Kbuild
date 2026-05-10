@@ -3,3 +3,5 @@
 # and not part of the kernel source tree.
 
 obj-m := mvgal.o
+
+mvgal-y := mvgal_stub.o

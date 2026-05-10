@@ -10,11 +10,14 @@
 #define _MVGAL_CORE_H_
 
 #include <linux/types.h>
-#include <linux/drm.h>
 #include <linux/pci.h>
 #include <linux/mutex.h>
 #include <linux/list.h>
 #include <linux/dma-buf.h>
+#include <drm/drm_device.h>
+#include <drm/drm_drv.h>
+#include <drm/drm_file.h>
+#include <drm/drm_ioctl.h>
 
 /* Maximum number of MVGAL devices */
 #define MVGAL_MAX_DEVICES 16

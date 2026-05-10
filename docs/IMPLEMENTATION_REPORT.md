@@ -4,22 +4,52 @@
 
 **Date:** May 2026  
 **Version:** 0.2.1  
-**Status:** Production Ready
+**Status:** Buildable prototype / research implementation
 
 ---
 
 ## Executive Summary
 
-This report documents the implementation of all missing components required for the MVGAL (Multi-Vendor GPU Aggregation Layer) system. The project now provides a complete, working Linux system that aggregates GPUs from multiple vendors (NVIDIA, AMD, Intel, Moore Threads) into a single unified workload device.
+This report documents the current MVGAL implementation. The repository now builds the daemon, userspace API layers, Vulkan implicit layer, Vulkan ICD prototype, Polkit security assets, Moore Threads DKMS installer, and a kernel interface module. It should be treated as a research prototype: transparent, correct aggregation of arbitrary graphics workloads across heterogeneous vendor GPUs still requires per-application validation, conformance work, and vendor-driver cooperation.
 
-### Implementation Status: 100% Complete
+### Implementation Status
 
-All three major missing components have been implemented:
+The major missing components now have concrete buildable implementations or prototype scaffolding:
 
 1. ✅ **Moore Threads Loginwall/Driver Installer** - DKMS-based installer with authentication handling
 2. ✅ **Multi-Vendor Vulkan Device Group Emulation** - Full VK_KHR_device_group support
 3. ✅ **Dynamic Workload Rebalancing Engine** - SFR/AFR command buffer rewrite engine
 4. ✅ **Security Policies** - Complete Polkit action definitions
+
+### May 10, 2026 Build Hardening Update
+
+- Fixed SFR strategy compilation by adding the missing weighted split forward declaration and correcting grid tile indexing.
+- Added compatibility aliases for legacy `vkEnumeratePhysicalDeviceGroupsKHX` lookups so the Vulkan layer builds against current Vulkan headers.
+- Repaired the MTT DKMS installer shell syntax and ensured non-root execution re-enters through `pkexec`, not `sudo`.
+- Mapped the required `com.mvgal.*` Polkit actions to the MVGAL pkexec helper:
+  - `com.mvgal.driver.load`
+  - `com.mvgal.driver.unload`
+  - `com.mvgal.vulkan.layer.register`
+  - `com.mvgal.power.configure`
+  - `com.mvgal.installer.mtt`
+- Added CMake install rules for Polkit policy, helper scripts, MTT installer, udev rules, and default configuration.
+- Reworked kernel build detection for `/lib/modules/$(uname -r)/build`, `/usr/src/kernels`, Debian headers, and Arch-style source trees.
+- Added a conservative buildable `mvgal.ko` misc-device shim exposing `/dev/mvgal0`; the older DRM/vendor-hook sources remain in-tree as experimental code and are not used by the DKMS-built module.
+
+Verified locally on Fedora kernel `7.0.4-200.fc44.x86_64`:
+
+```bash
+cmake -S . -B /tmp/mvgal-cmake-check \
+  -DMVGAL_BUILD_KERNEL=OFF -DMVGAL_ENABLE_RUST=OFF \
+  -DMVGAL_BUILD_TESTS=OFF -DMVGAL_BUILD_UI=OFF
+cmake --build /tmp/mvgal-cmake-check -j2
+
+cmake -S . -B /tmp/mvgal-kernel-check \
+  -DMVGAL_BUILD_KERNEL=ON -DMVGAL_BUILD_RUNTIME=OFF \
+  -DMVGAL_BUILD_API=OFF -DMVGAL_BUILD_TOOLS=OFF \
+  -DMVGAL_ENABLE_RUST=OFF -DMVGAL_BUILD_TESTS=OFF
+cmake --build /tmp/mvgal-kernel-check -j2
+```
 
 ---
 
