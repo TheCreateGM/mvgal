@@ -49,6 +49,7 @@ if(MVGAL_BUILD_API AND (Vulkan_FOUND OR VULKAN_FOUND))
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/../..
             ${Vulkan_INCLUDE_DIRS}
+            ${MVGAL_INCLUDE_DIRS}
     )
 
     set_target_properties(mvgal_vulkan_layer PROPERTIES
