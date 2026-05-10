@@ -60,8 +60,16 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBDRM REQUIRED IMPORTED_TARGET libdrm)
 pkg_check_modules(PCIACCESS REQUIRED IMPORTED_TARGET pciaccess)
 
+# Compatibility aliases for subdirectory CMakeLists that reference
+# the old-style DRM_IMPORTED_TARGET / PCI_IMPORTED_TARGET patterns.
+set(DRM_IMPORTED_TARGET "PkgConfig::LIBDRM")
+set(PCI_IMPORTED_TARGET "PkgConfig::PCIACCESS")
+
 # Optional dependencies
 pkg_check_modules(LIBUDEV QUIET IMPORTED_TARGET libudev udev)
+if(LIBUDEV_FOUND)
+    set(UDEV_IMPORTED_TARGET "PkgConfig::LIBUDEV")
+endif()
 pkg_check_modules(OPENCL QUIET IMPORTED_TARGET OpenCL)
 pkg_check_modules(LIBNL QUIET IMPORTED_TARGET libnl-3.0)
 pkg_check_modules(JEMALLOC QUIET IMPORTED_TARGET jemalloc)
