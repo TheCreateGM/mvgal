@@ -6,6 +6,7 @@ if(VULKAN_FOUND OR Vulkan_FOUND)
     set(VULKAN_ICD_SOURCES
         icd_entry.c
         physical_device.c
+        device_group.c
     )
 
     # Build shared library (ICD must be .so)

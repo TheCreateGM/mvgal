@@ -56,40 +56,63 @@ void mvgal_scheduler_balance_load(void) {
     // Check if we need to balance
     float max_util = 0.0f;
     float min_util = 1.0f;
-    float avg_util = 0.0f;
     
     for (uint32_t i = 0; i < state->gpu_count; i++) {
         if (state->gpus[i].available && state->gpus[i].enabled) {
             if (state->gpus[i].utilization > max_util) max_util = state->gpus[i].utilization;
             if (state->gpus[i].utilization < min_util) min_util = state->gpus[i].utilization;
-            avg_util += state->gpus[i].utilization;
         }
-    }
-    
-    if (state->gpu_count > 0) {
-        avg_util /= state->gpu_count;
     }
     
     // Calculate imbalance
     float imbalance = max_util - min_util;
     
-    // If imbalance exceeds threshold, trigger rebalancing
+    /*
+     * Dynamic rebalancing: steer new work toward cooler GPUs by nudging per-GPU
+     * scheduler priority (kept in sync with config.gpu_priorities). Vulkan
+     * command-buffer rewrite / in-flight migration is out of scope here.
+     */
     if (imbalance > state->config.load_balance_threshold) {
-        MVGAL_LOG_INFO("Load imbalance detected: %.2f%%, threshold: %.2f%%",
+        MVGAL_LOG_INFO("Load imbalance detected: %.2f%% (threshold %.2f%%), adjusting scheduler weights",
                        imbalance * 100.0f, state->config.load_balance_threshold * 100.0f);
-        
-        // In a real implementation, we would:
-        // 1. Identify overloaded and underloaded GPUs
-        // 2. Migrate workloads from overloaded to underloaded GPUs
-        // 3. Adjust scheduling weights
-        
-        // For now, just log the situation
+
+        uint32_t idx_hot = 0, idx_cool = 0;
+        float util_hot = -1.0f;
+        float util_cool = 2.0f;
+        uint32_t active = 0;
+
         for (uint32_t i = 0; i < state->gpu_count; i++) {
-            if (state->gpus[i].available && state->gpus[i].enabled) {
-                MVGAL_LOG_DEBUG("GPU %u: utilization=%.2f%%, queue=%u, priority=%u",
-                               i, state->gpus[i].utilization * 100.0f,
-                               state->gpus[i].queue.count, state->gpus[i].priority);
+            if (!state->gpus[i].available || !state->gpus[i].enabled) {
+                continue;
             }
+            active++;
+            float u = state->gpus[i].utilization;
+            if (u > util_hot) {
+                util_hot = u;
+                idx_hot = i;
+            }
+            if (u < util_cool) {
+                util_cool = u;
+                idx_cool = i;
+            }
+        }
+
+        if (active >= 2 && idx_hot != idx_cool && (util_hot - util_cool) > 0.05f) {
+            const uint32_t step = 3;
+            uint32_t pri_hot = state->gpus[idx_hot].priority;
+            uint32_t pri_cool = state->gpus[idx_cool].priority;
+
+            pri_hot = pri_hot > step + 10u ? pri_hot - step : 10u;
+            pri_cool = pri_cool + step < 100u ? pri_cool + step : 100u;
+
+            state->gpus[idx_hot].priority = pri_hot;
+            state->gpus[idx_cool].priority = pri_cool;
+            state->config.gpu_priorities[idx_hot] = pri_hot;
+            state->config.gpu_priorities[idx_cool] = pri_cool;
+
+            MVGAL_LOG_DEBUG("Rebalance: GPU %u pri=%u (util %.1f%%), GPU %u pri=%u (util %.1f%%)",
+                            idx_hot, pri_hot, util_hot * 100.0f,
+                            idx_cool, pri_cool, util_cool * 100.0f);
         }
     }
     

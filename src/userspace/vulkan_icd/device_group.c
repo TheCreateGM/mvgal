@@ -214,10 +214,8 @@ static void aggregate_device_properties(mvgal_device_group_t *group)
     snprintf((char*)agg->deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE,
              "MVGAL Virtual Multi-GPU (%u devices)", group->device_count);
     
-    /* Copy virtual UUIDs */
+    /* pipelineCacheUUID is the only UUID field on VkPhysicalDeviceProperties (Vulkan 1.0 core). */
     memcpy(agg->pipelineCacheUUID, group->virtual_pipeline_cache_uuid, VK_UUID_SIZE);
-    memcpy(agg->driverUUID, group->virtual_driver_uuid, VK_UUID_SIZE);
-    memcpy(agg->deviceUUID, group->virtual_device_uuid, VK_UUID_SIZE);
     
     /* Aggregate limits - take minimums for intersection */
     for (uint32_t i = 0; i < group->device_count; i++) {
@@ -436,7 +434,7 @@ mvgal_error_t mvgal_device_group_init(void)
     
     if (pthread_mutex_init(&g_device_group.lock, NULL) != 0) {
         pthread_mutex_unlock(&g_group_lock);
-        return MVGAL_ERROR_SYSTEM;
+        return MVGAL_ERROR_INITIALIZATION;
     }
     
     g_device_group.initialized = true;
@@ -481,7 +479,7 @@ mvgal_error_t mvgal_device_group_create(const uint32_t *gpu_indices,
                                          VkPhysicalDevice *physical_devices)
 {
     if (!gpu_indices || gpu_count == 0 || gpu_count > MAX_DEVICE_GROUP_SIZE) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -493,14 +491,24 @@ mvgal_error_t mvgal_device_group_create(const uint32_t *gpu_indices,
     
     pthread_mutex_lock(&g_device_group.lock);
     
-    /* Reset existing group */
+    /* Reset existing group: never memset a live pthread_mutex_t */
     for (uint32_t i = 0; i < g_device_group.device_count; i++) {
         free(g_device_group.members[i].queue_families);
     }
+    pthread_mutex_unlock(&g_device_group.lock);
+    pthread_mutex_destroy(&g_device_group.lock);
+
     memset(&g_device_group, 0, sizeof(g_device_group));
     g_device_group.magic = MVGAL_DEVICE_GROUP_MAGIC;
+
+    if (pthread_mutex_init(&g_device_group.lock, NULL) != 0) {
+        g_device_group.initialized = false;
+        pthread_mutex_unlock(&g_group_lock);
+        return MVGAL_ERROR_INITIALIZATION;
+    }
+
     g_device_group.initialized = true;
-    pthread_mutex_init(&g_device_group.lock, NULL);
+    pthread_mutex_lock(&g_device_group.lock);
     
     /* Generate virtual UUIDs */
     generate_virtual_uuid(gpu_indices, gpu_count,
@@ -571,7 +579,7 @@ mvgal_error_t mvgal_device_group_create(const uint32_t *gpu_indices,
 mvgal_error_t mvgal_device_group_get_properties(VkPhysicalDeviceProperties *properties)
 {
     if (!properties) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -593,7 +601,7 @@ mvgal_error_t mvgal_device_group_get_properties(VkPhysicalDeviceProperties *prop
 mvgal_error_t mvgal_device_group_get_memory_properties(VkPhysicalDeviceMemoryProperties *memory)
 {
     if (!memory) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -615,7 +623,7 @@ mvgal_error_t mvgal_device_group_get_memory_properties(VkPhysicalDeviceMemoryPro
 mvgal_error_t mvgal_device_group_get_features(VkPhysicalDeviceFeatures *features)
 {
     if (!features) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -637,7 +645,7 @@ mvgal_error_t mvgal_device_group_get_features(VkPhysicalDeviceFeatures *features
 mvgal_error_t mvgal_device_group_get_uuid(mvgal_uuid_type_t type, uint8_t *uuid)
 {
     if (!uuid) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -662,7 +670,7 @@ mvgal_error_t mvgal_device_group_get_uuid(mvgal_uuid_type_t type, uint8_t *uuid)
         default:
             pthread_mutex_unlock(&g_device_group.lock);
             pthread_mutex_unlock(&g_group_lock);
-            return MVGAL_ERROR_INVALID_PARAMETER;
+            return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_unlock(&g_device_group.lock);
@@ -707,7 +715,7 @@ mvgal_error_t mvgal_device_group_get_present_capabilities(
     VkDeviceGroupPresentCapabilitiesKHR *caps)
 {
     if (!caps) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -753,7 +761,7 @@ mvgal_error_t mvgal_device_group_set_peer_access(uint32_t src_gpu,
                                                   VkPeerMemoryFeatureFlags features)
 {
     if (src_gpu >= MAX_DEVICE_GROUP_SIZE || dst_gpu >= MAX_DEVICE_GROUP_SIZE) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -857,7 +865,7 @@ mvgal_error_t mvgal_device_group_get_queue_families(
     VkQueueFamilyProperties *pProperties)
 {
     if (!pCount) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -919,7 +927,7 @@ mvgal_error_t mvgal_enumerate_device_groups(
     uint32_t *pCount)
 {
     if (!pCount) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -998,7 +1006,7 @@ mvgal_error_t mvgal_device_group_create_device(
     VkDevice *pDevice)
 {
     if (!pCreateInfo || !pDevice) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -1012,10 +1020,10 @@ mvgal_error_t mvgal_device_group_create_device(
     if (pDeviceGroupInfo) {
         if (pDeviceGroupInfo->physicalDeviceCount != g_device_group.device_count) {
             pthread_mutex_unlock(&g_group_lock);
-            log_warn("Device group count mismatch: requested %u, have %u",
+            mvgal_log_warn("Device group count mismatch: requested %u, have %u",
                      pDeviceGroupInfo->physicalDeviceCount,
                      g_device_group.device_count);
-            return MVGAL_ERROR_INVALID_PARAMETER;
+            return MVGAL_ERROR_INVALID_ARGUMENT;
         }
     }
     
@@ -1042,7 +1050,7 @@ mvgal_error_t mvgal_device_group_get_surface_present_modes(
     VkDeviceGroupPresentModeFlagsKHR *pModes)
 {
     if (!pModes) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_group_lock);
@@ -1083,7 +1091,7 @@ mvgal_error_t mvgal_device_group_acquire_next_image(
     uint32_t *pImageIndex)
 {
     if (!pImageIndex) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     /* Validate device mask */
@@ -1099,7 +1107,7 @@ mvgal_error_t mvgal_device_group_acquire_next_image(
     pthread_mutex_unlock(&g_group_lock);
     
     if (deviceMask & ~valid_mask) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     /* The actual acquire is handled by the presentation layer */
