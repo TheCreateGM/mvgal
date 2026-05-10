@@ -813,12 +813,12 @@ static void aggregate_queue_families(mvgal_device_group_t *group)
              * For MVGAL, we proxy these calls.
              */
             uint32_t count = 0;
-            mvgal_gpu_get_queue_family_properties(member->gpu_index, &count, NULL);
+            mvgal_get_queue_family_properties(&count, NULL);
             
             if (count > 0) {
                 member->queue_families = calloc(count, sizeof(VkQueueFamilyProperties));
                 if (member->queue_families) {
-                    mvgal_gpu_get_queue_family_properties(member->gpu_index, &count, member->queue_families);
+                    mvgal_get_queue_family_properties(&count, member->queue_families);
                     member->queue_family_count = count;
                 }
             }
