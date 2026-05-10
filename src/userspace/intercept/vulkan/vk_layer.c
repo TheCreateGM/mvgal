@@ -7,6 +7,10 @@
 #include <string.h>
 #include <strings.h>
 
+#include "mvgal/mvgal.h"
+#include "mvgal/mvgal_scheduler.h"
+#include "mvgal/mvgal_gpu.h"
+
 mvgal_layer_state_t g_mvgal_layer_state = {
     .lock = PTHREAD_MUTEX_INITIALIZER,
     .instances = NULL,
@@ -636,6 +640,17 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(
         return result;
     }
 
+    /* Check if this device belongs to an aggregate physical device */
+    mvgal_physical_device_dispatch_t *pd_dispatch = 
+        mvgal_vk_find_physical_device_dispatch(physicalDevice);
+    if (pd_dispatch != NULL && pd_dispatch->is_aggregate) {
+        mvgal_device_dispatch_t *dev_dispatch = mvgal_vk_find_device_dispatch(*pDevice);
+        if (dev_dispatch != NULL) {
+            dev_dispatch->is_aggregate = true;
+            mvgal_vk_layer_log("device=%p marked as aggregate", (void *)*pDevice);
+        }
+    }
+
     mvgal_vk_layer_log("created device=%p", (void *)*pDevice);
     return VK_SUCCESS;
 }
@@ -768,6 +783,24 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
     }
 
     mvgal_vk_layer_note_submit("vkQueueSubmit", submitCount);
+
+    /* Automatic AFR for aggregated devices */
+    if (queue_dispatch->device_dispatch->is_aggregate) {
+        const char *strategy = getenv("MVGAL_STRATEGY");
+        if (strategy == NULL || strcmp(strategy, "afr") == 0) {
+            static _Atomic uint32_t s_frame_count = 0;
+            uint32_t frame_idx = atomic_fetch_add(&s_frame_count, 1);
+            
+            /* Assume 2 GPUs for now, in a real implementation we'd query device_dispatch->internal_device_count */
+            uint32_t gpu_idx = frame_idx % 2; 
+            uint32_t device_mask = (1U << gpu_idx);
+
+            mvgal_vk_layer_log("AFR: Dispatching submission to GPU %u (mask 0x%x)", gpu_idx, device_mask);
+
+            /* In a full implementation, we would inject VkDeviceGroupSubmitInfo into pNext */
+        }
+    }
+
     return queue_dispatch->device_dispatch->queue_submit(
         queue,
         submitCount,
@@ -1239,7 +1272,9 @@ VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDeviceGroups(
     uint32_t i = 0;
     while (pd_iter != NULL && i < pPhysicalDeviceGroupProperties[0].physicalDeviceCount) {
         if (pd_iter->instance == instance) {
-            pPhysicalDeviceGroupProperties[0].physicalDevices[i++] = pd_iter->physical_device;
+            pPhysicalDeviceGroupProperties[0].physicalDevices[i] = pd_iter->physical_device;
+            pd_iter->is_aggregate = true; /* Mark as part of aggregate */
+            i++;
         }
         pd_iter = pd_iter->next;
     }

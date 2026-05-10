@@ -58,6 +58,12 @@ struct mvgal_device_dispatch {
     PFN_vkQueueSubmit queue_submit;
     PFN_vkQueueSubmit2 queue_submit2;
     PFN_vkQueueSubmit2KHR queue_submit2_khr;
+    
+    /* Aggregation support */
+    bool is_aggregate;
+    uint32_t internal_device_count;
+    VkDevice internal_devices[MVGAL_VK_MAX_PHYSICAL_DEVICES];
+    
     mvgal_device_dispatch_t *next;
 };
 
@@ -74,6 +80,7 @@ struct mvgal_physical_device_dispatch {
     /* Cached properties for telemetry / future aggregation */
     VkPhysicalDeviceProperties properties;
     bool properties_cached;
+    bool is_aggregate; /* NEW: True if this is our virtual aggregated device */
     mvgal_physical_device_dispatch_t *next;
 };
 

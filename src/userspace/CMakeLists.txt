@@ -62,6 +62,7 @@ if(MVGAL_BUILD_API AND (Vulkan_FOUND OR VULKAN_FOUND))
 
     target_link_libraries(mvgal_vulkan_layer
         PRIVATE
+            mvgal_core
             Threads::Threads
     )
 
