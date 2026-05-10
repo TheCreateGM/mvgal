@@ -73,7 +73,7 @@ static const char *vendor_name(uint16_t vid)
     case 0x1002: return "AMD";
     case 0x10DE: return "NVIDIA";
     case 0x8086: return "Intel";
-    case 0x1A82: return "MooreThreads";
+    case 0x1ED5: return "MooreThreads";
     default:     return "Unknown";
     }
 }
@@ -100,7 +100,7 @@ static void discover_gpus(void)
         snprintf(id_path, sizeof(id_path), "%s/vendor", real);
         if (sysfs_str(id_path, id_buf, sizeof(id_buf)) < 0) continue;
         uint16_t vid = (uint16_t)strtoul(id_buf, NULL, 16);
-        if (vid != 0x1002 && vid != 0x10DE && vid != 0x8086 && vid != 0x1A82) continue;
+        if (vid != 0x1002 && vid != 0x10DE && vid != 0x8086 && vid != 0x1ED5) continue;
 
         bench_gpu_t *g = &g_gpus[g_gpu_count++];
         memset(g, 0, sizeof(*g));

@@ -35,6 +35,8 @@ struct mvgal_instance_dispatch {
     PFN_vkGetPhysicalDeviceProperties2 get_physical_device_properties2;
     PFN_vkGetPhysicalDeviceFeatures2 get_physical_device_features2;
     PFN_vkGetPhysicalDeviceMemoryProperties2 get_physical_device_memory_properties2;
+    PFN_vkEnumeratePhysicalDeviceGroups enumerate_physical_device_groups;
+    PFN_vkEnumeratePhysicalDeviceGroupsKHX enumerate_physical_device_groups_khx;
     mvgal_instance_dispatch_t *next;
 };
 

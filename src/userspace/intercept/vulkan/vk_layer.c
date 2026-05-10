@@ -228,6 +228,10 @@ VkResult mvgal_vk_register_instance(
         (PFN_vkGetPhysicalDeviceFeatures2)next_gipa(instance, "vkGetPhysicalDeviceFeatures2");
     dispatch->get_physical_device_memory_properties2 =
         (PFN_vkGetPhysicalDeviceMemoryProperties2)next_gipa(instance, "vkGetPhysicalDeviceMemoryProperties2");
+    dispatch->enumerate_physical_device_groups =
+        (PFN_vkEnumeratePhysicalDeviceGroups)next_gipa(instance, "vkEnumeratePhysicalDeviceGroups");
+    dispatch->enumerate_physical_device_groups_khx =
+        (PFN_vkEnumeratePhysicalDeviceGroupsKHX)next_gipa(instance, "vkEnumeratePhysicalDeviceGroupsKHX");
 
     pthread_mutex_lock(&g_mvgal_layer_state.lock);
     dispatch->next = g_mvgal_layer_state.instances;
@@ -944,6 +948,12 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(
     if (strcmp(pName, "vkQueueSubmit2KHR") == 0) {
         return (PFN_vkVoidFunction)vkQueueSubmit2KHR;
     }
+    if (strcmp(pName, "vkEnumeratePhysicalDeviceGroups") == 0) {
+        return (PFN_vkVoidFunction)vkEnumeratePhysicalDeviceGroups;
+    }
+    if (strcmp(pName, "vkEnumeratePhysicalDeviceGroupsKHX") == 0) {
+        return (PFN_vkVoidFunction)vkEnumeratePhysicalDeviceGroupsKHX;
+    }
 
     if (strcmp(pName, "vkGetPhysicalDeviceProperties") == 0) {
         return (PFN_vkVoidFunction)vkGetPhysicalDeviceProperties;
@@ -1173,6 +1183,83 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceMemoryProperties2(
     dispatch->instance_dispatch->get_physical_device_memory_properties2(
         physicalDevice, pMemoryProperties
     );
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDeviceGroups(
+    VkInstance instance,
+    uint32_t *pPhysicalDeviceGroupCount,
+    VkPhysicalDeviceGroupProperties *pPhysicalDeviceGroupProperties
+)
+{
+    mvgal_instance_dispatch_t *dispatch = mvgal_vk_find_instance_dispatch(instance);
+    uint32_t total_phys_devs = 0;
+    mvgal_physical_device_dispatch_t *pd_iter;
+
+    if (dispatch == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    pd_iter = g_mvgal_layer_state.physical_devices;
+    while (pd_iter != NULL) {
+        if (pd_iter->instance == instance) {
+            total_phys_devs++;
+        }
+        pd_iter = pd_iter->next;
+    }
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+
+    if (total_phys_devs == 0) {
+        /* Fallback to next layer if we haven't tracked anything yet */
+        if (dispatch->enumerate_physical_device_groups) {
+            return dispatch->enumerate_physical_device_groups(
+                instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
+        }
+        if (pPhysicalDeviceGroupCount) *pPhysicalDeviceGroupCount = 0;
+        return VK_SUCCESS;
+    }
+
+    if (pPhysicalDeviceGroupProperties == NULL) {
+        *pPhysicalDeviceGroupCount = 1;
+        return VK_SUCCESS;
+    }
+
+    if (*pPhysicalDeviceGroupCount == 0) {
+        return VK_INCOMPLETE;
+    }
+
+    /* Virtualize a single group containing all GPUs */
+    pPhysicalDeviceGroupProperties[0].sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES;
+    pPhysicalDeviceGroupProperties[0].pNext = NULL;
+    pPhysicalDeviceGroupProperties[0].physicalDeviceCount = 
+        (total_phys_devs > VK_MAX_DEVICE_GROUP_SIZE) ? VK_MAX_DEVICE_GROUP_SIZE : total_phys_devs;
+    
+    pthread_mutex_lock(&g_mvgal_layer_state.lock);
+    pd_iter = g_mvgal_layer_state.physical_devices;
+    uint32_t i = 0;
+    while (pd_iter != NULL && i < pPhysicalDeviceGroupProperties[0].physicalDeviceCount) {
+        if (pd_iter->instance == instance) {
+            pPhysicalDeviceGroupProperties[0].physicalDevices[i++] = pd_iter->physical_device;
+        }
+        pd_iter = pd_iter->next;
+    }
+    pthread_mutex_unlock(&g_mvgal_layer_state.lock);
+    
+    pPhysicalDeviceGroupProperties[0].subsetAllocation = VK_FALSE;
+    *pPhysicalDeviceGroupCount = 1;
+
+    mvgal_vk_layer_log("Virtualizing device group with %u GPUs", pPhysicalDeviceGroupProperties[0].physicalDeviceCount);
+
+    return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDeviceGroupsKHX(
+    VkInstance instance,
+    uint32_t *pPhysicalDeviceGroupCount,
+    VkPhysicalDeviceGroupProperties *pPhysicalDeviceGroupProperties
+)
+{
+    return vkEnumeratePhysicalDeviceGroups(instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(

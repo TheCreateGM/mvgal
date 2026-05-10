@@ -92,7 +92,7 @@ func vendorName(vid uint64) string {
 		return "NVIDIA"
 	case 0x8086:
 		return "Intel"
-	case 0x1A82:
+	case 0x1ED5:
 		return "MooreThreads"
 	default:
 		return "Unknown"
@@ -137,7 +137,7 @@ func enumerateGPUs() ([]GpuInfo, error) {
 		if err != nil {
 			continue
 		}
-		if vid != 0x1002 && vid != 0x10DE && vid != 0x8086 && vid != 0x1A82 {
+		if vid != 0x1002 && vid != 0x10DE && vid != 0x8086 && vid != 0x1ED5 {
 			continue
 		}
 

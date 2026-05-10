@@ -51,7 +51,7 @@ static const char *vendor_name(uint16_t vid)
     case 0x1002: return "AMD";
     case 0x10DE: return "NVIDIA";
     case 0x8086: return "Intel";
-    case 0x1A82: return "Moore Threads";
+    case 0x1ED5: return "Moore Threads";
     default:     return "Unknown";
     }
 }
@@ -126,7 +126,7 @@ static void enumerate_drm_gpus(void)
         uint16_t did = (uint16_t)strtoul(id_buf, NULL, 16);
 
         /* Only accept known GPU vendors */
-        if (vid != 0x1002 && vid != 0x10DE && vid != 0x8086 && vid != 0x1A82)
+        if (vid != 0x1002 && vid != 0x10DE && vid != 0x8086 && vid != 0x1ED5)
             continue;
 
         gpu_info_t *g = &g_gpus[g_gpu_count++];
@@ -271,7 +271,7 @@ static void print_logical_device(void)
         case 0x1002: has_amd    = true; break;
         case 0x10DE: has_nvidia = true; break;
         case 0x8086: has_intel  = true; break;
-        case 0x1A82: has_mtt    = true; break;
+        case 0x1ED5: has_mtt    = true; break;
         }
     }
 

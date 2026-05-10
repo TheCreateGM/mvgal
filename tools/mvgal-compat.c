@@ -178,7 +178,7 @@ static system_state_t check_system(void)
             if (vid == 0x1002) { s.has_amd    = true; s.gpu_count++; }
             if (vid == 0x10DE) { s.has_nvidia = true; s.gpu_count++; }
             if (vid == 0x8086) { s.has_intel  = true; s.gpu_count++; }
-            if (vid == 0x1A82) { s.has_mtt    = true; s.gpu_count++; }
+            if (vid == 0x1ED5) { s.has_mtt    = true; s.gpu_count++; }
         }
         closedir(d);
     }

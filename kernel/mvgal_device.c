@@ -311,7 +311,7 @@ int mvgal_enumerate_gpus(struct mvgal_device *dev)
 			if ((pdev->class >> 8) == PCI_BASE_CLASS_DISPLAY) {
 				mvgal_vendor = MVGAL_VENDOR_INTEL;
 			}
-		} else if (vendor_id == 0x1A82) {
+		} else if (vendor_id == 0x1ED5) {
 			mvgal_vendor = MVGAL_VENDOR_MTT;
 		}
 

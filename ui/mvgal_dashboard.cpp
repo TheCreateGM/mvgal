@@ -265,7 +265,7 @@ QVector<GpuMetrics> Dashboard::fetchMetrics()
         bool vid_ok;
         uint16_t vid = (uint16_t)vendor_str.toUInt(&vid_ok, 16);
         if (!vid_ok) continue;
-        if (vid != 0x1002 && vid != 0x10DE && vid != 0x8086 && vid != 0x1A82) continue;
+        if (vid != 0x1002 && vid != 0x10DE && vid != 0x8086 && vid != 0x1ED5) continue;
 
         GpuMetrics m;
         m.index = idx++;

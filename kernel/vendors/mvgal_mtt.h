@@ -12,7 +12,7 @@
 #include "../mvgal_core.h"
 
 /* Moore Threads PCI vendor ID */
-#define PCI_VENDOR_ID_MOORE_THREADS 0x1A82
+#define PCI_VENDOR_ID_MOORE_THREADS 0x1ED5
 
 /*
  * Moore Threads device IDs

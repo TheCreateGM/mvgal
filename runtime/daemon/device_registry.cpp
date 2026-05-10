@@ -436,7 +436,7 @@ uint32_t DeviceRegistry::detectVendor(uint16_t vendorId, uint16_t /*deviceId*/)
     case 0x1002: return VendorId::AMD;
     case 0x10DE: return VendorId::NVIDIA;
     case 0x8086: return VendorId::INTEL;
-    case 0x1A82: return VendorId::MOORE_THREADS;
+    case 0x1ED5: return VendorId::MOORE_THREADS;
     default: return VendorId::UNKNOWN;
     }
 }

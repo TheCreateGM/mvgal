@@ -123,7 +123,7 @@ static const struct pci_device_id mvgal_pci_table[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x4690) }, /* Intel DG2 */
 	
 	/* Moore Threads GPUs */
-	{ PCI_DEVICE(0x1A82, 0x4000) }, /* Moore Threadsqtt S2000 */
+	{ PCI_DEVICE(0x1ED5, 0x4000) }, /* Moore Threadsqtt S2000 */
 	
 	{ 0, } /* Terminator */
 };

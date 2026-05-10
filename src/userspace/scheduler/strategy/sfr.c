@@ -129,10 +129,30 @@ mvgal_error_t mvgal_scheduler_distribute_sfr(struct mvgal_workload *workload) {
     }
     pthread_mutex_unlock(&workload->mutex);
     
+    // Calculate weights for dynamic rebalancing
+    float weights[MVGAL_SCHEDULER_MAX_GPUS];
+    for (uint32_t i = 0; i < gpu_count; i++) {
+        uint32_t idx = gpu_indices[i];
+        float base_score = state->gpus[idx].graphics_score;
+        if (base_score <= 0.0f) base_score = 1.0f;
+        
+        if (state->config.dynamic_load_balance) {
+            // Adjust based on current utilization (inverse)
+            float util = state->gpus[idx].utilization;
+            if (util < 0.01f) util = 0.01f;
+            weights[i] = base_score * (1.0f / util);
+        } else {
+            weights[i] = base_score;
+        }
+    }
+    
+    // Create SFR split data with weights
+    sfr_create_split_data_weighted(workload, 1920, 1080, SFR_MODE_HORIZONTAL, weights);
+    
     workload->descriptor.assigned_gpu = gpu_indices[0];
     
-    MVGAL_LOG_DEBUG("SFR: Workload %u assigned to %u GPUs (primary: %u)",
-                   workload->descriptor.id, gpu_count, gpu_indices[0]);
+    MVGAL_LOG_DEBUG("SFR: Workload %u assigned to %u GPUs with dynamic weights",
+                   workload->descriptor.id, gpu_count);
     
     return MVGAL_SUCCESS;
 }
@@ -152,6 +172,7 @@ uint32_t sfr_split_frame(
     uint32_t width,
     uint32_t height,
     uint32_t gpu_count,
+    const float *weights,
     sfr_mode_t mode,
     sfr_region_t *regions,
     uint32_t max_regions
@@ -161,31 +182,52 @@ uint32_t sfr_split_frame(
     }
     
     uint32_t region_count = 0;
+    float total_weight = 0.0f;
+    
+    if (weights != NULL) {
+        for (uint32_t i = 0; i < gpu_count; i++) {
+            total_weight += weights[i];
+        }
+    } else {
+        total_weight = (float)gpu_count;
+    }
+    
+    if (total_weight <= 0.0f) total_weight = 1.0f;
     
     switch (mode) {
         case SFR_MODE_HORIZONTAL: {
-            uint32_t region_height = height / gpu_count;
+            uint32_t current_y = 0;
             for (uint32_t i = 0; i < gpu_count && region_count < max_regions; i++) {
+                float weight = (weights != NULL) ? (weights[i] / total_weight) : (1.0f / (float)gpu_count);
+                uint32_t region_height = (uint32_t)(height * weight);
+                
                 regions[region_count].x = 0;
-                regions[region_count].y = i * region_height;
+                regions[region_count].y = current_y;
                 regions[region_count].width = width;
                 regions[region_count].height = (i == gpu_count - 1) ? 
-                    (height - i * region_height) : region_height;
+                    (height - current_y) : region_height;
                 regions[region_count].gpu_index = i;
+                
+                current_y += regions[region_count].height;
                 region_count++;
             }
             break;
         }
         
         case SFR_MODE_VERTICAL: {
-            uint32_t region_width = width / gpu_count;
+            uint32_t current_x = 0;
             for (uint32_t i = 0; i < gpu_count && region_count < max_regions; i++) {
-                regions[region_count].x = i * region_width;
+                float weight = (weights != NULL) ? (weights[i] / total_weight) : (1.0f / (float)gpu_count);
+                uint32_t region_width = (uint32_t)(width * weight);
+                
+                regions[region_count].x = current_x;
                 regions[region_count].y = 0;
                 regions[region_count].width = (i == gpu_count - 1) ? 
-                    (width - i * region_width) : region_width;
+                    (width - current_x) : region_width;
                 regions[region_count].height = height;
                 regions[region_count].gpu_index = i;
+                
+                current_x += regions[region_count].width;
                 region_count++;
             }
             break;
@@ -194,20 +236,33 @@ uint32_t sfr_split_frame(
         case SFR_MODE_GRID: {
             uint32_t rows = (uint32_t)ceil(sqrt((float)gpu_count));
             uint32_t cols = (gpu_count + rows - 1) / rows;
-            uint32_t region_width = width / cols;
-            uint32_t region_height = height / rows;
             
-            for (uint32_t i = 0; i < gpu_count && region_count < max_regions; i++) {
-                uint32_t row = i / cols;
-                uint32_t col = i % cols;
-                regions[region_count].x = col * region_width;
-                regions[region_count].y = row * region_height;
-                regions[region_count].width = (col == cols - 1) ? 
-                    (width - col * region_width) : region_width;
-                regions[region_count].height = (row == rows - 1) ? 
-                    (height - row * region_height) : region_height;
-                regions[region_count].gpu_index = i;
-                region_count++;
+            // Grid mode with weights is tricky, we'll use base scores for rows/cols distribution
+            // and then refine individual cell sizes
+            uint32_t current_y = 0;
+            for (uint32_t r = 0; r < rows; r++) {
+                uint32_t row_height = height / rows; // Simple grid for now
+                uint32_t current_x = 0;
+                for (uint32_t c = 0; c < cols && region_count < max_regions; c++) {
+                    uint32_t i = r * cols + col;
+                    if (i >= gpu_count) break;
+                    
+                    float weight = (weights != NULL) ? (weights[i] / total_weight) : (1.0f / (float)gpu_count);
+                    // Adjust width based on weight relative to row
+                    uint32_t region_width = (uint32_t)(width * (weight * rows)); 
+                    
+                    regions[region_count].x = current_x;
+                    regions[region_count].y = current_y;
+                    regions[region_count].width = (c == cols - 1 || i == gpu_count - 1) ? 
+                        (width - current_x) : region_width;
+                    regions[region_count].height = (r == rows - 1) ? 
+                        (height - current_y) : row_height;
+                    regions[region_count].gpu_index = i;
+                    
+                    current_x += regions[region_count].width;
+                    region_count++;
+                }
+                current_y += row_height;
             }
             break;
         }
@@ -275,9 +330,9 @@ mvgal_error_t sfr_create_split_data(
     sfr_data->original_width = width;
     sfr_data->original_height = height;
     
-    // Split the frame
+    // Split the frame (equal weights)
     sfr_data->region_count = sfr_split_frame(
-        width, height, workload->assigned_gpu_count, mode,
+        width, height, workload->assigned_gpu_count, NULL, mode,
         sfr_data->regions, MVGAL_SCHEDULER_MAX_GPUS * 4);
     
     // Assign GPUs to regions
@@ -289,6 +344,53 @@ mvgal_error_t sfr_create_split_data(
     workload->strategy_data = sfr_data;
     
     MVGAL_LOG_DEBUG("SFR: Created %u regions for workload %u",
+                   sfr_data->region_count, workload->descriptor.id);
+    
+    return MVGAL_SUCCESS;
+}
+
+/**
+ * @brief Create SFR split data for a workload with weights
+ */
+mvgal_error_t sfr_create_split_data_weighted(
+    struct mvgal_workload *workload,
+    uint32_t width,
+    uint32_t height,
+    sfr_mode_t mode,
+    const float *weights
+) {
+    if (workload == NULL || workload->assigned_gpu_count == 0) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+    
+    // Free existing data
+    if (workload->strategy_data != NULL) {
+        free(workload->strategy_data);
+    }
+    
+    // Create new SFR data
+    sfr_workload_data_t *sfr_data = calloc(1, sizeof(sfr_workload_data_t));
+    if (sfr_data == NULL) {
+        return MVGAL_ERROR_OUT_OF_MEMORY;
+    }
+    
+    sfr_data->original_width = width;
+    sfr_data->original_height = height;
+    
+    // Split the frame with weights
+    sfr_data->region_count = sfr_split_frame(
+        width, height, workload->assigned_gpu_count, weights, mode,
+        sfr_data->regions, MVGAL_SCHEDULER_MAX_GPUS * 4);
+    
+    // Assign GPUs to regions
+    for (uint32_t i = 0; i < sfr_data->region_count; i++) {
+        uint32_t gpu_index = workload->assigned_gpus[i % workload->assigned_gpu_count];
+        sfr_data->regions[i].gpu_index = gpu_index;
+    }
+    
+    workload->strategy_data = sfr_data;
+    
+    MVGAL_LOG_DEBUG("SFR: Created %u regions with dynamic weights for workload %u",
                    sfr_data->region_count, workload->descriptor.id);
     
     return MVGAL_SUCCESS;
