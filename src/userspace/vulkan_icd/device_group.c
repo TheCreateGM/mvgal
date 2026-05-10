@@ -30,6 +30,10 @@
 #include "mvgal/mvgal.h"
 #include "mvgal/mvgal_gpu.h"
 
+/* Internal forward declarations (defined in physical_device.c) */
+void mvgal_get_queue_family_properties(uint32_t* pCount,
+                                        VkQueueFamilyProperties* pProperties);
+
 /* ============================================================================
  * Device Group Constants and Types
  * ============================================================================ */
