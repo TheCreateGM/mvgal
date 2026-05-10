@@ -56,6 +56,8 @@ benchmarks/stress/mvgal_stress_bench
 .idea/
 .vscode/
 build/
+vtcode.toml
+.vtcode/
 
 # Logs
 *.log
