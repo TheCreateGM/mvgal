@@ -63,7 +63,7 @@ static void log_debug(const char *format, ...);
 static void log_info(const char *format, ...);
 static void log_warn(const char *format, ...);
 static void* get_real_function(const char *name);
-static void submit_metal_workload(const char *step_name, mvgal_workload_type_t type, MetalDeviceRef device);
+static void submit_metal_workload(const char *step_name, mvgal_workload_type_t type, MetalDeviceRef device, bool is_frame);
 static int register_metal_device(MetalDeviceRef real_device, int mvgal_gpu_id);
 static void unregister_metal_device(MetalDeviceRef real_device);
 static int get_gpu_for_metal_device(MetalDeviceRef real_device);
@@ -80,12 +80,22 @@ static MetalDeviceRef get_device_for_command_buffer(MetalCommandBufferRef comman
 
 #define MVGAL_METAL_VERSION "0.2.0"
 
+// GPU selection strategy
+typedef enum {
+    GPU_STRATEGY_ROUND_ROBIN = 0,
+    GPU_STRATEGY_AFR,
+    GPU_STRATEGY_SINGLE,
+    GPU_STRATEGY_ALL
+} gpu_selection_strategy_t;
+
 typedef struct {
     bool enabled;
     bool debug;
     int gpu_count;
     int current_gpu;
     char strategy[64];
+    gpu_selection_strategy_t gpu_strategy;
+    uint64_t frame_counter;
     pthread_mutex_t lock;
     mvgal_context_t context;
 } metal_wrapper_state_t;
@@ -96,6 +106,8 @@ static metal_wrapper_state_t wrapper_state = {
     .gpu_count = 0,
     .current_gpu = 0,
     .strategy = "round_robin",
+    .gpu_strategy = GPU_STRATEGY_ROUND_ROBIN,
+    .frame_counter = 0,
     .lock = PTHREAD_MUTEX_INITIALIZER,
     .context = NULL
 };
@@ -471,15 +483,44 @@ static void* get_real_function(const char *name) {
     return func;
 }
 
-// Submit workload to MVGAL
-static void submit_metal_workload(const char *step_name, mvgal_workload_type_t type, MetalDeviceRef device) {
-    if (!wrapper_state.context) {
-        return;
-    }
+static uint32_t select_gpu_for_workload(mvgal_workload_type_t type, bool is_frame) {
+    if (wrapper_state.gpu_count <= 0) return 1U;
 
-    // Get the MVGAL GPU ID for this device
-    int gpu_id = device ? get_gpu_for_metal_device(device) : get_next_gpu();
-    uint32_t gpu_mask = (1U << gpu_id);
+    switch (wrapper_state.gpu_strategy) {
+        case GPU_STRATEGY_SINGLE:
+            return 1U;
+
+        case GPU_STRATEGY_ALL:
+            return (wrapper_state.gpu_count >= 32) ? 0xFFFFFFFFU : ((1U << wrapper_state.gpu_count) - 1U);
+
+        case GPU_STRATEGY_AFR:
+            if (is_frame) {
+                pthread_mutex_lock(&wrapper_state.lock);
+                int gpu = (int)(wrapper_state.frame_counter++ % wrapper_state.gpu_count);
+                pthread_mutex_unlock(&wrapper_state.lock);
+                return (1U << gpu);
+            }
+            __attribute__((fallthrough));
+
+        case GPU_STRATEGY_ROUND_ROBIN:
+        default: {
+            int gpu = get_next_gpu();
+            return (1U << gpu);
+        }
+    }
+}
+
+// Submit workload to MVGAL
+static void submit_metal_workload(const char *step_name, mvgal_workload_type_t type, MetalDeviceRef device, bool is_frame) {
+    if (!wrapper_state.context) return;
+
+    uint32_t gpu_mask;
+    if (device && wrapper_state.gpu_strategy == GPU_STRATEGY_ROUND_ROBIN) {
+        int gpu_id = get_gpu_for_metal_device(device);
+        gpu_mask = (1U << gpu_id);
+    } else {
+        gpu_mask = select_gpu_for_workload(type, is_frame);
+    }
 
     mvgal_workload_submit_info_t info = {
         .type = type,
@@ -491,9 +532,9 @@ static void submit_metal_workload(const char *step_name, mvgal_workload_type_t t
     mvgal_workload_t workload;
     mvgal_error_t err = mvgal_workload_submit(wrapper_state.context, &info, &workload);
     if (err != MVGAL_SUCCESS) {
-        log_warn("Failed to submit workload: %s (GPU %d)", step_name, gpu_id);
+        log_warn("Failed to submit Metal workload: %s (mask 0x%x)", step_name, gpu_mask);
     } else {
-        log_debug("Submitted workload: type=%d, step=%s, GPU=%d", type, step_name, gpu_id);
+        log_debug("Submitted Metal workload: type=%d, step=%s (mask 0x%x)", type, step_name, gpu_mask);
     }
 }
 
@@ -517,6 +558,15 @@ static void init_wrapper(void) {
     const char *strategy = getenv("MVGAL_METAL_STRATEGY");
     if (strategy) {
         strncpy(wrapper_state.strategy, strategy, sizeof(wrapper_state.strategy) - 1);
+        if (strcmp(strategy, "afr") == 0) {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_AFR;
+        } else if (strcmp(strategy, "single") == 0) {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_SINGLE;
+        } else if (strcmp(strategy, "all") == 0) {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_ALL;
+        } else {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_ROUND_ROBIN;
+        }
     }
 
     // Initialize MVGAL
@@ -603,7 +653,7 @@ MetalDeviceRef MTLCreateSystemDefaultDevice(void) {
         log_info("Registered Metal device %p -> GPU %d", device, gpu_id);
         
         // Submit workload with device info
-        submit_metal_workload("MTLCreateSystemDefaultDevice", MVGAL_WORKLOAD_METAL_QUEUE, device);
+        submit_metal_workload("MTLCreateSystemDefaultDevice", MVGAL_WORKLOAD_METAL_QUEUE, device, false);
     }
 
     return device;
@@ -627,7 +677,7 @@ MetalCommandQueueRef MTLDeviceMakeCommandQueue(
     log_debug("MTLDeviceMakeCommandQueue intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceMakeCommandQueue", MVGAL_WORKLOAD_METAL_QUEUE, device);
+    submit_metal_workload("MTLDeviceMakeCommandQueue", MVGAL_WORKLOAD_METAL_QUEUE, device, false);
 
     if (!real_MTLDeviceMakeCommandQueue) {
         real_MTLDeviceMakeCommandQueue = get_real_function("MTLDeviceMakeCommandQueue");
@@ -664,7 +714,7 @@ MetalBufferRef MTLDeviceNewBuffer(
     log_debug("MTLDeviceNewBuffer intercepted (size: %zu, options: %lu, device: %p)", length, options, device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewBuffer", MVGAL_WORKLOAD_METAL_BUFFER, device);
+    submit_metal_workload("MTLDeviceNewBuffer", MVGAL_WORKLOAD_METAL_BUFFER, device, false);
 
     if (!real_MTLDeviceNewBuffer) {
         real_MTLDeviceNewBuffer = get_real_function("MTLDeviceNewBuffer");
@@ -699,7 +749,7 @@ MetalTextureRef MTLDeviceNewTexture(
     log_debug("MTLDeviceNewTexture intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewTexture", MVGAL_WORKLOAD_METAL_TEXTURE, device);
+    submit_metal_workload("MTLDeviceNewTexture", MVGAL_WORKLOAD_METAL_TEXTURE, device, false);
 
     if (!real_MTLDeviceNewTexture) {
         real_MTLDeviceNewTexture = get_real_function("MTLDeviceNewTexture");
@@ -734,7 +784,7 @@ MetalRenderPipelineRef MTLDeviceNewRenderPipelineState(
     log_debug("MTLDeviceNewRenderPipelineState intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewRenderPipelineState", MVGAL_WORKLOAD_METAL_RENDER, device);
+    submit_metal_workload("MTLDeviceNewRenderPipelineState", MVGAL_WORKLOAD_METAL_RENDER, device, false);
 
     if (!real_MTLDeviceNewRenderPipelineState) {
         real_MTLDeviceNewRenderPipelineState = get_real_function("MTLDeviceNewRenderPipelineState");
@@ -769,7 +819,7 @@ MetalComputePipelineRef MTLDeviceNewComputePipelineState(
     log_debug("MTLDeviceNewComputePipelineState intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewComputePipelineState", MVGAL_WORKLOAD_METAL_COMPUTE, device);
+    submit_metal_workload("MTLDeviceNewComputePipelineState", MVGAL_WORKLOAD_METAL_COMPUTE, device, false);
 
     if (!real_MTLDeviceNewComputePipelineState) {
         real_MTLDeviceNewComputePipelineState = get_real_function("MTLDeviceNewComputePipelineState");
@@ -803,7 +853,7 @@ MetalCommandBufferRef MTLCommandQueueCommandBuffer(
 
     // Get device for this queue
     MetalDeviceRef device = get_device_for_queue(queue);
-    submit_metal_workload("MTLCommandQueueCommandBuffer", MVGAL_WORKLOAD_METAL_COMMAND, device);
+    submit_metal_workload("MTLCommandQueueCommandBuffer", MVGAL_WORKLOAD_METAL_COMMAND, device, false);
 
     if (!real_MTLCommandQueueCommandBuffer) {
         real_MTLCommandQueueCommandBuffer = get_real_function("MTLCommandQueueCommandBuffer");
@@ -838,7 +888,7 @@ void MTLCommandBufferCommit(
 
     // Get device for this command buffer
     MetalDeviceRef device = get_device_for_command_buffer(commandBuffer);
-    submit_metal_workload("MTLCommandBufferCommit", MVGAL_WORKLOAD_METAL_COMMIT, device);
+    submit_metal_workload("MTLCommandBufferCommit", MVGAL_WORKLOAD_METAL_COMMIT, device, false);
 
     if (!real_MTLCommandBufferCommit) {
         real_MTLCommandBufferCommit = get_real_function("MTLCommandBufferCommit");
@@ -868,7 +918,7 @@ void MTLCommandBufferPresentDrawables(
 
     // Get device for this command buffer
     MetalDeviceRef device = get_device_for_command_buffer(commandBuffer);
-    submit_metal_workload("MTLCommandBufferPresentDrawables", MVGAL_WORKLOAD_METAL_PRESENT, device);
+    submit_metal_workload("MTLCommandBufferPresentDrawables", MVGAL_WORKLOAD_METAL_PRESENT, device, true);
 
     if (!real_MTLCommandBufferPresentDrawables) {
         real_MTLCommandBufferPresentDrawables = get_real_function("MTLCommandBufferPresentDrawables");
@@ -902,7 +952,7 @@ MetalBufferRef MTLDeviceNewBufferWithBytes(
     log_debug("MTLDeviceNewBufferWithBytes intercepted (size: %zu, options: %lu, device: %p)", length, options, device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewBufferWithBytes", MVGAL_WORKLOAD_METAL_BUFFER, device);
+    submit_metal_workload("MTLDeviceNewBufferWithBytes", MVGAL_WORKLOAD_METAL_BUFFER, device, false);
 
     if (!real_MTLDeviceNewBufferWithBytes) {
         real_MTLDeviceNewBufferWithBytes = get_real_function("MTLDeviceNewBufferWithBytes");
@@ -936,7 +986,7 @@ MetalTextureRef MTLDeviceNewTextureWithDescriptor(
     log_debug("MTLDeviceNewTextureWithDescriptor intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewTextureWithDescriptor", MVGAL_WORKLOAD_METAL_TEXTURE, device);
+    submit_metal_workload("MTLDeviceNewTextureWithDescriptor", MVGAL_WORKLOAD_METAL_TEXTURE, device, false);
 
     if (!real_MTLDeviceNewTextureWithDescriptor) {
         real_MTLDeviceNewTextureWithDescriptor = get_real_function("MTLDeviceNewTextureWithDescriptor");
@@ -970,7 +1020,7 @@ void* MTLDeviceNewSamplerStateWithDescriptor(
     log_debug("MTLDeviceNewSamplerStateWithDescriptor intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewSamplerStateWithDescriptor", MVGAL_WORKLOAD_METAL_RENDER, device);
+    submit_metal_workload("MTLDeviceNewSamplerStateWithDescriptor", MVGAL_WORKLOAD_METAL_RENDER, device, false);
 
     if (!real_MTLDeviceNewSamplerStateWithDescriptor) {
         real_MTLDeviceNewSamplerStateWithDescriptor = get_real_function("MTLDeviceNewSamplerStateWithDescriptor");
@@ -1004,7 +1054,7 @@ void* MTLDeviceNewDepthStencilStateWithDescriptor(
     log_debug("MTLDeviceNewDepthStencilStateWithDescriptor intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewDepthStencilStateWithDescriptor", MVGAL_WORKLOAD_METAL_RENDER, device);
+    submit_metal_workload("MTLDeviceNewDepthStencilStateWithDescriptor", MVGAL_WORKLOAD_METAL_RENDER, device, false);
 
     if (!real_MTLDeviceNewDepthStencilStateWithDescriptor) {
         real_MTLDeviceNewDepthStencilStateWithDescriptor = get_real_function("MTLDeviceNewDepthStencilStateWithDescriptor");
@@ -1038,7 +1088,7 @@ void* MTLDeviceNewFence(
     log_debug("MTLDeviceNewFence intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewFence", MVGAL_WORKLOAD_METAL_RENDER, device);
+    submit_metal_workload("MTLDeviceNewFence", MVGAL_WORKLOAD_METAL_RENDER, device, false);
 
     if (!real_MTLDeviceNewFence) {
         real_MTLDeviceNewFence = get_real_function("MTLDeviceNewFence");
@@ -1072,7 +1122,7 @@ bool MTLDeviceSupportsFeatureSet(
     log_debug("MTLDeviceSupportsFeatureSet intercepted (featureSet: %u, device: %p)", featureSet, device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceSupportsFeatureSet", MVGAL_WORKLOAD_METAL_RENDER, device);
+    submit_metal_workload("MTLDeviceSupportsFeatureSet", MVGAL_WORKLOAD_METAL_RENDER, device, false);
 
     if (!real_MTLDeviceSupportsFeatureSet) {
         real_MTLDeviceSupportsFeatureSet = get_real_function("MTLDeviceSupportsFeatureSet");
@@ -1106,7 +1156,7 @@ MetalLibraryRef MTLDeviceNewLibraryWithSource(
     log_debug("MTLDeviceNewLibraryWithSource intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewLibraryWithSource", MVGAL_WORKLOAD_METAL_COMPUTE, device);
+    submit_metal_workload("MTLDeviceNewLibraryWithSource", MVGAL_WORKLOAD_METAL_COMPUTE, device, false);
 
     if (!real_MTLDeviceNewLibraryWithSource) {
         real_MTLDeviceNewLibraryWithSource = get_real_function("MTLDeviceNewLibraryWithSource");
@@ -1141,7 +1191,7 @@ MetalRenderPipelineRef MTLDeviceNewRenderPipelineStateWithDescriptor(
     log_debug("MTLDeviceNewRenderPipelineStateWithDescriptor intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceNewRenderPipelineStateWithDescriptor", MVGAL_WORKLOAD_METAL_RENDER, device);
+    submit_metal_workload("MTLDeviceNewRenderPipelineStateWithDescriptor", MVGAL_WORKLOAD_METAL_RENDER, device, false);
 
     if (!real_MTLDeviceNewRenderPipelineStateWithDescriptor) {
         real_MTLDeviceNewRenderPipelineStateWithDescriptor = get_real_function("MTLDeviceNewRenderPipelineStateWithDescriptor");
@@ -1178,7 +1228,7 @@ MetalCommandBufferRef MTLDeviceMakeCommandBuffer(
     log_debug("MTLDeviceMakeCommandBuffer intercepted (device: %p)", device);
 
     // Submit workload with device info
-    submit_metal_workload("MTLDeviceMakeCommandBuffer", MVGAL_WORKLOAD_METAL_COMMAND, device);
+    submit_metal_workload("MTLDeviceMakeCommandBuffer", MVGAL_WORKLOAD_METAL_COMMAND, device, false);
 
     if (!real_MTLDeviceMakeCommandBuffer) {
         real_MTLDeviceMakeCommandBuffer = get_real_function("MTLDeviceMakeCommandBuffer");
@@ -1214,7 +1264,7 @@ MetalCommandBufferRef MTLCommandQueueCommandBufferWithUnretainedReferences(
 
     // Get device for this queue
     MetalDeviceRef device = get_device_for_queue(queue);
-    submit_metal_workload("MTLCommandQueueCommandBufferWithUnretainedReferences", MVGAL_WORKLOAD_METAL_COMMAND, device);
+    submit_metal_workload("MTLCommandQueueCommandBufferWithUnretainedReferences", MVGAL_WORKLOAD_METAL_COMMAND, device, false);
 
     if (!real_MTLCommandQueueCommandBufferWithUnretainedReferences) {
         real_MTLCommandQueueCommandBufferWithUnretainedReferences = get_real_function("MTLCommandQueueCommandBufferWithUnretainedReferences");
@@ -1254,7 +1304,7 @@ void* MTLCommandBufferRenderCommandEncoderWithDescriptor(
 
     // Get device for this command buffer
     MetalDeviceRef device = get_device_for_command_buffer(commandBuffer);
-    submit_metal_workload("MTLCommandBufferRenderCommandEncoderWithDescriptor", MVGAL_WORKLOAD_METAL_RENDER, device);
+    submit_metal_workload("MTLCommandBufferRenderCommandEncoderWithDescriptor", MVGAL_WORKLOAD_METAL_RENDER, device, false);
 
     if (!real_MTLCommandBufferRenderCommandEncoderWithDescriptor) {
         real_MTLCommandBufferRenderCommandEncoderWithDescriptor = get_real_function("MTLCommandBufferRenderCommandEncoderWithDescriptor");
@@ -1288,7 +1338,7 @@ void* MTLCommandBufferComputeCommandEncoder(
 
     // Get device for this command buffer
     MetalDeviceRef device = get_device_for_command_buffer(commandBuffer);
-    submit_metal_workload("MTLCommandBufferComputeCommandEncoder", MVGAL_WORKLOAD_METAL_COMPUTE, device);
+    submit_metal_workload("MTLCommandBufferComputeCommandEncoder", MVGAL_WORKLOAD_METAL_COMPUTE, device, false);
 
     if (!real_MTLCommandBufferComputeCommandEncoder) {
         real_MTLCommandBufferComputeCommandEncoder = get_real_function("MTLCommandBufferComputeCommandEncoder");
@@ -1322,7 +1372,7 @@ void* MTLCommandBufferBlitCommandEncoder(
 
     // Get device for this command buffer
     MetalDeviceRef device = get_device_for_command_buffer(commandBuffer);
-    submit_metal_workload("MTLCommandBufferBlitCommandEncoder", MVGAL_WORKLOAD_METAL_COMMAND, device);
+    submit_metal_workload("MTLCommandBufferBlitCommandEncoder", MVGAL_WORKLOAD_METAL_COMMAND, device, false);
 
     if (!real_MTLCommandBufferBlitCommandEncoder) {
         real_MTLCommandBufferBlitCommandEncoder = get_real_function("MTLCommandBufferBlitCommandEncoder");
@@ -1357,7 +1407,7 @@ void MTLCommandBufferPresentDrawable(
 
     // Get device for this command buffer
     MetalDeviceRef device = get_device_for_command_buffer(commandBuffer);
-    submit_metal_workload("MTLCommandBufferPresentDrawable", MVGAL_WORKLOAD_METAL_PRESENT, device);
+    submit_metal_workload("MTLCommandBufferPresentDrawable", MVGAL_WORKLOAD_METAL_PRESENT, device, true);
 
     if (!real_MTLCommandBufferPresentDrawable) {
         real_MTLCommandBufferPresentDrawable = get_real_function("MTLCommandBufferPresentDrawable");
@@ -1385,7 +1435,7 @@ void MTLCommandBufferWaitUntilCompleted(
 
     // Get device for this command buffer
     MetalDeviceRef device = get_device_for_command_buffer(commandBuffer);
-    submit_metal_workload("MTLCommandBufferWaitUntilCompleted", MVGAL_WORKLOAD_METAL_COMMIT, device);
+    submit_metal_workload("MTLCommandBufferWaitUntilCompleted", MVGAL_WORKLOAD_METAL_COMMIT, device, false);
 
     if (!real_MTLCommandBufferWaitUntilCompleted) {
         real_MTLCommandBufferWaitUntilCompleted = get_real_function("MTLCommandBufferWaitUntilCompleted");
@@ -1417,7 +1467,7 @@ void MTLRenderCommandEncoderSetRenderPipelineState(
     log_debug("MTLRenderCommandEncoderSetRenderPipelineState intercepted (encoder: %p, pipeline: %p)", encoder, pipelineState);
 
     // Submit workload - device info not directly available from encoder
-    submit_metal_workload("MTLRenderCommandEncoderSetRenderPipelineState", MVGAL_WORKLOAD_METAL_RENDER, NULL);
+    submit_metal_workload("MTLRenderCommandEncoderSetRenderPipelineState", MVGAL_WORKLOAD_METAL_RENDER, NULL, false);
 
     if (!real_MTLRenderCommandEncoderSetRenderPipelineState) {
         real_MTLRenderCommandEncoderSetRenderPipelineState = get_real_function("MTLRenderCommandEncoderSetRenderPipelineState");
@@ -1447,7 +1497,7 @@ void MTLRenderCommandEncoderSetVertexBuffer(
     log_debug("MTLRenderCommandEncoderSetVertexBuffer intercepted (encoder: %p, buffer: %p, index: %u)", encoder, buffer, index);
 
     // Submit workload
-    submit_metal_workload("MTLRenderCommandEncoderSetVertexBuffer", MVGAL_WORKLOAD_METAL_RENDER, NULL);
+    submit_metal_workload("MTLRenderCommandEncoderSetVertexBuffer", MVGAL_WORKLOAD_METAL_RENDER, NULL, false);
 
     if (!real_MTLRenderCommandEncoderSetVertexBuffer) {
         real_MTLRenderCommandEncoderSetVertexBuffer = get_real_function("MTLRenderCommandEncoderSetVertexBuffer");
@@ -1477,7 +1527,7 @@ void MTLRenderCommandEncoderSetFragmentBuffer(
     log_debug("MTLRenderCommandEncoderSetFragmentBuffer intercepted (encoder: %p, buffer: %p, index: %u)", encoder, buffer, index);
 
     // Submit workload
-    submit_metal_workload("MTLRenderCommandEncoderSetFragmentBuffer", MVGAL_WORKLOAD_METAL_RENDER, NULL);
+    submit_metal_workload("MTLRenderCommandEncoderSetFragmentBuffer", MVGAL_WORKLOAD_METAL_RENDER, NULL, false);
 
     if (!real_MTLRenderCommandEncoderSetFragmentBuffer) {
         real_MTLRenderCommandEncoderSetFragmentBuffer = get_real_function("MTLRenderCommandEncoderSetFragmentBuffer");
@@ -1508,7 +1558,7 @@ void MTLRenderCommandEncoderDrawPrimitives(
     log_debug("MTLRenderCommandEncoderDrawPrimitives intercepted (encoder: %p, type: %u, start: %zu, count: %zu)", encoder, primitiveType, vertexStart, vertexCount);
 
     // Submit workload
-    submit_metal_workload("MTLRenderCommandEncoderDrawPrimitives", MVGAL_WORKLOAD_METAL_RENDER, NULL);
+    submit_metal_workload("MTLRenderCommandEncoderDrawPrimitives", MVGAL_WORKLOAD_METAL_RENDER, NULL, false);
 
     if (!real_MTLRenderCommandEncoderDrawPrimitives) {
         real_MTLRenderCommandEncoderDrawPrimitives = get_real_function("MTLRenderCommandEncoderDrawPrimitives");
@@ -1541,7 +1591,7 @@ void MTLRenderCommandEncoderDrawIndexedPrimitives(
     log_debug("MTLRenderCommandEncoderDrawIndexedPrimitives intercepted (encoder: %p, type: %u, count: %zu)", encoder, primitiveType, indexCount);
 
     // Submit workload
-    submit_metal_workload("MTLRenderCommandEncoderDrawIndexedPrimitives", MVGAL_WORKLOAD_METAL_RENDER, NULL);
+    submit_metal_workload("MTLRenderCommandEncoderDrawIndexedPrimitives", MVGAL_WORKLOAD_METAL_RENDER, NULL, false);
 
     if (!real_MTLRenderCommandEncoderDrawIndexedPrimitives) {
         real_MTLRenderCommandEncoderDrawIndexedPrimitives = get_real_function("MTLRenderCommandEncoderDrawIndexedPrimitives");
@@ -1568,7 +1618,7 @@ void MTLRenderCommandEncoderEndEncoding(
     log_debug("MTLRenderCommandEncoderEndEncoding intercepted (encoder: %p)", encoder);
 
     // Submit workload
-    submit_metal_workload("MTLRenderCommandEncoderEndEncoding", MVGAL_WORKLOAD_METAL_RENDER, NULL);
+    submit_metal_workload("MTLRenderCommandEncoderEndEncoding", MVGAL_WORKLOAD_METAL_RENDER, NULL, false);
 
     if (!real_MTLRenderCommandEncoderEndEncoding) {
         real_MTLRenderCommandEncoderEndEncoding = get_real_function("MTLRenderCommandEncoderEndEncoding");
@@ -1600,7 +1650,7 @@ void MTLComputeCommandEncoderSetComputePipelineState(
     log_debug("MTLComputeCommandEncoderSetComputePipelineState intercepted (encoder: %p, pipeline: %p)", encoder, pipelineState);
 
     // Submit workload
-    submit_metal_workload("MTLComputeCommandEncoderSetComputePipelineState", MVGAL_WORKLOAD_METAL_COMPUTE, NULL);
+    submit_metal_workload("MTLComputeCommandEncoderSetComputePipelineState", MVGAL_WORKLOAD_METAL_COMPUTE, NULL, false);
 
     if (!real_MTLComputeCommandEncoderSetComputePipelineState) {
         real_MTLComputeCommandEncoderSetComputePipelineState = get_real_function("MTLComputeCommandEncoderSetComputePipelineState");
@@ -1630,7 +1680,7 @@ void MTLComputeCommandEncoderSetBuffer(
     log_debug("MTLComputeCommandEncoderSetBuffer intercepted (encoder: %p, buffer: %p, index: %u)", encoder, buffer, index);
 
     // Submit workload
-    submit_metal_workload("MTLComputeCommandEncoderSetBuffer", MVGAL_WORKLOAD_METAL_COMPUTE, NULL);
+    submit_metal_workload("MTLComputeCommandEncoderSetBuffer", MVGAL_WORKLOAD_METAL_COMPUTE, NULL, false);
 
     if (!real_MTLComputeCommandEncoderSetBuffer) {
         real_MTLComputeCommandEncoderSetBuffer = get_real_function("MTLComputeCommandEncoderSetBuffer");
@@ -1663,7 +1713,7 @@ void MTLComputeCommandEncoderDispatchThreadgroups(
     log_debug("MTLComputeCommandEncoderDispatchThreadgroups intercepted (encoder: %p, grid: %zu x %zu x %zu)", encoder, threadgroupsPerGrid_x, threadgroupsPerGrid_y, threadgroupsPerGrid_z);
 
     // Submit workload
-    submit_metal_workload("MTLComputeCommandEncoderDispatchThreadgroups", MVGAL_WORKLOAD_METAL_COMPUTE, NULL);
+    submit_metal_workload("MTLComputeCommandEncoderDispatchThreadgroups", MVGAL_WORKLOAD_METAL_COMPUTE, NULL, false);
 
     if (!real_MTLComputeCommandEncoderDispatchThreadgroups) {
         real_MTLComputeCommandEncoderDispatchThreadgroups = get_real_function("MTLComputeCommandEncoderDispatchThreadgroups");
@@ -1690,7 +1740,7 @@ void MTLComputeCommandEncoderEndEncoding(
     log_debug("MTLComputeCommandEncoderEndEncoding intercepted (encoder: %p)", encoder);
 
     // Submit workload
-    submit_metal_workload("MTLComputeCommandEncoderEndEncoding", MVGAL_WORKLOAD_METAL_COMPUTE, NULL);
+    submit_metal_workload("MTLComputeCommandEncoderEndEncoding", MVGAL_WORKLOAD_METAL_COMPUTE, NULL, false);
 
     if (!real_MTLComputeCommandEncoderEndEncoding) {
         real_MTLComputeCommandEncoderEndEncoding = get_real_function("MTLComputeCommandEncoderEndEncoding");

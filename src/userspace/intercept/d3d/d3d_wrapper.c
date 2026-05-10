@@ -515,6 +515,14 @@ typedef HRESULT (WINAPI *DXGISwapChain_Present_t)(
 
 #define MVGAL_D3D_VERSION "0.2.0"
 
+// GPU selection strategy
+typedef enum {
+    GPU_STRATEGY_ROUND_ROBIN = 0,
+    GPU_STRATEGY_AFR,
+    GPU_STRATEGY_SINGLE,
+    GPU_STRATEGY_ALL
+} gpu_selection_strategy_t;
+
 // State structure
 typedef struct {
     bool enabled;
@@ -522,6 +530,8 @@ typedef struct {
     int gpu_count;
     int current_gpu;
     char strategy[64];
+    gpu_selection_strategy_t gpu_strategy;
+    uint64_t frame_counter;
     pthread_mutex_t lock;
     mvgal_context_t context;  // MVGAL context for workload submission
 } d3d_wrapper_state_t;
@@ -532,6 +542,8 @@ static d3d_wrapper_state_t wrapper_state = {
     .gpu_count = 0,
     .current_gpu = 0,
     .strategy = "round_robin",
+    .gpu_strategy = GPU_STRATEGY_ROUND_ROBIN,
+    .frame_counter = 0,
     .lock = PTHREAD_MUTEX_INITIALIZER,
     .context = NULL
 };
@@ -688,24 +700,58 @@ static void* get_real_function(const char *name) {
  * MVGAL Workload Submission
  ******************************************************************************/
 
-static void submit_d3d_workload(const char *step_name, mvgal_workload_type_t type, void *device) {
+static uint32_t select_gpu_for_workload(mvgal_workload_type_t type, bool is_frame) {
+    if (wrapper_state.gpu_count <= 0) return 1U;
+
+    switch (wrapper_state.gpu_strategy) {
+        case GPU_STRATEGY_SINGLE:
+            return 1U;
+
+        case GPU_STRATEGY_ALL:
+            return (wrapper_state.gpu_count >= 32) ? 0xFFFFFFFFU : ((1U << wrapper_state.gpu_count) - 1U);
+
+        case GPU_STRATEGY_AFR:
+            if (is_frame) {
+                pthread_mutex_lock(&wrapper_state.lock);
+                int gpu = (int)(wrapper_state.frame_counter++ % wrapper_state.gpu_count);
+                pthread_mutex_unlock(&wrapper_state.lock);
+                return (1U << gpu);
+            }
+            // Non-frame workloads under AFR fall through to round-robin
+            __attribute__((fallthrough));
+
+        case GPU_STRATEGY_ROUND_ROBIN:
+        default: {
+            int gpu = get_next_gpu();
+            return (1U << gpu);
+        }
+    }
+}
+
+static void submit_d3d_workload(const char *step_name, mvgal_workload_type_t type, void *device, bool is_frame) {
     if (!wrapper_state.context) return;
-    
-    int gpu_id = device ? get_gpu_for_device(device) : get_next_gpu();
-    
+
+    uint32_t gpu_mask;
+    if (device && wrapper_state.gpu_strategy == GPU_STRATEGY_ROUND_ROBIN) {
+        int gpu_id = get_gpu_for_device(device);
+        gpu_mask = (1U << gpu_id);
+    } else {
+        gpu_mask = select_gpu_for_workload(type, is_frame);
+    }
+
     mvgal_workload_submit_info_t info = {
         .type = type,
         .priority = 50,
-        .gpu_mask = (1 << gpu_id),  // Target specific GPU
+        .gpu_mask = gpu_mask,
         .user_data = NULL
     };
-    
+
     mvgal_workload_t workload;
     mvgal_error_t err = mvgal_workload_submit(wrapper_state.context, &info, &workload);
     if (err != MVGAL_SUCCESS) {
-        log_warn("Failed to submit D3D workload: %s (GPU %d)", step_name, gpu_id);
+        log_warn("Failed to submit D3D workload: %s (mask 0x%x)", step_name, gpu_mask);
     } else {
-        log_debug("Submitted D3D workload: %s to GPU %d", step_name, gpu_id);
+        log_debug("Submitted D3D workload: %s (mask 0x%x)", step_name, gpu_mask);
     }
 }
 
@@ -729,6 +775,15 @@ static void init_wrapper(void) {
     const char *strategy = getenv("MVGAL_D3D_STRATEGY");
     if (strategy) {
         strncpy(wrapper_state.strategy, strategy, sizeof(wrapper_state.strategy) - 1);
+        if (strcmp(strategy, "afr") == 0) {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_AFR;
+        } else if (strcmp(strategy, "single") == 0) {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_SINGLE;
+        } else if (strcmp(strategy, "all") == 0) {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_ALL;
+        } else {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_ROUND_ROBIN;
+        }
     }
 
     // Initialize MVGAL
@@ -834,7 +889,7 @@ HRESULT WINAPI D3D11Device_CreateTexture2D(
     log_debug("D3D11Device_CreateTexture2D intercepted (%ux%u)",
               pDesc ? pDesc->Width : 0, pDesc ? pDesc->Height : 0);
 
-    submit_d3d_workload("CreateTexture2D", MVGAL_WORKLOAD_D3D_TEXTURE, pDevice);
+    submit_d3d_workload("CreateTexture2D", MVGAL_WORKLOAD_D3D_TEXTURE, pDevice, false);
 
     if (!real_D3D11Device_CreateTexture2D) {
         real_D3D11Device_CreateTexture2D = get_real_function("D3D11Device_CreateTexture2D");
@@ -865,7 +920,7 @@ HRESULT WINAPI D3D11Device_CreateShaderResourceView(
 
     log_debug("D3D11Device_CreateShaderResourceView intercepted");
 
-    submit_d3d_workload("CreateShaderResourceView", MVGAL_WORKLOAD_D3D_TEXTURE, pDevice);
+    submit_d3d_workload("CreateShaderResourceView", MVGAL_WORKLOAD_D3D_TEXTURE, pDevice, false);
 
     if (!real_D3D11Device_CreateShaderResourceView) {
         real_D3D11Device_CreateShaderResourceView = get_real_function("D3D11Device_CreateShaderResourceView");
@@ -896,7 +951,7 @@ HRESULT WINAPI D3D11Device_CreateRenderTargetView(
 
     log_debug("D3D11Device_CreateRenderTargetView intercepted");
 
-    submit_d3d_workload("CreateRenderTargetView", MVGAL_WORKLOAD_D3D_TEXTURE, pDevice);
+    submit_d3d_workload("CreateRenderTargetView", MVGAL_WORKLOAD_D3D_TEXTURE, pDevice, false);
 
     if (!real_D3D11Device_CreateRenderTargetView) {
         real_D3D11Device_CreateRenderTargetView = get_real_function("D3D11Device_CreateRenderTargetView");
@@ -930,7 +985,7 @@ HRESULT WINAPI D3D11DeviceContext_Draw(
 
     log_debug("D3D11DeviceContext_Draw intercepted (%u vertices)", VertexCount);
 
-    submit_d3d_workload("Draw", MVGAL_WORKLOAD_D3D_CONTEXT, pContext);
+    submit_d3d_workload("Draw", MVGAL_WORKLOAD_D3D_CONTEXT, pContext, false);
 
     if (!real_D3D11DeviceContext_Draw) {
         real_D3D11DeviceContext_Draw = get_real_function("D3D11DeviceContext_Draw");
@@ -961,7 +1016,7 @@ HRESULT WINAPI D3D11DeviceContext_DrawIndexed(
 
     log_debug("D3D11DeviceContext_DrawIndexed intercepted (%u indices)", IndexCount);
 
-    submit_d3d_workload("DrawIndexed", MVGAL_WORKLOAD_D3D_CONTEXT, pContext);
+    submit_d3d_workload("DrawIndexed", MVGAL_WORKLOAD_D3D_CONTEXT, pContext, false);
 
     if (!real_D3D11DeviceContext_DrawIndexed) {
         real_D3D11DeviceContext_DrawIndexed = get_real_function("D3D11DeviceContext_DrawIndexed");
@@ -992,7 +1047,7 @@ HRESULT WINAPI D3D11DeviceContext_OMSetRenderTargets(
 
     log_debug("D3D11DeviceContext_OMSetRenderTargets intercepted (%u views)", NumViews);
 
-    submit_d3d_workload("OMSetRenderTargets", MVGAL_WORKLOAD_D3D_TEXTURE, pContext);
+    submit_d3d_workload("OMSetRenderTargets", MVGAL_WORKLOAD_D3D_TEXTURE, pContext, false);
 
     if (!real_D3D11DeviceContext_OMSetRenderTargets) {
         real_D3D11DeviceContext_OMSetRenderTargets = get_real_function("D3D11DeviceContext_OMSetRenderTargets");
@@ -1022,7 +1077,7 @@ HRESULT WINAPI D3D11DeviceContext_ClearRenderTargetView(
 
     log_debug("D3D11DeviceContext_ClearRenderTargetView intercepted");
 
-    submit_d3d_workload("ClearRenderTargetView", MVGAL_WORKLOAD_D3D_CONTEXT, pContext);
+    submit_d3d_workload("ClearRenderTargetView", MVGAL_WORKLOAD_D3D_CONTEXT, pContext, false);
 
     if (!real_D3D11DeviceContext_ClearRenderTargetView) {
         real_D3D11DeviceContext_ClearRenderTargetView = get_real_function("D3D11DeviceContext_ClearRenderTargetView");
@@ -1057,7 +1112,7 @@ HRESULT WINAPI D3D11DeviceContext_UpdateSubresource(
 
     log_debug("D3D11DeviceContext_UpdateSubresource intercepted (subresource: %u)", DstSubresource);
 
-    submit_d3d_workload("UpdateSubresource", MVGAL_WORKLOAD_D3D_CONTEXT, pContext);
+    submit_d3d_workload("UpdateSubresource", MVGAL_WORKLOAD_D3D_CONTEXT, pContext, false);
 
     if (!real_D3D11DeviceContext_UpdateSubresource) {
         real_D3D11DeviceContext_UpdateSubresource = get_real_function("D3D11DeviceContext_UpdateSubresource");
@@ -1088,7 +1143,7 @@ HRESULT WINAPI D3D11DeviceContext_QueryInterface(
 
     log_debug("D3D11DeviceContext_QueryInterface intercepted");
 
-    submit_d3d_workload("QueryInterface", MVGAL_WORKLOAD_D3D_CONTEXT, pContext);
+    submit_d3d_workload("QueryInterface", MVGAL_WORKLOAD_D3D_CONTEXT, pContext, false);
 
     if (!real_D3D11DeviceContext_QueryInterface) {
         real_D3D11DeviceContext_QueryInterface = get_real_function("D3D11DeviceContext_QueryInterface");
@@ -1130,7 +1185,7 @@ HRESULT WINAPI D3D12Device_CreateCommittedResource(
     log_debug("D3D12Device_CreateCommittedResource intercepted (%ux%u)",
               pResourceDesc ? pResourceDesc->Width : 0, pResourceDesc ? pResourceDesc->Height : 0);
 
-    submit_d3d_workload("CreateCommittedResource", MVGAL_WORKLOAD_D3D_TEXTURE, pDevice);
+    submit_d3d_workload("CreateCommittedResource", MVGAL_WORKLOAD_D3D_TEXTURE, pDevice, false);
 
     if (!real_D3D12Device_CreateCommittedResource) {
         real_D3D12Device_CreateCommittedResource = get_real_function("D3D12Device_CreateCommittedResource");
@@ -1172,7 +1227,7 @@ HRESULT WINAPI D3D12Device_CreateDescriptorHeap(
     log_debug("D3D12Device_CreateDescriptorHeap intercepted (%u descriptors)",
               pDescriptorHeapDesc ? pDescriptorHeapDesc->NumDescriptors : 0);
 
-    submit_d3d_workload("CreateDescriptorHeap", MVGAL_WORKLOAD_D3D_BUFFER, pDevice);
+    submit_d3d_workload("CreateDescriptorHeap", MVGAL_WORKLOAD_D3D_BUFFER, pDevice, false);
 
     if (!real_D3D12Device_CreateDescriptorHeap) {
         real_D3D12Device_CreateDescriptorHeap = get_real_function("D3D12Device_CreateDescriptorHeap");
@@ -1206,7 +1261,7 @@ HRESULT WINAPI D3D12GraphicsCommandList_Reset(
 
     log_debug("D3D12GraphicsCommandList_Reset intercepted");
 
-    submit_d3d_workload("Reset", MVGAL_WORKLOAD_D3D_CONTEXT, pCommandList);
+    submit_d3d_workload("Reset", MVGAL_WORKLOAD_D3D_CONTEXT, pCommandList, false);
 
     if (!real_D3D12GraphicsCommandList_Reset) {
         real_D3D12GraphicsCommandList_Reset = get_real_function("D3D12GraphicsCommandList_Reset");
@@ -1234,7 +1289,7 @@ HRESULT WINAPI D3D12GraphicsCommandList_Close(
 
     log_debug("D3D12GraphicsCommandList_Close intercepted");
 
-    submit_d3d_workload("Close", MVGAL_WORKLOAD_D3D_CONTEXT, pCommandList);
+    submit_d3d_workload("Close", MVGAL_WORKLOAD_D3D_CONTEXT, pCommandList, false);
 
     if (!real_D3D12GraphicsCommandList_Close) {
         real_D3D12GraphicsCommandList_Close = get_real_function("D3D12GraphicsCommandList_Close");
@@ -1269,7 +1324,7 @@ HRESULT WINAPI D3D12GraphicsCommandList_DrawInstanced(
     log_debug("D3D12GraphicsCommandList_DrawInstanced intercepted (%u vertices, %u instances)",
               VertexCountPerInstance, InstanceCount);
 
-    submit_d3d_workload("DrawInstanced", MVGAL_WORKLOAD_D3D_QUEUE, pCommandList);
+    submit_d3d_workload("DrawInstanced", MVGAL_WORKLOAD_D3D_QUEUE, pCommandList, false);
 
     if (!real_D3D12GraphicsCommandList_DrawInstanced) {
         real_D3D12GraphicsCommandList_DrawInstanced = get_real_function("D3D12GraphicsCommandList_DrawInstanced");
@@ -1307,7 +1362,7 @@ HRESULT WINAPI D3D12GraphicsCommandList_DrawIndexedInstanced(
     log_debug("D3D12GraphicsCommandList_DrawIndexedInstanced intercepted (%u indices, %u instances)",
               IndexCountPerInstance, InstanceCount);
 
-    submit_d3d_workload("DrawIndexedInstanced", MVGAL_WORKLOAD_D3D_QUEUE, pCommandList);
+    submit_d3d_workload("DrawIndexedInstanced", MVGAL_WORKLOAD_D3D_QUEUE, pCommandList, false);
 
     if (!real_D3D12GraphicsCommandList_DrawIndexedInstanced) {
         real_D3D12GraphicsCommandList_DrawIndexedInstanced = get_real_function("D3D12GraphicsCommandList_DrawIndexedInstanced");
@@ -1344,7 +1399,7 @@ HRESULT WINAPI D3D12GraphicsCommandList_OMSetRenderTargets(
 
     log_debug("D3D12GraphicsCommandList_OMSetRenderTargets intercepted (%u targets)", NumRenderTargetDescriptors);
 
-    submit_d3d_workload("OMSetRenderTargets", MVGAL_WORKLOAD_D3D_TEXTURE, pCommandList);
+    submit_d3d_workload("OMSetRenderTargets", MVGAL_WORKLOAD_D3D_TEXTURE, pCommandList, false);
 
     if (!real_D3D12GraphicsCommandList_OMSetRenderTargets) {
         real_D3D12GraphicsCommandList_OMSetRenderTargets = get_real_function("D3D12GraphicsCommandList_OMSetRenderTargets");
@@ -1380,7 +1435,7 @@ HRESULT WINAPI D3D12GraphicsCommandList_ClearRenderTargetView(
 
     log_debug("D3D12GraphicsCommandList_ClearRenderTargetView intercepted");
 
-    submit_d3d_workload("ClearRenderTargetView", MVGAL_WORKLOAD_D3D_CONTEXT, pCommandList);
+    submit_d3d_workload("ClearRenderTargetView", MVGAL_WORKLOAD_D3D_CONTEXT, pCommandList, false);
 
     if (!real_D3D12GraphicsCommandList_ClearRenderTargetView) {
         real_D3D12GraphicsCommandList_ClearRenderTargetView = get_real_function("D3D12GraphicsCommandList_ClearRenderTargetView");
@@ -1415,7 +1470,7 @@ HRESULT WINAPI D3D12CommandQueue_ExecuteCommandLists(
 
     log_debug("D3D12CommandQueue_ExecuteCommandLists intercepted (%u lists)", NumCommandLists);
 
-    submit_d3d_workload("ExecuteCommandLists", MVGAL_WORKLOAD_D3D_QUEUE, pCommandQueue);
+    submit_d3d_workload("ExecuteCommandLists", MVGAL_WORKLOAD_D3D_QUEUE, pCommandQueue, false);
 
     if (!real_D3D12CommandQueue_ExecuteCommandLists) {
         real_D3D12CommandQueue_ExecuteCommandLists = get_real_function("D3D12CommandQueue_ExecuteCommandLists");
@@ -1445,7 +1500,7 @@ HRESULT WINAPI D3D12CommandQueue_Signal(
 
     log_debug("D3D12CommandQueue_Signal intercepted (value: %lu)", Value);
 
-    submit_d3d_workload("Signal", MVGAL_WORKLOAD_D3D_QUEUE, pCommandQueue);
+    submit_d3d_workload("Signal", MVGAL_WORKLOAD_D3D_QUEUE, pCommandQueue, false);
 
     if (!real_D3D12CommandQueue_Signal) {
         real_D3D12CommandQueue_Signal = get_real_function("D3D12CommandQueue_Signal");
@@ -1479,7 +1534,7 @@ HRESULT WINAPI CreateDXGIFactory2(
 
     log_debug("CreateDXGIFactory2 intercepted");
 
-    submit_d3d_workload("CreateDXGIFactory2", MVGAL_WORKLOAD_D3D_CONTEXT, NULL);
+    submit_d3d_workload("CreateDXGIFactory2", MVGAL_WORKLOAD_D3D_CONTEXT, NULL, false);
 
     if (!real_CreateDXGIFactory2) {
         real_CreateDXGIFactory2 = get_real_function("CreateDXGIFactory2");
@@ -1511,7 +1566,7 @@ HRESULT WINAPI DXGIFactory_CreateSwapChain(
     log_debug("DXGIFactory_CreateSwapChain intercepted (%ux%u)",
               pDesc ? pDesc->BufferDesc.Width : 0, pDesc ? pDesc->BufferDesc.Height : 0);
 
-    submit_d3d_workload("CreateSwapChain", MVGAL_WORKLOAD_D3D_TEXTURE, pDevice);
+    submit_d3d_workload("CreateSwapChain", MVGAL_WORKLOAD_D3D_TEXTURE, pDevice, false);
 
     if (!real_DXGIFactory_CreateSwapChain) {
         real_DXGIFactory_CreateSwapChain = get_real_function("DXGIFactory_CreateSwapChain");
@@ -1550,7 +1605,7 @@ HRESULT WINAPI DXGISwapChain_GetBuffer(
 
     log_debug("DXGISwapChain_GetBuffer intercepted (buffer: %u)", Buffer);
 
-    submit_d3d_workload("GetBuffer", MVGAL_WORKLOAD_D3D_TEXTURE, pSwapChain);
+    submit_d3d_workload("GetBuffer", MVGAL_WORKLOAD_D3D_TEXTURE, pSwapChain, false);
 
     if (!real_DXGISwapChain_GetBuffer) {
         real_DXGISwapChain_GetBuffer = get_real_function("DXGISwapChain_GetBuffer");
@@ -1580,7 +1635,7 @@ HRESULT WINAPI DXGISwapChain_Present(
 
     log_debug("DXGISwapChain_Present intercepted (sync: %u)", SyncInterval);
 
-    submit_d3d_workload("Present", MVGAL_WORKLOAD_D3D_CONTEXT, pSwapChain);
+    submit_d3d_workload("Present", MVGAL_WORKLOAD_D3D_CONTEXT, pSwapChain, true);
 
     if (!real_DXGISwapChain_Present) {
         real_DXGISwapChain_Present = get_real_function("DXGISwapChain_Present");

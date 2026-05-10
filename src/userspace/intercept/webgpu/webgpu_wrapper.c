@@ -58,12 +58,22 @@ typedef struct webgpu_encoder_mapping_t webgpu_encoder_mapping_t;
 
 #define MVGAL_WEBGPU_VERSION "0.2.0"
 
+// GPU selection strategy
+typedef enum {
+    GPU_STRATEGY_ROUND_ROBIN = 0,
+    GPU_STRATEGY_AFR,
+    GPU_STRATEGY_SINGLE,
+    GPU_STRATEGY_ALL
+} gpu_selection_strategy_t;
+
 typedef struct {
     bool enabled;
     bool debug;
     int gpu_count;
     int current_gpu;
     char strategy[64];
+    gpu_selection_strategy_t gpu_strategy;
+    uint64_t frame_counter;
     pthread_mutex_t lock;
     mvgal_context_t context;
 } webgpu_wrapper_state_t;
@@ -74,6 +84,8 @@ static webgpu_wrapper_state_t wrapper_state = {
     .gpu_count = 0,
     .current_gpu = 0,
     .strategy = "round_robin",
+    .gpu_strategy = GPU_STRATEGY_ROUND_ROBIN,
+    .frame_counter = 0,
     .lock = PTHREAD_MUTEX_INITIALIZER,
     .context = NULL
 };
@@ -426,26 +438,58 @@ static WGPUType get_device_for_webgpu_encoder(WGPUType encoder) {
     return NULL;
 }
 
+static uint32_t select_gpu_for_workload(mvgal_workload_type_t type, bool is_frame) {
+    if (wrapper_state.gpu_count <= 0) return 1U;
+
+    switch (wrapper_state.gpu_strategy) {
+        case GPU_STRATEGY_SINGLE:
+            return 1U;
+
+        case GPU_STRATEGY_ALL:
+            return (wrapper_state.gpu_count >= 32) ? 0xFFFFFFFFU : ((1U << wrapper_state.gpu_count) - 1U);
+
+        case GPU_STRATEGY_AFR:
+            if (is_frame) {
+                pthread_mutex_lock(&wrapper_state.lock);
+                int gpu = (int)(wrapper_state.frame_counter++ % wrapper_state.gpu_count);
+                pthread_mutex_unlock(&wrapper_state.lock);
+                return (1U << gpu);
+            }
+            __attribute__((fallthrough));
+
+        case GPU_STRATEGY_ROUND_ROBIN:
+        default: {
+            int gpu = get_next_gpu();
+            return (1U << gpu);
+        }
+    }
+}
+
 // Submit workload to MVGAL
-static void submit_webgpu_workload(const char *step_name, mvgal_workload_type_t type, WGPUType device) {
-    if (!wrapper_state.context) {
-        return;
+static void submit_webgpu_workload(const char *step_name, mvgal_workload_type_t type, WGPUType device, bool is_frame) {
+    if (!wrapper_state.context) return;
+
+    uint32_t gpu_mask;
+    if (device && wrapper_state.gpu_strategy == GPU_STRATEGY_ROUND_ROBIN) {
+        int gpu_id = get_gpu_for_webgpu_device(device);
+        gpu_mask = (1U << gpu_id);
+    } else {
+        gpu_mask = select_gpu_for_workload(type, is_frame);
     }
 
-    int gpu_id = get_gpu_for_webgpu_device(device);
     mvgal_workload_submit_info_t info = {
         .type = type,
         .priority = 50,
-        .gpu_mask = (1U << gpu_id),
+        .gpu_mask = gpu_mask,
         .user_data = device
     };
 
     mvgal_workload_t workload;
     mvgal_error_t err = mvgal_workload_submit(wrapper_state.context, &info, &workload);
     if (err != MVGAL_SUCCESS) {
-        log_warn("Failed to submit workload: %s (GPU %d)", step_name, gpu_id);
+        log_warn("Failed to submit WebGPU workload: %s (mask 0x%x)", step_name, gpu_mask);
     } else {
-        log_debug("Submitted workload: type=%d, step=%s, GPU=%d", type, step_name, gpu_id);
+        log_debug("Submitted WebGPU workload: type=%d, step=%s (mask 0x%x)", type, step_name, gpu_mask);
     }
 }
 
@@ -469,6 +513,15 @@ static void init_wrapper(void) {
     const char *strategy = getenv("MVGAL_WEBGPU_STRATEGY");
     if (strategy) {
         strncpy(wrapper_state.strategy, strategy, sizeof(wrapper_state.strategy) - 1);
+        if (strcmp(strategy, "afr") == 0) {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_AFR;
+        } else if (strcmp(strategy, "single") == 0) {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_SINGLE;
+        } else if (strcmp(strategy, "all") == 0) {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_ALL;
+        } else {
+            wrapper_state.gpu_strategy = GPU_STRATEGY_ROUND_ROBIN;
+        }
     }
 
     // Initialize MVGAL
@@ -533,7 +586,7 @@ WGPUType wgpuCreateInstance(const void* desc) {
 
     log_debug("wgpuCreateInstance intercepted");
 
-    submit_webgpu_workload("wgpuCreateInstance", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL);
+    submit_webgpu_workload("wgpuCreateInstance", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL, false);
 
     if (!real_wgpuCreateInstance) real_wgpuCreateInstance = get_real_function("wgpuCreateInstance");
     return real_wgpuCreateInstance ? real_wgpuCreateInstance(desc) : NULL;
@@ -549,7 +602,7 @@ void wgpuInstanceRequestAdapter(WGPUType instance, const void* options, void* ca
 
     log_debug("wgpuInstanceRequestAdapter intercepted");
 
-    submit_webgpu_workload("wgpuInstanceRequestAdapter", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL);
+    submit_webgpu_workload("wgpuInstanceRequestAdapter", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL, false);
 
     if (!real_wgpuInstanceRequestAdapter) real_wgpuInstanceRequestAdapter = get_real_function("wgpuInstanceRequestAdapter");
     if (real_wgpuInstanceRequestAdapter) real_wgpuInstanceRequestAdapter(instance, options, callback, userdata);
@@ -565,7 +618,7 @@ void wgpuAdapterRequestDevice(WGPUType adapter, const void* descriptor, void* ca
 
     log_debug("wgpuAdapterRequestDevice intercepted");
 
-    submit_webgpu_workload("wgpuAdapterRequestDevice", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL);
+    submit_webgpu_workload("wgpuAdapterRequestDevice", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL, false);
 
     if (!real_wgpuAdapterRequestDevice) real_wgpuAdapterRequestDevice = get_real_function("wgpuAdapterRequestDevice");
     if (real_wgpuAdapterRequestDevice) real_wgpuAdapterRequestDevice(adapter, descriptor, callback, userdata);
@@ -580,7 +633,7 @@ WGPUType wgpuDeviceCreateQueue(WGPUType device, const void* descriptor) {
 
     log_debug("wgpuDeviceCreateQueue intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateQueue", MVGAL_WORKLOAD_WEBGPU_QUEUE, device);
+    submit_webgpu_workload("wgpuDeviceCreateQueue", MVGAL_WORKLOAD_WEBGPU_QUEUE, device, false);
 
     if (!real_wgpuDeviceCreateQueue) real_wgpuDeviceCreateQueue = get_real_function("wgpuDeviceCreateQueue");
     if (real_wgpuDeviceCreateQueue) {
@@ -602,7 +655,7 @@ WGPUType wgpuDeviceCreateBuffer(WGPUType device, const void* descriptor) {
 
     log_debug("wgpuDeviceCreateBuffer intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateBuffer", MVGAL_WORKLOAD_WEBGPU_BUFFER, device);
+    submit_webgpu_workload("wgpuDeviceCreateBuffer", MVGAL_WORKLOAD_WEBGPU_BUFFER, device, false);
 
     if (!real_wgpuDeviceCreateBuffer) real_wgpuDeviceCreateBuffer = get_real_function("wgpuDeviceCreateBuffer");
     return real_wgpuDeviceCreateBuffer ? real_wgpuDeviceCreateBuffer(device, descriptor) : NULL;
@@ -617,7 +670,7 @@ WGPUType wgpuDeviceCreateTexture(WGPUType device, const void* descriptor) {
 
     log_debug("wgpuDeviceCreateTexture intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateTexture", MVGAL_WORKLOAD_WEBGPU_TEXTURE, device);
+    submit_webgpu_workload("wgpuDeviceCreateTexture", MVGAL_WORKLOAD_WEBGPU_TEXTURE, device, false);
 
     if (!real_wgpuDeviceCreateTexture) real_wgpuDeviceCreateTexture = get_real_function("wgpuDeviceCreateTexture");
     return real_wgpuDeviceCreateTexture ? real_wgpuDeviceCreateTexture(device, descriptor) : NULL;
@@ -632,7 +685,7 @@ WGPUType wgpuDeviceCreateShaderModule(WGPUType device, const void* descriptor) {
 
     log_debug("wgpuDeviceCreateShaderModule intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateShaderModule", MVGAL_WORKLOAD_WEBGPU_SHADER, device);
+    submit_webgpu_workload("wgpuDeviceCreateShaderModule", MVGAL_WORKLOAD_WEBGPU_SHADER, device, false);
 
     if (!real_wgpuDeviceCreateShaderModule) real_wgpuDeviceCreateShaderModule = get_real_function("wgpuDeviceCreateShaderModule");
     return real_wgpuDeviceCreateShaderModule ? real_wgpuDeviceCreateShaderModule(device, descriptor) : NULL;
@@ -647,7 +700,7 @@ WGPUType wgpuDeviceCreateBindGroupLayout(WGPUType device, const void* descriptor
 
     log_debug("wgpuDeviceCreateBindGroupLayout intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateBindGroupLayout", MVGAL_WORKLOAD_WEBGPU_BINDGROUP_LAYOUT, device);
+    submit_webgpu_workload("wgpuDeviceCreateBindGroupLayout", MVGAL_WORKLOAD_WEBGPU_BINDGROUP_LAYOUT, device, false);
 
     if (!real_wgpuDeviceCreateBindGroupLayout) real_wgpuDeviceCreateBindGroupLayout = get_real_function("wgpuDeviceCreateBindGroupLayout");
     return real_wgpuDeviceCreateBindGroupLayout ? real_wgpuDeviceCreateBindGroupLayout(device, descriptor) : NULL;
@@ -662,7 +715,7 @@ WGPUType wgpuDeviceCreatePipelineLayout(WGPUType device, const void* descriptor)
 
     log_debug("wgpuDeviceCreatePipelineLayout intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreatePipelineLayout", MVGAL_WORKLOAD_WEBGPU_PIPELINE_LAYOUT, device);
+    submit_webgpu_workload("wgpuDeviceCreatePipelineLayout", MVGAL_WORKLOAD_WEBGPU_PIPELINE_LAYOUT, device, false);
 
     if (!real_wgpuDeviceCreatePipelineLayout) real_wgpuDeviceCreatePipelineLayout = get_real_function("wgpuDeviceCreatePipelineLayout");
     return real_wgpuDeviceCreatePipelineLayout ? real_wgpuDeviceCreatePipelineLayout(device, descriptor) : NULL;
@@ -677,7 +730,7 @@ WGPUType wgpuDeviceCreateRenderPipeline(WGPUType device, const void* descriptor)
 
     log_debug("wgpuDeviceCreateRenderPipeline intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateRenderPipeline", MVGAL_WORKLOAD_WEBGPU_RENDER, device);
+    submit_webgpu_workload("wgpuDeviceCreateRenderPipeline", MVGAL_WORKLOAD_WEBGPU_RENDER, device, false);
 
     if (!real_wgpuDeviceCreateRenderPipeline) real_wgpuDeviceCreateRenderPipeline = get_real_function("wgpuDeviceCreateRenderPipeline");
     return real_wgpuDeviceCreateRenderPipeline ? real_wgpuDeviceCreateRenderPipeline(device, descriptor) : NULL;
@@ -692,7 +745,7 @@ WGPUType wgpuDeviceCreateComputePipeline(WGPUType device, const void* descriptor
 
     log_debug("wgpuDeviceCreateComputePipeline intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateComputePipeline", MVGAL_WORKLOAD_WEBGPU_COMPUTE, device);
+    submit_webgpu_workload("wgpuDeviceCreateComputePipeline", MVGAL_WORKLOAD_WEBGPU_COMPUTE, device, false);
 
     if (!real_wgpuDeviceCreateComputePipeline) real_wgpuDeviceCreateComputePipeline = get_real_function("wgpuDeviceCreateComputePipeline");
     return real_wgpuDeviceCreateComputePipeline ? real_wgpuDeviceCreateComputePipeline(device, descriptor) : NULL;
@@ -707,7 +760,7 @@ WGPUType wgpuDeviceCreateCommandEncoder(WGPUType device, const void* descriptor)
 
     log_debug("wgpuDeviceCreateCommandEncoder intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateCommandEncoder", MVGAL_WORKLOAD_WEBGPU_COMMAND, device);
+    submit_webgpu_workload("wgpuDeviceCreateCommandEncoder", MVGAL_WORKLOAD_WEBGPU_COMMAND, device, false);
 
     if (!real_wgpuDeviceCreateCommandEncoder) real_wgpuDeviceCreateCommandEncoder = get_real_function("wgpuDeviceCreateCommandEncoder");
     if (real_wgpuDeviceCreateCommandEncoder) {
@@ -731,7 +784,7 @@ void wgpuCommandEncoderBeginRenderPass(WGPUType encoder, const void* descriptor)
     log_debug("wgpuCommandEncoderBeginRenderPass intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuCommandEncoderBeginRenderPass", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device);
+    submit_webgpu_workload("wgpuCommandEncoderBeginRenderPass", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device, false);
 
     if (!real_wgpuCommandEncoderBeginRenderPass) real_wgpuCommandEncoderBeginRenderPass = get_real_function("wgpuCommandEncoderBeginRenderPass");
     if (real_wgpuCommandEncoderBeginRenderPass) real_wgpuCommandEncoderBeginRenderPass(encoder, descriptor);
@@ -748,7 +801,7 @@ void wgpuCommandEncoderBeginComputePass(WGPUType encoder, const void* descriptor
     log_debug("wgpuCommandEncoderBeginComputePass intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuCommandEncoderBeginComputePass", MVGAL_WORKLOAD_WEBGPU_COMPUTE_PASS, device);
+    submit_webgpu_workload("wgpuCommandEncoderBeginComputePass", MVGAL_WORKLOAD_WEBGPU_COMPUTE_PASS, device, false);
 
     if (!real_wgpuCommandEncoderBeginComputePass) real_wgpuCommandEncoderBeginComputePass = get_real_function("wgpuCommandEncoderBeginComputePass");
     if (real_wgpuCommandEncoderBeginComputePass) real_wgpuCommandEncoderBeginComputePass(encoder, descriptor);
@@ -765,7 +818,7 @@ void wgpuRenderPassEncoderEnd(WGPUType encoder) {
     log_debug("wgpuRenderPassEncoderEnd intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuRenderPassEncoderEnd", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device);
+    submit_webgpu_workload("wgpuRenderPassEncoderEnd", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device, false);
 
     if (!real_wgpuRenderPassEncoderEnd) real_wgpuRenderPassEncoderEnd = get_real_function("wgpuRenderPassEncoderEnd");
     if (real_wgpuRenderPassEncoderEnd) real_wgpuRenderPassEncoderEnd(encoder);
@@ -782,7 +835,7 @@ void wgpuComputePassEncoderEnd(WGPUType encoder) {
     log_debug("wgpuComputePassEncoderEnd intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuComputePassEncoderEnd", MVGAL_WORKLOAD_WEBGPU_COMPUTE_PASS, device);
+    submit_webgpu_workload("wgpuComputePassEncoderEnd", MVGAL_WORKLOAD_WEBGPU_COMPUTE_PASS, device, false);
 
     if (!real_wgpuComputePassEncoderEnd) real_wgpuComputePassEncoderEnd = get_real_function("wgpuComputePassEncoderEnd");
     if (real_wgpuComputePassEncoderEnd) real_wgpuComputePassEncoderEnd(encoder);
@@ -798,7 +851,7 @@ WGPUType wgpuCommandEncoderFinish(WGPUType encoder, const void* descriptor) {
     log_debug("wgpuCommandEncoderFinish intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuCommandEncoderFinish", MVGAL_WORKLOAD_WEBGPU_COMMAND, device);
+    submit_webgpu_workload("wgpuCommandEncoderFinish", MVGAL_WORKLOAD_WEBGPU_COMMAND, device, false);
 
     if (!real_wgpuCommandEncoderFinish) real_wgpuCommandEncoderFinish = get_real_function("wgpuCommandEncoderFinish");
     return real_wgpuCommandEncoderFinish ? real_wgpuCommandEncoderFinish(encoder, descriptor) : NULL;
@@ -815,7 +868,7 @@ void wgpuQueueSubmit(WGPUType queue, unsigned int count, const void* commands, v
     log_debug("wgpuQueueSubmit intercepted (count: %u)", count);
 
     WGPUType device = get_device_for_webgpu_queue(queue);
-    submit_webgpu_workload("wgpuQueueSubmit", MVGAL_WORKLOAD_WEBGPU_SUBMIT, device);
+    submit_webgpu_workload("wgpuQueueSubmit", MVGAL_WORKLOAD_WEBGPU_SUBMIT, device, false);
 
     if (!real_wgpuQueueSubmit) real_wgpuQueueSubmit = get_real_function("wgpuQueueSubmit");
     if (real_wgpuQueueSubmit) real_wgpuQueueSubmit(queue, count, commands, semaphore);
@@ -835,7 +888,7 @@ void wgpuInstanceEnumerateAdapters(WGPUType instance, const void* options, void*
 
     log_debug("wgpuInstanceEnumerateAdapters intercepted");
 
-    submit_webgpu_workload("wgpuInstanceEnumerateAdapters", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL);
+    submit_webgpu_workload("wgpuInstanceEnumerateAdapters", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL, false);
 
     if (!real_wgpuInstanceEnumerateAdapters) real_wgpuInstanceEnumerateAdapters = get_real_function("wgpuInstanceEnumerateAdapters");
     if (real_wgpuInstanceEnumerateAdapters) real_wgpuInstanceEnumerateAdapters(instance, options, callback);
@@ -851,7 +904,7 @@ void wgpuAdapterGetLimits(WGPUType adapter, void* limits) {
 
     log_debug("wgpuAdapterGetLimits intercepted");
 
-    submit_webgpu_workload("wgpuAdapterGetLimits", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL);
+    submit_webgpu_workload("wgpuAdapterGetLimits", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL, false);
 
     if (!real_wgpuAdapterGetLimits) real_wgpuAdapterGetLimits = get_real_function("wgpuAdapterGetLimits");
     if (real_wgpuAdapterGetLimits) real_wgpuAdapterGetLimits(adapter, limits);
@@ -867,7 +920,7 @@ void wgpuAdapterGetProperties(WGPUType adapter, void* properties) {
 
     log_debug("wgpuAdapterGetProperties intercepted");
 
-    submit_webgpu_workload("wgpuAdapterGetProperties", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL);
+    submit_webgpu_workload("wgpuAdapterGetProperties", MVGAL_WORKLOAD_WEBGPU_COMMAND, NULL, false);
 
     if (!real_wgpuAdapterGetProperties) real_wgpuAdapterGetProperties = get_real_function("wgpuAdapterGetProperties");
     if (real_wgpuAdapterGetProperties) real_wgpuAdapterGetProperties(adapter, properties);
@@ -882,7 +935,7 @@ WGPUType wgpuDeviceCreateBindGroup(WGPUType device, const void* descriptor) {
 
     log_debug("wgpuDeviceCreateBindGroup intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateBindGroup", MVGAL_WORKLOAD_WEBGPU_BINDGROUP_LAYOUT, device);
+    submit_webgpu_workload("wgpuDeviceCreateBindGroup", MVGAL_WORKLOAD_WEBGPU_BINDGROUP_LAYOUT, device, false);
 
     if (!real_wgpuDeviceCreateBindGroup) real_wgpuDeviceCreateBindGroup = get_real_function("wgpuDeviceCreateBindGroup");
     return real_wgpuDeviceCreateBindGroup ? real_wgpuDeviceCreateBindGroup(device, descriptor) : NULL;
@@ -897,7 +950,7 @@ WGPUType wgpuDeviceCreateSampler(WGPUType device, const void* descriptor) {
 
     log_debug("wgpuDeviceCreateSampler intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateSampler", MVGAL_WORKLOAD_WEBGPU_TEXTURE, device);
+    submit_webgpu_workload("wgpuDeviceCreateSampler", MVGAL_WORKLOAD_WEBGPU_TEXTURE, device, false);
 
     if (!real_wgpuDeviceCreateSampler) real_wgpuDeviceCreateSampler = get_real_function("wgpuDeviceCreateSampler");
     return real_wgpuDeviceCreateSampler ? real_wgpuDeviceCreateSampler(device, descriptor) : NULL;
@@ -912,7 +965,7 @@ WGPUType wgpuDeviceCreateQuerySet(WGPUType device, const void* descriptor) {
 
     log_debug("wgpuDeviceCreateQuerySet intercepted");
 
-    submit_webgpu_workload("wgpuDeviceCreateQuerySet", MVGAL_WORKLOAD_WEBGPU_COMMAND, device);
+    submit_webgpu_workload("wgpuDeviceCreateQuerySet", MVGAL_WORKLOAD_WEBGPU_COMMAND, device, false);
 
     if (!real_wgpuDeviceCreateQuerySet) real_wgpuDeviceCreateQuerySet = get_real_function("wgpuDeviceCreateQuerySet");
     return real_wgpuDeviceCreateQuerySet ? real_wgpuDeviceCreateQuerySet(device, descriptor) : NULL;
@@ -928,7 +981,7 @@ void wgpuDeviceDestroy(WGPUType device) {
 
     log_debug("wgpuDeviceDestroy intercepted");
 
-    submit_webgpu_workload("wgpuDeviceDestroy", MVGAL_WORKLOAD_WEBGPU_COMMAND, device);
+    submit_webgpu_workload("wgpuDeviceDestroy", MVGAL_WORKLOAD_WEBGPU_COMMAND, device, false);
 
     if (!real_wgpuDeviceDestroy) real_wgpuDeviceDestroy = get_real_function("wgpuDeviceDestroy");
     if (real_wgpuDeviceDestroy) real_wgpuDeviceDestroy(device);
@@ -946,7 +999,7 @@ void wgpuDeviceGetLimits(WGPUType device, void* limits) {
 
     log_debug("wgpuDeviceGetLimits intercepted");
 
-    submit_webgpu_workload("wgpuDeviceGetLimits", MVGAL_WORKLOAD_WEBGPU_COMMAND, device);
+    submit_webgpu_workload("wgpuDeviceGetLimits", MVGAL_WORKLOAD_WEBGPU_COMMAND, device, false);
 
     if (!real_wgpuDeviceGetLimits) real_wgpuDeviceGetLimits = get_real_function("wgpuDeviceGetLimits");
     if (real_wgpuDeviceGetLimits) real_wgpuDeviceGetLimits(device, limits);
@@ -961,7 +1014,7 @@ bool wgpuDeviceHasFeature(WGPUType device, uint32_t feature) {
 
     log_debug("wgpuDeviceHasFeature intercepted");
 
-    submit_webgpu_workload("wgpuDeviceHasFeature", MVGAL_WORKLOAD_WEBGPU_COMMAND, device);
+    submit_webgpu_workload("wgpuDeviceHasFeature", MVGAL_WORKLOAD_WEBGPU_COMMAND, device, false);
 
     if (!real_wgpuDeviceHasFeature) real_wgpuDeviceHasFeature = get_real_function("wgpuDeviceHasFeature");
     return real_wgpuDeviceHasFeature ? real_wgpuDeviceHasFeature(device, feature) : false;
@@ -978,7 +1031,7 @@ void wgpuQueueWriteBuffer(WGPUType queue, WGPUType buffer, uint64_t buffer_offse
     log_debug("wgpuQueueWriteBuffer intercepted (size: %zu)", size);
 
     WGPUType device = get_device_for_webgpu_queue(queue);
-    submit_webgpu_workload("wgpuQueueWriteBuffer", MVGAL_WORKLOAD_WEBGPU_BUFFER, device);
+    submit_webgpu_workload("wgpuQueueWriteBuffer", MVGAL_WORKLOAD_WEBGPU_BUFFER, device, false);
 
     if (!real_wgpuQueueWriteBuffer) real_wgpuQueueWriteBuffer = get_real_function("wgpuQueueWriteBuffer");
     if (real_wgpuQueueWriteBuffer) real_wgpuQueueWriteBuffer(queue, buffer, buffer_offset, data, size);
@@ -995,7 +1048,7 @@ void wgpuQueueWriteTexture(WGPUType queue, const void* destination, const void* 
     log_debug("wgpuQueueWriteTexture intercepted (size: %zu)", data_size);
 
     WGPUType device = get_device_for_webgpu_queue(queue);
-    submit_webgpu_workload("wgpuQueueWriteTexture", MVGAL_WORKLOAD_WEBGPU_TEXTURE, device);
+    submit_webgpu_workload("wgpuQueueWriteTexture", MVGAL_WORKLOAD_WEBGPU_TEXTURE, device, false);
 
     if (!real_wgpuQueueWriteTexture) real_wgpuQueueWriteTexture = get_real_function("wgpuQueueWriteTexture");
     if (real_wgpuQueueWriteTexture) real_wgpuQueueWriteTexture(queue, destination, data, data_size, data_layout, write_size);
@@ -1012,7 +1065,7 @@ void wgpuQueueCopyExternalImage(WGPUType queue, const void* source, const void* 
     log_debug("wgpuQueueCopyExternalImage intercepted");
 
     WGPUType device = get_device_for_webgpu_queue(queue);
-    submit_webgpu_workload("wgpuQueueCopyExternalImage", MVGAL_WORKLOAD_WEBGPU_TEXTURE, device);
+    submit_webgpu_workload("wgpuQueueCopyExternalImage", MVGAL_WORKLOAD_WEBGPU_TEXTURE, device, false);
 
     if (!real_wgpuQueueCopyExternalImage) real_wgpuQueueCopyExternalImage = get_real_function("wgpuQueueCopyExternalImage");
     if (real_wgpuQueueCopyExternalImage) real_wgpuQueueCopyExternalImage(queue, source, source_origin, destination, copy_size, copy_level);
@@ -1028,7 +1081,7 @@ WGPUType wgpuCommandEncoderBeginBlitPass(WGPUType encoder, const void* descripto
     log_debug("wgpuCommandEncoderBeginBlitPass intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuCommandEncoderBeginBlitPass", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device);
+    submit_webgpu_workload("wgpuCommandEncoderBeginBlitPass", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device, false);
 
     if (!real_wgpuCommandEncoderBeginBlitPass) real_wgpuCommandEncoderBeginBlitPass = get_real_function("wgpuCommandEncoderBeginBlitPass");
     return real_wgpuCommandEncoderBeginBlitPass ? real_wgpuCommandEncoderBeginBlitPass(encoder, descriptor) : NULL;
@@ -1045,7 +1098,7 @@ void wgpuCommandEncoderCopyBufferToBuffer(WGPUType encoder, WGPUType source, uin
     log_debug("wgpuCommandEncoderCopyBufferToBuffer intercepted (size: %" PRIu64 ")", size);
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuCommandEncoderCopyBufferToBuffer", MVGAL_WORKLOAD_TRANSFER, device);
+    submit_webgpu_workload("wgpuCommandEncoderCopyBufferToBuffer", MVGAL_WORKLOAD_TRANSFER, device, false);
 
     if (!real_wgpuCommandEncoderCopyBufferToBuffer) real_wgpuCommandEncoderCopyBufferToBuffer = get_real_function("wgpuCommandEncoderCopyBufferToBuffer");
     if (real_wgpuCommandEncoderCopyBufferToBuffer) real_wgpuCommandEncoderCopyBufferToBuffer(encoder, source, source_offset, destination, destination_offset, size);
@@ -1062,7 +1115,7 @@ void wgpuCommandEncoderCopyBufferToTexture(WGPUType encoder, const void* source,
     log_debug("wgpuCommandEncoderCopyBufferToTexture intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuCommandEncoderCopyBufferToTexture", MVGAL_WORKLOAD_TRANSFER, device);
+    submit_webgpu_workload("wgpuCommandEncoderCopyBufferToTexture", MVGAL_WORKLOAD_TRANSFER, device, false);
 
     if (!real_wgpuCommandEncoderCopyBufferToTexture) real_wgpuCommandEncoderCopyBufferToTexture = get_real_function("wgpuCommandEncoderCopyBufferToTexture");
     if (real_wgpuCommandEncoderCopyBufferToTexture) real_wgpuCommandEncoderCopyBufferToTexture(encoder, source, destination, copy_size);
@@ -1079,7 +1132,7 @@ void wgpuCommandEncoderCopyTextureToBuffer(WGPUType encoder, const void* source,
     log_debug("wgpuCommandEncoderCopyTextureToBuffer intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuCommandEncoderCopyTextureToBuffer", MVGAL_WORKLOAD_TRANSFER, device);
+    submit_webgpu_workload("wgpuCommandEncoderCopyTextureToBuffer", MVGAL_WORKLOAD_TRANSFER, device, false);
 
     if (!real_wgpuCommandEncoderCopyTextureToBuffer) real_wgpuCommandEncoderCopyTextureToBuffer = get_real_function("wgpuCommandEncoderCopyTextureToBuffer");
     if (real_wgpuCommandEncoderCopyTextureToBuffer) real_wgpuCommandEncoderCopyTextureToBuffer(encoder, source, destination, copy_size);
@@ -1096,7 +1149,7 @@ void wgpuCommandEncoderCopyTextureToTexture(WGPUType encoder, const void* source
     log_debug("wgpuCommandEncoderCopyTextureToTexture intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuCommandEncoderCopyTextureToTexture", MVGAL_WORKLOAD_TRANSFER, device);
+    submit_webgpu_workload("wgpuCommandEncoderCopyTextureToTexture", MVGAL_WORKLOAD_TRANSFER, device, false);
 
     if (!real_wgpuCommandEncoderCopyTextureToTexture) real_wgpuCommandEncoderCopyTextureToTexture = get_real_function("wgpuCommandEncoderCopyTextureToTexture");
     if (real_wgpuCommandEncoderCopyTextureToTexture) real_wgpuCommandEncoderCopyTextureToTexture(encoder, source, destination, copy_size);
@@ -1113,7 +1166,7 @@ void wgpuRenderPassEncoderSetBindGroup(WGPUType encoder, uint32_t group_index, W
     log_debug("wgpuRenderPassEncoderSetBindGroup intercepted (group: %u)", group_index);
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuRenderPassEncoderSetBindGroup", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device);
+    submit_webgpu_workload("wgpuRenderPassEncoderSetBindGroup", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device, false);
 
     if (!real_wgpuRenderPassEncoderSetBindGroup) real_wgpuRenderPassEncoderSetBindGroup = get_real_function("wgpuRenderPassEncoderSetBindGroup");
     if (real_wgpuRenderPassEncoderSetBindGroup) real_wgpuRenderPassEncoderSetBindGroup(encoder, group_index, group, dynamic_offset_count, dynamic_offsets);
@@ -1130,7 +1183,7 @@ void wgpuRenderPassEncoderSetIndexBuffer(WGPUType encoder, WGPUType buffer, uint
     log_debug("wgpuRenderPassEncoderSetIndexBuffer intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuRenderPassEncoderSetIndexBuffer", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device);
+    submit_webgpu_workload("wgpuRenderPassEncoderSetIndexBuffer", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device, false);
 
     if (!real_wgpuRenderPassEncoderSetIndexBuffer) real_wgpuRenderPassEncoderSetIndexBuffer = get_real_function("wgpuRenderPassEncoderSetIndexBuffer");
     if (real_wgpuRenderPassEncoderSetIndexBuffer) real_wgpuRenderPassEncoderSetIndexBuffer(encoder, buffer, format, offset, size);
@@ -1147,7 +1200,7 @@ void wgpuRenderPassEncoderSetPipeline(WGPUType encoder, WGPUType pipeline) {
     log_debug("wgpuRenderPassEncoderSetPipeline intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuRenderPassEncoderSetPipeline", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device);
+    submit_webgpu_workload("wgpuRenderPassEncoderSetPipeline", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device, false);
 
     if (!real_wgpuRenderPassEncoderSetPipeline) real_wgpuRenderPassEncoderSetPipeline = get_real_function("wgpuRenderPassEncoderSetPipeline");
     if (real_wgpuRenderPassEncoderSetPipeline) real_wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
@@ -1164,7 +1217,7 @@ void wgpuRenderPassEncoderSetVertexBuffer(WGPUType encoder, uint32_t slot, WGPUT
     log_debug("wgpuRenderPassEncoderSetVertexBuffer intercepted (slot: %u)", slot);
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuRenderPassEncoderSetVertexBuffer", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device);
+    submit_webgpu_workload("wgpuRenderPassEncoderSetVertexBuffer", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device, false);
 
     if (!real_wgpuRenderPassEncoderSetVertexBuffer) real_wgpuRenderPassEncoderSetVertexBuffer = get_real_function("wgpuRenderPassEncoderSetVertexBuffer");
     if (real_wgpuRenderPassEncoderSetVertexBuffer) real_wgpuRenderPassEncoderSetVertexBuffer(encoder, slot, buffer, offset, size);
@@ -1181,7 +1234,7 @@ void wgpuRenderPassEncoderDraw(WGPUType encoder, uint32_t vertex_count, uint32_t
     log_debug("wgpuRenderPassEncoderDraw intercepted (vertices: %u, instances: %u)", vertex_count, instance_count);
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuRenderPassEncoderDraw", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device);
+    submit_webgpu_workload("wgpuRenderPassEncoderDraw", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device, false);
 
     if (!real_wgpuRenderPassEncoderDraw) real_wgpuRenderPassEncoderDraw = get_real_function("wgpuRenderPassEncoderDraw");
     if (real_wgpuRenderPassEncoderDraw) real_wgpuRenderPassEncoderDraw(encoder, vertex_count, instance_count, first_vertex, first_instance);
@@ -1198,7 +1251,7 @@ void wgpuRenderPassEncoderDrawIndexed(WGPUType encoder, uint32_t index_count, ui
     log_debug("wgpuRenderPassEncoderDrawIndexed intercepted (indices: %u, instances: %u)", index_count, instance_count);
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuRenderPassEncoderDrawIndexed", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device);
+    submit_webgpu_workload("wgpuRenderPassEncoderDrawIndexed", MVGAL_WORKLOAD_WEBGPU_RENDER_PASS, device, false);
 
     if (!real_wgpuRenderPassEncoderDrawIndexed) real_wgpuRenderPassEncoderDrawIndexed = get_real_function("wgpuRenderPassEncoderDrawIndexed");
     if (real_wgpuRenderPassEncoderDrawIndexed) real_wgpuRenderPassEncoderDrawIndexed(encoder, index_count, instance_count, first_index, base_vertex, first_instance);
@@ -1215,7 +1268,7 @@ void wgpuComputePassEncoderSetPipeline(WGPUType encoder, WGPUType pipeline) {
     log_debug("wgpuComputePassEncoderSetPipeline intercepted");
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuComputePassEncoderSetPipeline", MVGAL_WORKLOAD_WEBGPU_COMPUTE_PASS, device);
+    submit_webgpu_workload("wgpuComputePassEncoderSetPipeline", MVGAL_WORKLOAD_WEBGPU_COMPUTE_PASS, device, false);
 
     if (!real_wgpuComputePassEncoderSetPipeline) real_wgpuComputePassEncoderSetPipeline = get_real_function("wgpuComputePassEncoderSetPipeline");
     if (real_wgpuComputePassEncoderSetPipeline) real_wgpuComputePassEncoderSetPipeline(encoder, pipeline);
@@ -1232,7 +1285,7 @@ void wgpuComputePassEncoderSetBindGroup(WGPUType encoder, uint32_t group_index, 
     log_debug("wgpuComputePassEncoderSetBindGroup intercepted (group: %u)", group_index);
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuComputePassEncoderSetBindGroup", MVGAL_WORKLOAD_WEBGPU_COMPUTE_PASS, device);
+    submit_webgpu_workload("wgpuComputePassEncoderSetBindGroup", MVGAL_WORKLOAD_WEBGPU_COMPUTE_PASS, device, false);
 
     if (!real_wgpuComputePassEncoderSetBindGroup) real_wgpuComputePassEncoderSetBindGroup = get_real_function("wgpuComputePassEncoderSetBindGroup");
     if (real_wgpuComputePassEncoderSetBindGroup) real_wgpuComputePassEncoderSetBindGroup(encoder, group_index, group, dynamic_offset_count, dynamic_offsets);
@@ -1249,7 +1302,7 @@ void wgpuComputePassEncoderDispatchWorkgroups(WGPUType encoder, uint32_t workgro
     log_debug("wgpuComputePassEncoderDispatchWorkgroups intercepted (x: %u, y: %u, z: %u)", workgroup_count_x, workgroup_count_y, workgroup_count_z);
 
     WGPUType device = get_device_for_webgpu_encoder(encoder);
-    submit_webgpu_workload("wgpuComputePassEncoderDispatchWorkgroups", MVGAL_WORKLOAD_WEBGPU_COMPUTE_PASS, device);
+    submit_webgpu_workload("wgpuComputePassEncoderDispatchWorkgroups", MVGAL_WORKLOAD_WEBGPU_COMPUTE_PASS, device, false);
 
     if (!real_wgpuComputePassEncoderDispatchWorkgroups) real_wgpuComputePassEncoderDispatchWorkgroups = get_real_function("wgpuComputePassEncoderDispatchWorkgroups");
     if (real_wgpuComputePassEncoderDispatchWorkgroups) real_wgpuComputePassEncoderDispatchWorkgroups(encoder, workgroup_count_x, workgroup_count_y, workgroup_count_z);
