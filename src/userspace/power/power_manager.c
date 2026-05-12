@@ -27,10 +27,10 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <linux/pm_runtime.h>
 
 #include "mvgal/mvgal.h"
 #include "mvgal/mvgal_gpu.h"
+#include "mvgal/mvgal_power.h"
 
 /* ============================================================================
  * Power Management Constants
@@ -44,6 +44,7 @@
 #define IDLE_THRESHOLD_MS_DEFAULT       5000    /* 5 seconds */
 #define IDLE_THRESHOLD_MS_MIN           1000    /* 1 second */
 #define IDLE_THRESHOLD_MS_MAX           60000   /* 60 seconds */
+#define IDLE_UTIL_THRESHOLD_DEFAULT     1.0f    /* 1% utilization */
 
 /* S0ix entry/exit delays */
 #define S0IX_ENTRY_DELAY_MS             100     /* Delay before S0ix entry */
@@ -60,7 +61,6 @@
 
 /* Power state strings */
 static const char *power_state_names[] = {
-    [MVGAL_POWER_STATE_UNKNOWN]     = "unknown",
     [MVGAL_POWER_STATE_OFF]         = "off",
     [MVGAL_POWER_STATE_SUSPEND]     = "suspend",
     [MVGAL_POWER_STATE_IDLE]        = "idle",
@@ -707,7 +707,7 @@ mvgal_error_t mvgal_pm_init(const mvgal_pm_config_t *config) {
     
     /* Initialize mutex */
     if (pthread_mutex_init(&g_pm.lock, NULL) != 0) {
-        return MVGAL_ERROR_SYSTEM;
+        return MVGAL_ERROR_INITIALIZATION;
     }
     
     /* Allocate GPU state array */
@@ -789,33 +789,37 @@ mvgal_error_t mvgal_pm_start_monitor(void) {
     }
     
     if (g_pm.monitor_running) {
-        return MVGAL_ERROR_ALREADY_RUNNING;
+        return MVGAL_ERROR_BUSY;
     }
     
     g_pm.monitor_running = true;
     
     if (pthread_create(&g_pm.monitor_thread, NULL, power_monitor_thread, NULL) != 0) {
         g_pm.monitor_running = false;
-        return MVGAL_ERROR_SYSTEM;
+        return MVGAL_ERROR_INITIALIZATION;
     }
-    
-    mvgal_log_info("Power monitor started");
     
     return MVGAL_SUCCESS;
 }
 
 mvgal_error_t mvgal_pm_stop_monitor(void) {
-    if (!g_pm.initialized || !g_pm.monitor_running) {
-        return MVGAL_ERROR_NOT_RUNNING;
+    if (!g_pm.initialized) {
+        return MVGAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    if (!g_pm.monitor_running) {
+        return MVGAL_ERROR_NOT_FOUND;
     }
     
     g_pm.monitor_running = false;
     pthread_join(g_pm.monitor_thread, NULL);
     
-    mvgal_log_info("Power monitor stopped");
-    
     return MVGAL_SUCCESS;
 }
+
+/* ============================================================================
+ * GPU Power Control
+ * ============================================================================ */
 
 mvgal_error_t mvgal_pm_set_gpu_state(uint32_t gpu_index, mvgal_power_state_t state) {
     if (!g_pm.initialized) {
@@ -823,48 +827,45 @@ mvgal_error_t mvgal_pm_set_gpu_state(uint32_t gpu_index, mvgal_power_state_t sta
     }
     
     if (gpu_index >= g_pm.gpu_count) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_pm.lock);
     
-    mvgal_gpu_pm_state_t *pm_state = &g_pm.gpu_states[gpu_index];
-    pm_state->requested_state = state;
+    mvgal_gpu_pm_state_t *gpu_state = &g_pm.gpu_states[gpu_index];
+    gpu_state->requested_state = state;
     
     int ret = 0;
-    
     switch (state) {
         case MVGAL_POWER_STATE_OFF:
+            /* Not fully supported in userspace yet */
+            ret = suspend_gpu(gpu_index);
+            break;
         case MVGAL_POWER_STATE_SUSPEND:
             ret = suspend_gpu(gpu_index);
             break;
-            
+        case MVGAL_POWER_STATE_IDLE:
         case MVGAL_POWER_STATE_ON:
         case MVGAL_POWER_STATE_PERFORMANCE:
             ret = resume_gpu(gpu_index);
             break;
-            
-        case MVGAL_POWER_STATE_IDLE:
-            pm_state->is_idle = true;
-            break;
-            
         default:
-            pthread_mutex_unlock(&g_pm.lock);
-            return MVGAL_ERROR_INVALID_PARAMETER;
+            ret = -EINVAL;
+            break;
     }
     
     pthread_mutex_unlock(&g_pm.lock);
     
-    return (ret == 0) ? MVGAL_SUCCESS : MVGAL_ERROR_SYSTEM;
+    return ret == 0 ? MVGAL_SUCCESS : MVGAL_ERROR_INITIALIZATION;
 }
 
 mvgal_error_t mvgal_pm_get_gpu_state(uint32_t gpu_index, mvgal_power_state_t *state) {
     if (!g_pm.initialized || !state) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     if (gpu_index >= g_pm.gpu_count) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_pm.lock);
@@ -874,9 +875,105 @@ mvgal_error_t mvgal_pm_get_gpu_state(uint32_t gpu_index, mvgal_power_state_t *st
     return MVGAL_SUCCESS;
 }
 
+mvgal_error_t mvgal_pm_get_gpu_stats(uint32_t gpu_index, mvgal_gpu_power_status_t *status) {
+    if (!g_pm.initialized || !status) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+    
+    if (gpu_index >= g_pm.gpu_count) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+    
+    pthread_mutex_lock(&g_pm.lock);
+    mvgal_gpu_pm_state_t *state = &g_pm.gpu_states[gpu_index];
+    
+    status->current_state = state->current_state;
+    status->requested_state = state->requested_state;
+    status->is_idle = state->is_idle;
+    status->is_parked = state->is_parked;
+    status->is_throttled = state->is_throttled;
+    status->current_temp = state->current_temp;
+    status->current_power_w = state->current_power_w;
+    status->throttle_reason = state->throttle_reason;
+    status->s0ix_capable = state->s0ix_capable;
+    status->s0ix_enabled = state->s0ix_enabled;
+    status->s0ix_time_total_ns = state->s0ix_time_ns;
+    
+    pthread_mutex_unlock(&g_pm.lock);
+    
+    return MVGAL_SUCCESS;
+}
+
+mvgal_error_t mvgal_pm_set_auto_pm(uint32_t gpu_index, bool enable) {
+    if (!g_pm.initialized) {
+        return MVGAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    if (gpu_index >= g_pm.gpu_count) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+    
+    pthread_mutex_lock(&g_pm.lock);
+    g_pm.gpu_states[gpu_index].auto_power_manage = enable;
+    pthread_mutex_unlock(&g_pm.lock);
+    
+    return MVGAL_SUCCESS;
+}
+
+/* ============================================================================
+ * S0ix (Suspend-to-Idle) Control
+ * ============================================================================ */
+
+bool mvgal_pm_s0ix_available(void) {
+    return check_s0ix_support();
+}
+
+mvgal_error_t mvgal_pm_set_s0ix_enabled(bool enable) {
+    if (!g_pm.initialized) {
+        return MVGAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    pthread_mutex_lock(&g_pm.lock);
+    g_pm.s0ix_enabled = enable;
+    
+    /* Update per-GPU s0ix enablement */
+    for (uint32_t i = 0; i < g_pm.gpu_count; i++) {
+        if (g_pm.gpu_states[i].s0ix_capable) {
+            g_pm.gpu_states[i].s0ix_enabled = enable;
+        }
+    }
+    pthread_mutex_unlock(&g_pm.lock);
+    
+    return MVGAL_SUCCESS;
+}
+
+mvgal_error_t mvgal_pm_enter_s0ix(void) {
+    if (!g_pm.initialized) {
+        return MVGAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    pthread_mutex_lock(&g_pm.lock);
+    int ret = enter_s0ix();
+    pthread_mutex_unlock(&g_pm.lock);
+    
+    return ret == 0 ? MVGAL_SUCCESS : MVGAL_ERROR_INITIALIZATION;
+}
+
+mvgal_error_t mvgal_pm_exit_s0ix(void) {
+    if (!g_pm.initialized) {
+        return MVGAL_ERROR_NOT_INITIALIZED;
+    }
+    
+    pthread_mutex_lock(&g_pm.lock);
+    int ret = exit_s0ix();
+    pthread_mutex_unlock(&g_pm.lock);
+    
+    return ret == 0 ? MVGAL_SUCCESS : MVGAL_ERROR_INITIALIZATION;
+}
+
 mvgal_error_t mvgal_pm_get_stats(mvgal_pm_stats_t *stats) {
     if (!g_pm.initialized || !stats) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_pm.lock);
@@ -906,7 +1003,7 @@ mvgal_error_t mvgal_pm_signal_activity(uint32_t gpu_index) {
     }
     
     if (gpu_index >= g_pm.gpu_count) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     pthread_mutex_lock(&g_pm.lock);
@@ -936,15 +1033,11 @@ const char *mvgal_pm_state_to_string(mvgal_power_state_t state) {
  * Lazy Initialization Support
  * ============================================================================ */
 
-mvgal_error_t mvgal_pm_request_lazy_init(uint32_t gpu_index, 
+mvgal_error_t mvgal_pm_register_lazy_init(uint32_t gpu_index,
                                           mvgal_lazy_init_callback_t callback,
                                           void *user_data) {
-    if (!g_pm.initialized) {
-        return MVGAL_ERROR_NOT_INITIALIZED;
-    }
-    
-    if (gpu_index >= g_pm.gpu_count || !callback) {
-        return MVGAL_ERROR_INVALID_PARAMETER;
+    if (!g_pm.initialized || !callback) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     
     if (!g_pm.lazy_init_enabled) {

@@ -609,6 +609,35 @@ EOF
     log_info "Modprobe configuration created"
 }
 
+# Check compatibility with MVGAL kernel module
+check_mvgal_compatibility() {
+    log_info "Checking compatibility with MVGAL kernel module..."
+    
+    if ! lsmod | grep -q "^mvgal "; then
+        log_warn "MVGAL kernel module (mvgal.ko) is not loaded."
+        log_info "The Moore Threads driver will work independently, but aggregation requires MVGAL."
+        return 0
+    fi
+    
+    # Check if MVGAL was compiled with MTT support
+    if [ -f "/sys/module/mvgal/parameters/mtt_enabled" ]; then
+        local mtt_enabled
+        mtt_enabled=$(cat /sys/module/mvgal/parameters/mtt_enabled)
+        if [ "$mtt_enabled" != "Y" ] && [ "$mtt_enabled" != "1" ]; then
+            log_warn "MVGAL is loaded but MTT support is disabled in module parameters."
+            log_info "Try: echo 1 > /sys/module/mvgal/parameters/mtt_enabled"
+        fi
+    fi
+    
+    # Check for symbol compatibility if possible
+    if grep -q "mvgal_mtt_ops" /proc/kallsyms; then
+        log_info "MVGAL kernel module has MTT vendor operations: OK"
+    else
+        log_warn "MVGAL kernel module is missing MTT vendor operations."
+        log_warn "You may need to rebuild MVGAL with CONFIG_MVGAL_MTT=y"
+    fi
+}
+
 # Update MVGAL configuration
 update_mvgal_config() {
     log_info "Updating MVGAL configuration for Moore Threads support..."
@@ -784,6 +813,7 @@ main() {
             load_module
             create_udev_rules
             create_modprobe_config
+            check_mvgal_compatibility
             update_mvgal_config
             verify_installation
             cleanup

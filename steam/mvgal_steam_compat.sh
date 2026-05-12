@@ -60,6 +60,19 @@ setup_env() {
         fi
     done
 
+    # Set up LD_PRELOAD for CUDA/OpenCL interception if available
+    local preload_lib
+    for preload_lib in \
+        "/usr/lib/libmvgal_preload.so" \
+        "/usr/local/lib/libmvgal_preload.so" \
+        "$HOME/.local/lib/libmvgal_preload.so"; do
+        if [ -f "$preload_lib" ]; then
+            log "MVGAL preload shim found at $preload_lib"
+            export LD_PRELOAD="${LD_PRELOAD:+$LD_PRELOAD:}$preload_lib"
+            break
+        fi
+    done
+
     # DXVK / VKD3D-Proton: no special config needed, MVGAL layer is implicit
 
     log "MVGAL environment:"

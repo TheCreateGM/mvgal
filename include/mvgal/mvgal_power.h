@@ -59,6 +59,7 @@ typedef enum {
 typedef struct {
     uint32_t idle_threshold_ms;      /**< Time before marking GPU idle (ms) */
     uint32_t park_timeout_ms;        /**< Time before parking idle GPU (ms) */
+    float idle_utilization_threshold; /**< Utilization threshold for idle detection (0.0-100.0) */
     bool enable_s0ix;                /**< Enable S0ix (suspend-to-idle) */
     bool lazy_init;                  /**< Enable lazy initialization */
     bool thermal_throttling;         /**< Enable thermal-based throttling */

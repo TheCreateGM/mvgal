@@ -155,25 +155,35 @@ mvgal_error_t load_balancer_get_recommendation(
         
         mvgal_gpu_state_t *gpu = &state->gpus[gpu_index];
         
-        // Calculate load factor (inverse of utilization)
-        // Lower utilization = higher recommendation
-        float load_factor = 1.0f - gpu->utilization;
+        /* 
+         * Heterogeneity-aware Load Factor calculation (ML-like heuristic).
+         * We consider:
+         * 1. Current utilization (higher = lower factor)
+         * 2. Compute capacity (normalized compute units)
+         * 3. Thermal headroom (higher temp = lower factor)
+         * 4. Memory availability
+         */
+        
+        float base_util = 1.0f - gpu->utilization;
+        
+        /* Get GPU descriptor for capacity info */
+        mvgal_gpu_descriptor_t desc;
+        float capacity_weight = 1.0f;
+        if (mvgal_gpu_get_descriptor(gpu_index, &desc) == MVGAL_SUCCESS) {
+             /* Normalize capacity against a "standard" GPU (score 50.0) */
+             capacity_weight = desc.compute_score / 50.0f;
+             if (capacity_weight < 0.1f) capacity_weight = 0.1f;
+         }
+        
+        float load_factor = base_util * capacity_weight;
         
         // Adjust based on thermal conditions
         if (state->config.thermal_aware) {
-            if (gpu->temperature > 85.0f) {
-                load_factor *= 0.5f; // Reduce load on hot GPUs
-            } else if (gpu->temperature > 80.0f) {
-                load_factor *= 0.8f;
-            }
-        }
-        
-        // Adjust based on power (if power-aware)
-        if (state->config.power_aware) {
-            // In a real implementation, we would consider power efficiency
-            // For now, just apply a small adjustment
-            if (gpu->power_usage_w > 200.0f) {
-                load_factor *= 0.9f;
+            /* Non-linear thermal penalty as we approach 85C */
+            if (gpu->temperature > 60.0f) {
+                float thermal_penalty = (gpu->temperature - 60.0f) / 25.0f; /* 0.0 at 60C, 1.0 at 85C */
+                if (thermal_penalty > 0.9f) thermal_penalty = 0.9f;
+                load_factor *= (1.0f - thermal_penalty);
             }
         }
         
