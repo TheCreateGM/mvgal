@@ -517,18 +517,31 @@ impl CapabilityModel {
         let cap1 = &gpus[gpu1];
         let cap2 = &gpus[gpu2];
 
-        // Check for P2P support
+        // Best case: both GPUs support P2P DMA — zero-copy transfers possible
         if cap1.features.contains(&GpuFeature::P2PDma) &&
            cap2.features.contains(&GpuFeature::P2PDma) {
             return GpuCompatibility::P2PSupported;
         }
 
-        // Check if they share a Vulkan API version
-        if let (Some(v1), Some(v2)) = (cap1.api_version(ApiType::Vulkan), cap2.api_version(ApiType::Vulkan)) {
-            // Same major version
+        // Both support Vulkan — check version compatibility
+        if let (Some(v1), Some(v2)) = (cap1.api_version(ApiType::Vulkan),
+                                        cap2.api_version(ApiType::Vulkan)) {
+            // Same major version → fully compatible (minor differences are additive)
             if v1.major == v2.major {
                 return GpuCompatibility::Compatible;
             }
+            // Different major versions → limited interoperability
+            return GpuCompatibility::Limited;
+        }
+
+        // One or both GPUs lack Vulkan but share another common API
+        let common_apis: Vec<ApiType> = cap1.api_versions.keys()
+            .filter(|api| cap2.api_versions.contains_key(*api))
+            .cloned()
+            .collect();
+
+        if !common_apis.is_empty() {
+            return GpuCompatibility::Limited;
         }
 
         GpuCompatibility::Incompatible
@@ -631,5 +644,50 @@ mod tests {
 
             assert_eq!(model.tier(), CapabilityTier::Full);
         }
+    }
+
+    #[test]
+    fn test_check_compatibility() {
+        let model = CapabilityModel::new();
+
+        // Both GPUs support Vulkan 1.3 — should be Compatible
+        let mut cap1 = GpuCapabilities::new(GpuVendor::Amd);
+        cap1.api_versions.insert(ApiType::Vulkan, ApiVersion::new(1, 3, 0));
+        cap1.features.insert(GpuFeature::Graphics);
+        model.update_gpu(0, cap1);
+
+        let mut cap2 = GpuCapabilities::new(GpuVendor::Nvidia);
+        cap2.api_versions.insert(ApiType::Vulkan, ApiVersion::new(1, 3, 217));
+        cap2.features.insert(GpuFeature::Graphics);
+        model.update_gpu(1, cap2);
+
+        assert_eq!(model.check_compatibility(0, 1), GpuCompatibility::Compatible);
+
+        // P2P support → P2PSupported
+        let mut cap3 = GpuCapabilities::new(GpuVendor::Intel);
+        cap3.api_versions.insert(ApiType::Vulkan, ApiVersion::new(1, 3, 0));
+        cap3.features.insert(GpuFeature::P2PDma);
+        model.update_gpu(2, cap3);
+
+        let mut cap4 = GpuCapabilities::new(GpuVendor::MooreThreads);
+        cap4.api_versions.insert(ApiType::Vulkan, ApiVersion::new(1, 3, 0));
+        cap4.features.insert(GpuFeature::P2PDma);
+        model.update_gpu(3, cap4);
+
+        assert_eq!(model.check_compatibility(2, 3), GpuCompatibility::P2PSupported);
+
+        // Out-of-bounds → Incompatible
+        assert_eq!(model.check_compatibility(0, 99), GpuCompatibility::Incompatible);
+
+        // No common APIs → Incompatible
+        let mut cap5 = GpuCapabilities::new(GpuVendor::Amd);
+        cap5.api_versions.insert(ApiType::OpenCL, ApiVersion::new(3, 0, 0));
+        model.update_gpu(4, cap5);
+
+        let mut cap6 = GpuCapabilities::new(GpuVendor::Nvidia);
+        cap6.api_versions.insert(ApiType::Cuda, ApiVersion::new(12, 0, 0));
+        model.update_gpu(5, cap6);
+
+        assert_eq!(model.check_compatibility(4, 5), GpuCompatibility::Incompatible);
     }
 }

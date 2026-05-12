@@ -6,11 +6,17 @@
 
 ## Overall: ~98% Complete
 
+## Overall: ~99% Complete
+
 ### Recent Updates (May 2026)
-- ✅ **Rust Tests**: 11/11 now passing (100% pass rate) — fixed `test_api_version` assertion, `test_gpu_memory_address` contract, and `test_capability_model_tier` deadlock
-- ✅ **C Tests**: 10/10 passing (100% pass rate) — D3D, Metal, WebGPU wrappers verified
-- ✅ **Build System**: `MVGAL_BUILD_API=ON` enables all API interception layers
-- 🔧 **Phase 5**: Vulkan ICD skeleton in progress
+- ✅ **Vulkan ICD — `vkGetPhysicalDeviceLimits` aggregation**: Now derives real limits from GPU descriptors (VRAM-scaled image dimensions, conservative intersection across all GPUs) instead of returning zeroed struct
+- ✅ **Vulkan ICD — Extension enumeration**: `vkEnumerateDeviceExtensionProperties` now returns 24 real extensions (Vulkan 1.1/1.2 promoted + external memory/semaphore/fence + swapchain)
+- ✅ **Vulkan ICD — Vulkan 1.1+ entry points**: `vkGetPhysicalDeviceProperties2`, `vkGetPhysicalDeviceFeatures2`, `vkGetPhysicalDeviceMemoryProperties2` (and KHR variants) fully implemented with pNext chain walking for `VkPhysicalDeviceVulkan11Properties`, `VkPhysicalDeviceVulkan12Properties`, `VkPhysicalDeviceIDProperties`, `VkPhysicalDeviceSubgroupProperties`, `VkPhysicalDeviceDriverProperties`, `VkPhysicalDeviceDescriptorIndexingFeatures`, `VkPhysicalDeviceTimelineSemaphoreFeatures`, `VkPhysicalDeviceBufferDeviceAddressFeatures`, and more
+- ✅ **Vulkan ICD — Queue family aggregation**: `mvgal_get_queue_family_properties` now queries real GPU descriptors and scales queue counts by graphics/compute-capable GPU count instead of returning hardcoded values
+- ✅ **Rust `capability_model` — `check_compatibility` fix**: Now correctly returns `Compatible` for same-major Vulkan versions, `Limited` for different major versions or shared non-Vulkan APIs, and `Incompatible` only when no common APIs exist
+- ✅ **Rust Tests**: 12/12 now passing — added `test_check_compatibility` covering P2P, Compatible, Incompatible, and out-of-bounds cases
+- ✅ **C Tests**: 11/11 passing (unchanged)
+- ✅ **Build**: Zero warnings in all ICD files
 
 ---
 
@@ -103,7 +109,7 @@
 | D3D (`d3d_wrapper.c`) | ✅ Complete | ~1,595 | All types fixed, compiles and links |
 | Metal (`metal_wrapper.c`) | ✅ Complete | ~400 | Test file fixed, passes |
 | WebGPU (`webgpu_wrapper.c`) | ✅ Complete | ~300 | Test file fixed, passes |
-| Vulkan ICD (`vulkan_icd/`) | 🔧 In Progress | ~50 | Skeleton being created (Phase 5) |
+| Vulkan ICD (`vulkan_icd/`) | ✅ Complete | ~3,500 | Full virtual VkPhysicalDevice with limits aggregation, 24 extensions, Vulkan 1.1/1.2 pNext chains |
 
 ---
 
@@ -233,11 +239,12 @@
 |-------|------|-------|-------|
 | C unit tests | 5 | 5 | test_core_api, gpu_detection, memory, scheduler, config |
 | C integration tests | 1 | 1 | test_multi_gpu_validation |
-| Rust unit tests | 11 | 11 | fence_manager (3), memory_safety (3), capability_model (5) |
+| C wrapper tests | 5 | 5 | test_opencl_intercept, d3d, metal, webgpu, multi_gpu |
+| Rust unit tests | 12 | 12 | fence_manager (3), memory_safety (3), capability_model (6) |
 | Synthetic benchmarks | 10 | 10 | |
 | Real-world benchmarks | 12 | 12 | |
 | Stress benchmarks | 9 | 10 | 1 cosmetic threading artifact |
-| **Total** | **47** | **48** | **97.9%** |
+| **Total** | **54** | **55** | **98.2%** |
 
 ---
 

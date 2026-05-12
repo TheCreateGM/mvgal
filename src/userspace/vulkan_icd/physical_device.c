@@ -93,7 +93,7 @@ mvgal_virtual_physical_device_t* mvgal_physical_device_create(void) {
             ? VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
             : VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
         snprintf(dev->deviceName, sizeof(dev->deviceName),
-                 "MVGAL Aggregated (%s + %d more)",
+                 "MVGAL Aggregated (%.200s + %d more)",
                  gpu0.name,
                  (gpu_count > 1) ? gpu_count - 1 : 0);
     } else {
@@ -223,61 +223,94 @@ void mvgal_aggregate_memory_properties(VkPhysicalDeviceMemoryProperties* out) {
 }
 
 /* ============================================================================
- * Get Queue Family Properties (Aggregated)
+ * Get Queue Family Properties (Aggregated from real GPU descriptors)
  * ============================================================================ */
 
 void mvgal_get_queue_family_properties(uint32_t* pCount,
                                         VkQueueFamilyProperties* pProperties) {
     
-    /* TODO: Aggregate queue families from all GPUs:
-     * - Graphics queues: Best GPU for graphics
-     * - Compute queues: Best GPU for compute
-     * - Transfer queues: GPU with fastest PCIe
-     */
-    
     if (!pCount) return;
-    
-    /* TODO: Aggregate from real GPUs */
-    uint32_t gfx_queues = 2;
-    uint32_t compute_queues = 4;
-    uint32_t transfer_queues = 1;
-    
-    uint32_t count = 3; /* Graphics, Compute, Transfer */
-    
+
+    /*
+     * Aggregate queue families from all detected GPUs.
+     *
+     * Strategy:
+     *   - Graphics+Compute family: queue count = sum of graphics-capable GPUs × 2
+     *   - Compute-only family:     queue count = sum of compute-capable GPUs × 4
+     *   - Transfer family:         queue count = total GPU count (one per GPU)
+     *
+     * We always expose exactly 3 families so the family indices are stable.
+     */
+
+    int32_t gpu_count = mvgal_gpu_get_count();
+    if (gpu_count < 0) gpu_count = 0;
+
+    uint32_t graphics_gpus = 0;
+    uint32_t compute_gpus  = 0;
+    uint32_t transfer_gpus = (uint32_t)gpu_count;
+
+    for (int32_t i = 0; i < gpu_count; i++) {
+        mvgal_gpu_descriptor_t desc;
+        if (mvgal_gpu_get_descriptor((uint32_t)i, &desc) != MVGAL_SUCCESS) continue;
+
+        if (desc.features & MVGAL_FEATURE_GRAPHICS) graphics_gpus++;
+        if (desc.features & MVGAL_FEATURE_COMPUTE)  compute_gpus++;
+    }
+
+    /* Fallback: assume all GPUs support both if enumeration returned nothing */
+    if (gpu_count == 0 || (graphics_gpus == 0 && compute_gpus == 0)) {
+        graphics_gpus = 1;
+        compute_gpus  = 1;
+        transfer_gpus = 1;
+    }
+
+    /* Clamp to Vulkan maximums */
+    uint32_t gfx_queues      = (graphics_gpus * 2U < 16U) ? graphics_gpus * 2U : 16U;
+    uint32_t compute_queues  = (compute_gpus  * 4U < 16U) ? compute_gpus  * 4U : 16U;
+    uint32_t transfer_queues = (transfer_gpus       < 8U) ? transfer_gpus       : 8U;
+
+    /* Ensure at least 1 queue per family */
+    if (gfx_queues     == 0) gfx_queues     = 1;
+    if (compute_queues == 0) compute_queues  = 1;
+    if (transfer_queues == 0) transfer_queues = 1;
+
+    const uint32_t count = 3; /* Graphics, Compute, Transfer */
+
     if (!pProperties) {
         *pCount = count;
         return;
     }
-    
+
     if (*pCount < count) {
         *pCount = count;
         return;
     }
-    
-    /* Graphics: 2 per graphics-capable GPU */
+
+    /* Family 0 — Graphics + Compute (one per graphics-capable GPU × 2) */
     pProperties[0] = (VkQueueFamilyProperties){
-        .queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT,
+        .queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT |
+                      VK_QUEUE_TRANSFER_BIT,
         .queueCount = gfx_queues,
         .timestampValidBits = 64,
         .minImageTransferGranularity = {1, 1, 1}
     };
-    
-    /* Compute: 4 per compute-capable GPU */
+
+    /* Family 1 — Compute-only (one per compute-capable GPU × 4) */
     pProperties[1] = (VkQueueFamilyProperties){
-        .queueFlags = VK_QUEUE_COMPUTE_BIT,
+        .queueFlags = VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT,
         .queueCount = compute_queues,
         .timestampValidBits = 64,
         .minImageTransferGranularity = {1, 1, 1}
     };
-    
-    /* Transfer: 1 per GPU */
+
+    /* Family 2 — Transfer-only (one per GPU for DMA-BUF / P2P transfers) */
     pProperties[2] = (VkQueueFamilyProperties){
         .queueFlags = VK_QUEUE_TRANSFER_BIT,
         .queueCount = transfer_queues,
         .timestampValidBits = 64,
         .minImageTransferGranularity = {1, 1, 1}
     };
-    
+
     *pCount = count;
 }
 
