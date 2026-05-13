@@ -3,7 +3,7 @@
 
 Name: mvgal
 Version: 0.2.1
-Release: 12%{?dist}
+Release: 13%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -180,6 +180,10 @@ fi
 %{_docdir}/mvgal/
 
 %changelog
+* Wed May 13 2026 AxoGM <creategm10@proton.me> - 0.2.1-13
+- Fix COPR source script: use packaging/rpm/mvgal.spec instead of
+  pkg/rpm/mvgal.spec (broken path preventing SRPM builds)
+
 * Sun May 10 2026 AxoGM <creategm10@proton.me> - 0.2.1-12
 - Fix openSUSE documentation directory: use %%{_docdir}/mvgal/ instead of
   %%{_datadir}/doc/mvgal/ (%%{_datadir}/doc/ != %%{_docdir}/ on openSUSE)
