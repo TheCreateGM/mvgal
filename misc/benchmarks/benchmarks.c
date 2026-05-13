@@ -129,7 +129,7 @@ void benchmark_record_result(benchmark_context_t *ctx, const benchmark_result_t 
     if (result->error) {
         benchmark_log(ctx, "  Error:       %s", result->error);
     }
-    benchmark_log(ctx, " ");
+    benchmark_log(ctx, "---");
 }
 
 double benchmark_get_time_ms(void) {

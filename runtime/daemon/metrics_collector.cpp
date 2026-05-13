@@ -35,6 +35,9 @@ bool MetricsCollector::init()
     m_totalWorkloads.resize(gpuCount, 0);
     m_totalExecutionTimeUs.resize(gpuCount, 0);
     
+    m_featureHistory.resize(gpuCount);
+    m_featureHistoryIndex.resize(gpuCount, 0);
+    
     auto now = std::chrono::high_resolution_clock::now().time_since_epoch();
     
     for (uint32_t i = 0; i < gpuCount; i++) {
@@ -103,6 +106,9 @@ void MetricsCollector::collectGpuMetrics(uint32_t gpuIndex)
     metrics.totalExecutionTimeUs = m_totalExecutionTimeUs[gpuIndex];
     
     m_gpuMetrics[gpuIndex] = metrics;
+    
+    /* Record feature snapshot for AI scheduler */
+    recordFeatureSnapshot(gpuIndex);
 }
 
 void MetricsCollector::collectAllMetrics()
@@ -246,6 +252,56 @@ std::string MetricsCollector::getMetricsJson() const
     oss << "}\n";
     
     return oss.str();
+}
+
+/* Feature extraction for AI scheduler input */
+MetricsCollector::FeatureVector MetricsCollector::extractFeatures(uint32_t gpuIndex) const
+{
+    FeatureVector fv = {};
+
+    if (gpuIndex >= m_gpuMetrics.size()) {
+        return fv;
+    }
+
+    const auto& m = m_gpuMetrics[gpuIndex];
+
+    fv.gpuUtilization   = static_cast<float>(m.gpuUtilization);
+    fv.memoryUtilization = static_cast<float>(m.memoryUtilization);
+    fv.temperature      = static_cast<float>(m.temperature) / 100.0f;        /* 0-100C → 0-1 */
+    fv.queueDepth       = static_cast<float>(m.queueDepth) / 256.0f;         /* normalize */
+    fv.powerDraw        = static_cast<float>(m.powerDraw) / 500000.0f;       /* 0-500W → 0-1 */
+    fv.clockSpeed       = static_cast<float>(m.clockSpeed) / 3000.0f;        /* 0-3GHz → 0-1 */
+    fv.memoryBandwidth  = static_cast<float>(m.memoryBandwidthRead + m.memoryBandwidthWrite)
+                          / 1.0e9f;                                           /* bytes → GB */
+    fv.submitLatency    = m.totalWorkloads > 0
+                          ? static_cast<float>(m.totalSubmitLatencyUs) / static_cast<float>(m.totalWorkloads)
+                          : 0.0f;
+
+    return fv;
+}
+
+void MetricsCollector::recordFeatureSnapshot(uint32_t gpuIndex)
+{
+    if (gpuIndex >= m_featureHistory.size()) {
+        return;
+    }
+
+    FeatureVector fv = extractFeatures(gpuIndex);
+    size_t& idx = m_featureHistoryIndex[gpuIndex];
+    m_featureHistory[gpuIndex][idx % FEATURE_HISTORY_SIZE] = fv;
+    idx++;
+}
+
+const MetricsCollector::FeatureVector*
+MetricsCollector::getFeatureHistory(uint32_t gpuIndex, size_t* count) const
+{
+    if (gpuIndex >= m_featureHistory.size()) {
+        *count = 0;
+        return nullptr;
+    }
+
+    *count = std::min(m_featureHistoryIndex[gpuIndex], FEATURE_HISTORY_SIZE);
+    return m_featureHistory[gpuIndex].data();
 }
 
 bool MetricsCollector::readGpuUtilization(uint32_t gpuIndex, uint32_t* utilization)

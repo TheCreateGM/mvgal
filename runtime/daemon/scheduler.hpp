@@ -159,6 +159,13 @@ public:
     /* Set static partitioning weights */
     void setStaticWeights(const std::vector<int>& weights);
 
+    /* Remote GPU availability check */
+    bool remoteGpuAvailable() const;
+
+    /* Network scheduling toggle */
+    void setNetworkEnabled(bool enabled);
+    bool networkEnabled() const { return m_networkEnabled; }
+
     /* Add/remove application profiles */
     void addApplicationProfile(const ApplicationProfile& profile);
     void removeApplicationProfile(const std::string& executableName);
@@ -204,8 +211,24 @@ private:
     uint32_t scheduleDynamic(std::shared_ptr<Workload> workload);
     uint32_t scheduleByProfile(std::shared_ptr<Workload> workload);
 
+    /* AI-driven scheduling */
+    uint32_t scheduleAI(std::shared_ptr<Workload> workload);
+
+    /* Network-aware scheduling (remote GPU offload) */
+    uint32_t scheduleNetwork(std::shared_ptr<Workload> workload);
+
+    /* AI scheduler toggle */
+    void setAiEnabled(bool enabled) { m_aiEnabled = enabled; }
+    bool aiEnabled() const { return m_aiEnabled; }
+
     /* Dispatch to GPU */
     bool dispatchToGpu(std::shared_ptr<Workload> workload, uint32_t gpuIndex);
+
+    /* AI scheduler state */
+    bool m_aiEnabled{false};
+
+    /* Network scheduling state */
+    bool m_networkEnabled{false};
 };
 
 } // namespace mvgal

@@ -209,9 +209,6 @@ static void test_fd_stress(void *data) {
     free(fds);
 }
 
-#include <fcntl.h>
-#include <sys/stat.h>
-
 // Stress Test 7: Concurrent I/O
 static void *io_stress_thread(void *arg) {
     (void)arg;
@@ -294,18 +291,44 @@ static void test_nested_locks(void *data) {
     stress_do_stop = 0;
 }
 
-// Thread argument structure for context switching test
-struct thread_arg {
-    int id;
-    pthread_barrier_t *barrier;
-};
-
-// Helper wrapper for pthread_barrier_wait
-static void *barrier_wait_wrapper(void *arg) {
-    struct thread_arg *thread_arg = (struct thread_arg *)arg;
-    int ret = pthread_barrier_wait(thread_arg->barrier);
-    (void)ret;
+// Stress Test 9: Rapid context switching
+// 100 threads do compute-bound work simultaneously to stress scheduler
+static void *ctx_switch_worker(void *arg) {
+    int id = *(int *)arg;
+    volatile int acc = id;
+    for (int i = 0; i < 100000; i++) {
+        acc = (acc * 131 + 97) % 7919;
+    }
+    (void)acc;
     return NULL;
+}
+
+static void test_context_switching(void *data) {
+    (void)data;
+    const int num_threads = 100;
+    pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
+    int *ids = malloc(num_threads * sizeof(int));
+    
+    if (!threads || !ids) {
+        free(threads);
+        free(ids);
+        return;
+    }
+    
+    for (int i = 0; i < num_threads; i++) {
+        ids[i] = i;
+        pthread_create(&threads[i], NULL, ctx_switch_worker, &ids[i]);
+    }
+    
+    // Let threads contest for CPU
+    usleep(500000); // 500ms
+    
+    for (int i = 0; i < num_threads; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    
+    free(threads);
+    free(ids);
 }
 
 // Stress Test 9: Rapid context switching
@@ -333,8 +356,7 @@ static void test_context_switching(void *data) {
     }
     
     // Wait for all threads to reach barrier
-    int barrier_ret = pthread_barrier_wait(&barrier);
-    (void)barrier_ret;
+    (void)pthread_barrier_wait(&barrier);
     
     // Let them all proceed and contest for CPU
     usleep(100000); // 100ms
@@ -464,11 +486,9 @@ int main(int argc, char *argv[]) {
     benchmark_record_result(&ctx, &r8);
     
     // Stress Test 9: Rapid context switching
-    if (0) { // HWM-014: Disabled - pthread_barrier_wait race condition on rapid thread creation; barrier count mismatch when threads exit before all arrive
-        benchmark_result_t r9 = benchmark_run(&ctx, "Context Switching (100 threads)",
-                                             test_context_switching, NULL, NULL);
-        benchmark_record_result(&ctx, &r9);
-    }
+    benchmark_result_t r9 = benchmark_run(&ctx, "Context Switching (100 threads)",
+                                         test_context_switching, NULL, NULL);
+    benchmark_record_result(&ctx, &r9);
     
     // Stress Test 10: Resource exhaustion
     benchmark_result_t r10 = benchmark_run(&ctx, "Resource Exhaustion Simulation",

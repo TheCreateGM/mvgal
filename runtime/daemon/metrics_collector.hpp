@@ -8,6 +8,7 @@
 #define MVGAL_RUNTIME_METRICS_COLLECTOR_HPP
 
 #include <vector>
+#include <array>
 #include <memory>
 #include <mutex>
 #include <chrono>
@@ -147,10 +148,37 @@ private:
     uint32_t m_nextSubscriptionId;
     std::vector<TelemetrySubscription> m_subscriptions;
     
+    /* Feature vector for AI scheduling input */
+    struct FeatureVector {
+        float gpuUtilization;        /* 0.0 - 100.0 */
+        float memoryUtilization;     /* 0.0 - 100.0 */
+        float temperature;           /* normalized 0.0 - 1.0 (0-100C) */
+        float queueDepth;            /* normalized 0.0 - 1.0 */
+        float powerDraw;             /* normalized 0.0 - 1.0 */
+        float clockSpeed;            /* normalized 0.0 - 1.0 */
+        float memoryBandwidth;       /* GB/s normalized */
+        float submitLatency;         /* us normalized */
+    };
+
+    static constexpr size_t FEATURE_HISTORY_SIZE = 64;
+
+    /* Extract features from current GPU metrics */
+    FeatureVector extractFeatures(uint32_t gpuIndex) const;
+
+    /* Record a feature snapshot to the ring buffer */
+    void recordFeatureSnapshot(uint32_t gpuIndex);
+
+    /* Get feature history for a GPU (returns pointer + count) */
+    const FeatureVector* getFeatureHistory(uint32_t gpuIndex, size_t* count) const;
+
     /* Statistics */
     std::vector<uint64_t> m_totalWorkloads;
     std::vector<uint64_t> m_totalExecutionTimeUs;
     
+    /* Feature history ring buffers (per GPU) */
+    std::vector<std::array<FeatureVector, FEATURE_HISTORY_SIZE>> m_featureHistory;
+    std::vector<size_t> m_featureHistoryIndex;  /* write position per GPU */
+
     /* Last collection time */
     std::chrono::nanoseconds m_lastCollection;
     

@@ -96,6 +96,12 @@ set(DAEMON_HEADERS
 # Create daemon executable
 add_executable(mvgald ${DAEMON_SOURCES} ${DAEMON_HEADERS})
 
+target_include_directories(mvgald PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${MVGAL_INCLUDE_DIRS}
+)
+
 target_link_libraries(mvgald PRIVATE
     Threads::Threads
     PkgConfig::LIBDRM

@@ -2,6 +2,7 @@
 //! Safe wrappers for cross-GPU memory operations in MVGAL.
 
 use std::collections::HashMap;
+use std::panic::{self, AssertUnwindSafe};
 use std::sync::{Mutex};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -125,19 +126,30 @@ where F: FnOnce(&AllocationRegistry) -> R {
     }
 }
 
+/// Wrap an FFI-exported closure so a Rust panic cannot unwind across the C boundary.
+fn ffi_catch<R: Default>(f: impl FnOnce() -> R) -> R {
+    match panic::catch_unwind(AssertUnwindSafe(f)) {
+        Ok(v) => v,
+        Err(_) => R::default(),
+    }
+}
+
 /// Track a new cross-GPU memory allocation.
 ///
 /// # Safety
 /// Thread-safe. The returned handle must be released with `mvgal_mem_release`.
+/// Panics inside the registry are caught and return 0 (no unwind across FFI).
 #[no_mangle]
 pub extern "C" fn mvgal_mem_track(size_bytes: u64, placement: u32, gpu_index: u32) -> MvgalAllocHandle {
-    let p = match placement {
-        0 => MemoryPlacement::SystemRam,
-        1 => MemoryPlacement::GpuVram,
-        2 => MemoryPlacement::Mirrored,
-        _ => return 0,
-    };
-    with_reg(|r| r.allocate(size_bytes, p, gpu_index))
+    ffi_catch(|| {
+        let p = match placement {
+            0 => MemoryPlacement::SystemRam,
+            1 => MemoryPlacement::GpuVram,
+            2 => MemoryPlacement::Mirrored,
+            _ => return 0,
+        };
+        with_reg(|r| r.allocate(size_bytes, p, gpu_index))
+    })
 }
 
 /// Increment the reference count.
@@ -146,7 +158,7 @@ pub extern "C" fn mvgal_mem_track(size_bytes: u64, placement: u32, gpu_index: u3
 /// `handle` must be a valid handle returned by `mvgal_mem_track`.
 #[no_mangle]
 pub extern "C" fn mvgal_mem_retain(handle: MvgalAllocHandle) -> i32 {
-    with_reg(|r| r.retain(handle) as i32)
+    ffi_catch(|| with_reg(|r| r.retain(handle) as i32))
 }
 
 /// Decrement the reference count. Frees the record when it reaches zero.
@@ -155,7 +167,7 @@ pub extern "C" fn mvgal_mem_retain(handle: MvgalAllocHandle) -> i32 {
 /// `handle` must be a valid handle. After the last release the handle is invalid.
 #[no_mangle]
 pub extern "C" fn mvgal_mem_release(handle: MvgalAllocHandle) -> i32 {
-    with_reg(|r| r.release(handle) as i32)
+    ffi_catch(|| with_reg(|r| r.release(handle) as i32))
 }
 
 /// Associate a DMA-BUF fd with an allocation. Pass -1 to clear.
@@ -164,7 +176,7 @@ pub extern "C" fn mvgal_mem_release(handle: MvgalAllocHandle) -> i32 {
 /// `handle` must be valid. The caller retains ownership of `fd`.
 #[no_mangle]
 pub extern "C" fn mvgal_mem_set_dmabuf(handle: MvgalAllocHandle, fd: i32) -> i32 {
-    with_reg(|r| r.set_dmabuf(handle, fd) as i32)
+    ffi_catch(|| with_reg(|r| r.set_dmabuf(handle, fd) as i32))
 }
 
 /// Query the size in bytes of a tracked allocation. Returns 0 if invalid.
@@ -173,7 +185,7 @@ pub extern "C" fn mvgal_mem_set_dmabuf(handle: MvgalAllocHandle, fd: i32) -> i32
 /// `handle` must be a valid handle returned by `mvgal_mem_track`.
 #[no_mangle]
 pub extern "C" fn mvgal_mem_size(handle: MvgalAllocHandle) -> u64 {
-    with_reg_read(|r| r.get_size(handle))
+    ffi_catch(|| with_reg_read(|r| r.get_size(handle)))
 }
 
 /// Query the placement. Returns -1 if the handle is invalid.
@@ -182,19 +194,19 @@ pub extern "C" fn mvgal_mem_size(handle: MvgalAllocHandle) -> u64 {
 /// `handle` must be a valid handle returned by `mvgal_mem_track`.
 #[no_mangle]
 pub extern "C" fn mvgal_mem_placement(handle: MvgalAllocHandle) -> i32 {
-    with_reg_read(|r| r.get_placement(handle))
+    ffi_catch(|| with_reg_read(|r| r.get_placement(handle)))
 }
 
 /// Return total bytes tracked in system RAM.
 #[no_mangle]
 pub extern "C" fn mvgal_mem_total_system_bytes() -> u64 {
-    with_reg_read(|r| r.total_system_bytes())
+    ffi_catch(|| with_reg_read(|r| r.total_system_bytes()))
 }
 
 /// Return total bytes tracked in GPU VRAM.
 #[no_mangle]
 pub extern "C" fn mvgal_mem_total_gpu_bytes() -> u64 {
-    with_reg_read(|r| r.total_gpu_bytes())
+    ffi_catch(|| with_reg_read(|r| r.total_gpu_bytes()))
 }
 
 #[cfg(test)]

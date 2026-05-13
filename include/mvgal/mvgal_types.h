@@ -75,6 +75,7 @@ typedef enum {
     MVGAL_STRATEGY_COMPUTE_OFFLOAD = 4, ///< Compute offloading
     MVGAL_STRATEGY_HYBRID = 5,         ///< Hybrid adaptive strategy
     MVGAL_STRATEGY_SINGLE_GPU = 6,     ///< Use single fastest GPU
+    MVGAL_STRATEGY_AI_DRIVEN = 8,      ///< AI/ML-driven scheduling strategy
     MVGAL_STRATEGY_CUSTOM = 100,       ///< Custom strategy (user-defined)
 } mvgal_distribution_strategy_t;
 

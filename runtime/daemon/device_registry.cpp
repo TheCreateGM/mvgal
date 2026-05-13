@@ -8,6 +8,8 @@
 
 #include "device_registry.hpp"
 #include "daemon.hpp"
+#include <mvgal/mvgal_network.h>
+#include <ctime>
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -467,6 +469,98 @@ std::string DeviceRegistry::buildPciPath(uint16_t vendorId, uint16_t deviceId)
     }
     
     return "/sys/bus/pci/devices/" + std::to_string(vendorId) + ":" + std::to_string(deviceId);
+}
+
+/* ── Remote GPU methods ── */
+
+uint32_t DeviceRegistry::addRemoteGpu(
+    uint64_t peerNodeId, uint32_t localGpuIndex,
+    uint16_t vendorId, uint16_t deviceId,
+    uint64_t vramBytes, uint64_t vramFree,
+    uint32_t computeUnits, uint32_t apiFlags,
+    bool supportsGraphics, bool supportsCompute,
+    const std::string& peerAddress)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    RemoteGpu gpu{};
+    gpu.peerNodeId      = peerNodeId;
+    gpu.localGpuIndex   = localGpuIndex;
+    gpu.vendorId        = vendorId;
+    gpu.deviceId        = deviceId;
+    gpu.vramBytes       = vramBytes;
+    gpu.vramFree        = vramFree;
+    gpu.computeUnits    = computeUnits;
+    gpu.apiFlags        = apiFlags;
+    gpu.supportsGraphics = supportsGraphics;
+    gpu.supportsCompute  = supportsCompute;
+    gpu.isOnline        = true;
+    gpu.lastHealthState = 0;
+    gpu.latencyUs       = 0;
+    gpu.peerAddress     = peerAddress;
+    gpu.peerState       = MVGAL_NET_PEER_ACTIVE;
+    gpu.lastSeenNs      = 0;
+
+    m_remoteGpus.push_back(gpu);
+    return static_cast<uint32_t>(m_remoteGpus.size());
+}
+
+bool DeviceRegistry::removeRemoteGpu(uint64_t peerNodeId, uint32_t localGpuIndex)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    for (auto it = m_remoteGpus.begin(); it != m_remoteGpus.end(); ++it) {
+        if (it->peerNodeId == peerNodeId && it->localGpuIndex == localGpuIndex) {
+            m_remoteGpus.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
+uint32_t DeviceRegistry::remoteGpuCount() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return static_cast<uint32_t>(m_remoteGpus.size());
+}
+
+const std::vector<RemoteGpu>& DeviceRegistry::remoteGpus() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_remoteGpus;
+}
+
+void DeviceRegistry::updateRemoteGpuHealth(
+    uint64_t peerNodeId, uint32_t localGpuIndex,
+    bool isOnline, uint32_t latencyUs)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    for (auto& gpu : m_remoteGpus) {
+        if (gpu.peerNodeId == peerNodeId && gpu.localGpuIndex == localGpuIndex) {
+            gpu.isOnline = isOnline;
+            gpu.latencyUs = latencyUs;
+            gpu.lastHealthState = isOnline ? 0 : 1;
+            /* Record the timestamp */
+            struct timespec ts;
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            gpu.lastSeenNs = static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL
+                           + static_cast<uint64_t>(ts.tv_nsec);
+            return;
+        }
+    }
+}
+
+uint32_t DeviceRegistry::aggregateRemoteVRAM() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    uint64_t total = 0;
+    for (const auto& gpu : m_remoteGpus) {
+        if (gpu.isOnline) {
+            total += gpu.vramBytes;
+        }
+    }
+    return static_cast<uint32_t>(total);
 }
 
 } // namespace mvgal

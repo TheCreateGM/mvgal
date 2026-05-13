@@ -43,6 +43,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mvgal-ffi-tests"
+version = "0.2.0"
+dependencies = [
+ "capability_model",
+ "fence_manager",
+ "memory_safety",
+]
+
+[[package]]
 name = "mvgal_safe"
 version = "0.2.0"
 dependencies = [

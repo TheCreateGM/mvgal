@@ -2,6 +2,7 @@
 //! GPU capability normalization and comparison for MVGAL.
 
 use serde::{Deserialize, Serialize};
+use std::panic::{self, AssertUnwindSafe};
 use std::os::raw::c_char;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -125,82 +126,110 @@ impl AggregateCapability {
     }
 }
 
+/// Wrap an FFI-exported closure so a Rust panic cannot unwind across the C boundary.
+fn ffi_catch<R: Default>(f: impl FnOnce() -> R) -> R {
+    match panic::catch_unwind(AssertUnwindSafe(f)) {
+        Ok(v) => v,
+        Err(_) => R::default(),
+    }
+}
+
 pub type MvgalCapHandle = *mut AggregateCapability;
 
 /// Compute an aggregate capability profile from an array of per-GPU descriptors.
 ///
+/// Returns a non-null pointer on success, null on panic.
+///
 /// # Safety
 /// `gpus` must point to `count` valid `GpuCapability` structs.
 /// The returned pointer must be freed with `mvgal_cap_free`.
+/// Panics are caught and return null (no unwind across FFI).
 #[no_mangle]
 pub unsafe extern "C" fn mvgal_cap_compute(
     gpus: *const GpuCapability,
     count: u32,
 ) -> MvgalCapHandle {
-    let slice = if gpus.is_null() || count == 0 {
-        &[]
-    } else {
+    match panic::catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: caller guarantees gpus points to count valid structs.
-        unsafe { std::slice::from_raw_parts(gpus, count as usize) }
-    };
-    Box::into_raw(Box::new(AggregateCapability::from_gpus(slice)))
+        // null/zero count returns a valid empty aggregate (must still be freed).
+        let slice = if gpus.is_null() || count == 0 {
+            &[]
+        } else {
+            unsafe { std::slice::from_raw_parts(gpus, count as usize) }
+        };
+        Box::into_raw(Box::new(AggregateCapability::from_gpus(slice)))
+    })) {
+        Ok(v) => v,
+        Err(_) => std::ptr::null_mut(),
+    }
 }
 
 /// Free an aggregate capability handle.
 ///
 /// # Safety
 /// `handle` must be a valid pointer returned by `mvgal_cap_compute`.
+/// Panics are caught (no unwind across FFI).
 #[no_mangle]
 pub unsafe extern "C" fn mvgal_cap_free(handle: MvgalCapHandle) {
-    if !handle.is_null() {
-        // SAFETY: handle was created by Box::into_raw in mvgal_cap_compute.
-        let _ = unsafe { Box::from_raw(handle) };
-    }
+    ffi_catch(|| {
+        if !handle.is_null() {
+            // SAFETY: handle was created by Box::into_raw in mvgal_cap_compute.
+            unsafe { drop(Box::from_raw(handle)) };
+        }
+    })
 }
 
-/// Return the total VRAM in bytes.
+/// Return the total VRAM in bytes. Returns 0 on null or panic.
 ///
 /// # Safety
 /// `handle` must be a valid non-null pointer returned by `mvgal_cap_compute`.
+/// Panics are caught and return 0 (no unwind across FFI).
 #[no_mangle]
 pub unsafe extern "C" fn mvgal_cap_total_vram(handle: MvgalCapHandle) -> u64 {
-    if handle.is_null() { return 0; }
-    // SAFETY: handle is non-null and was created by mvgal_cap_compute.
-    unsafe { (*handle).total_vram_bytes }
+    ffi_catch(|| {
+        if handle.is_null() { return 0; }
+        // SAFETY: handle is non-null and was created by mvgal_cap_compute.
+        unsafe { (*handle).total_vram_bytes }
+    })
 }
 
-/// Return the capability tier. Returns -1 on null.
+/// Return the capability tier. Returns -1 on null, 0 on panic.
 ///
 /// # Safety
 /// `handle` must be a valid non-null pointer returned by `mvgal_cap_compute`.
+/// Panics are caught and return 0 (no unwind across FFI).
 #[no_mangle]
 pub unsafe extern "C" fn mvgal_cap_tier(handle: MvgalCapHandle) -> i32 {
-    if handle.is_null() { return -1; }
-    // SAFETY: handle is non-null and was created by mvgal_cap_compute.
-    unsafe { (*handle).tier as i32 }
+    ffi_catch(|| {
+        if handle.is_null() { return -1; }
+        // SAFETY: handle is non-null and was created by mvgal_cap_compute.
+        unsafe { (*handle).tier as i32 }
+    })
 }
 
-/// Serialize to JSON into `buf`. Returns bytes written or -1 on error.
+/// Serialize to JSON into `buf`. Returns bytes written, -1 on error, 0 on panic.
 ///
 /// # Safety
 /// `handle` must be valid. `buf` must point to at least `buf_len` bytes.
+/// Panics are caught and return 0 (no unwind across FFI).
 #[no_mangle]
 pub unsafe extern "C" fn mvgal_cap_to_json(
     handle: MvgalCapHandle,
     buf: *mut c_char,
     buf_len: usize,
 ) -> i32 {
-    if handle.is_null() || buf.is_null() || buf_len == 0 { return -1; }
-    // SAFETY: handle is non-null.
-    let json = unsafe { (*handle).to_json() };
-    let bytes = json.as_bytes();
-    let copy_len = bytes.len().min(buf_len - 1);
-    // SAFETY: buf points to buf_len bytes.
-    unsafe {
-        std::ptr::copy_nonoverlapping(bytes.as_ptr() as *const c_char, buf, copy_len);
-        *buf.add(copy_len) = 0;
-    }
-    copy_len as i32
+    ffi_catch(|| {
+        if handle.is_null() || buf.is_null() || buf_len == 0 { return -1; }
+        let json = unsafe { (*handle).to_json() };
+        let bytes = json.as_bytes();
+        let copy_len = bytes.len().min(buf_len.saturating_sub(1));
+        // SAFETY: buf points to buf_len valid bytes, copy_len <= buf_len - 1.
+        unsafe {
+            std::ptr::copy_nonoverlapping(bytes.as_ptr() as *const c_char, buf, copy_len);
+            *buf.add(copy_len) = 0;
+        }
+        copy_len as i32
+    })
 }
 
 #[cfg(test)]

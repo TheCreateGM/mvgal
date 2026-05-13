@@ -128,6 +128,28 @@ private:
 };
 
 /**
+ * Remote GPU representation (network-distributed)
+ */
+struct RemoteGpu {
+    uint64_t peerNodeId;            /* Owning peer node ID */
+    uint32_t localGpuIndex;         /* GPU index on the peer node */
+    uint16_t vendorId;              /* PCI vendor ID */
+    uint16_t deviceId;              /* PCI device ID */
+    uint64_t vramBytes;             /* Total VRAM in bytes */
+    uint64_t vramFree;              /* Estimated free VRAM */
+    uint32_t computeUnits;          /* Compute unit count */
+    uint32_t apiFlags;              /* Supported API flags */
+    bool supportsGraphics;          /* Graphics capable */
+    bool supportsCompute;           /* Compute capable */
+    bool isOnline;                  /* Currently reachable */
+    uint32_t lastHealthState;       /* Last health check result (0 = ok) */
+    uint32_t latencyUs;             /* Estimated round-trip latency in microseconds */
+    std::string peerAddress;        /* Stringified network address */
+    uint32_t peerState;             /* Peer connection state */
+    uint64_t lastSeenNs;            /* Monotonic timestamp of last contact (ns) */
+};
+
+/**
  * Device Registry - Manages all GPU devices detected by MVGAL
  */
 class DeviceRegistry {
@@ -169,6 +191,25 @@ public:
     /* Process device events (hotplug, etc.) */
     void processEvents();
 
+    /* Remote GPU management */
+    uint32_t addRemoteGpu(uint64_t peerNodeId, uint32_t localGpuIndex,
+                          uint16_t vendorId, uint16_t deviceId,
+                          uint64_t vramBytes, uint64_t vramFree,
+                          uint32_t computeUnits, uint32_t apiFlags,
+                          bool supportsGraphics, bool supportsCompute,
+                          const std::string& peerAddress);
+
+    bool removeRemoteGpu(uint64_t peerNodeId, uint32_t localGpuIndex);
+
+    uint32_t remoteGpuCount() const;
+
+    const std::vector<RemoteGpu>& remoteGpus() const;
+
+    void updateRemoteGpuHealth(uint64_t peerNodeId, uint32_t localGpuIndex,
+                               bool isOnline, uint32_t latencyUs);
+
+    uint32_t aggregateRemoteVRAM() const;
+
     /* Statistics */
     uint64_t totalVRAM() const;
     uint64_t freeVRAM() const;
@@ -187,6 +228,7 @@ private:
     
     mutable std::mutex m_mutex;
     std::vector<std::shared_ptr<GpuDevice>> m_gpus;
+    std::vector<RemoteGpu> m_remoteGpus;
     
     /* Algorithm for capability tier */
     uint32_t computeCapabilityTier() const;

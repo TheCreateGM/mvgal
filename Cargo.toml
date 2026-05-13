@@ -6,6 +6,7 @@ members = [
     "safe/fence_manager",
     "safe/memory_safety",
     "safe/capability_model",
+    "safe/ffi_tests",
     "runtime/safe",
 ]
 resolver = "2"

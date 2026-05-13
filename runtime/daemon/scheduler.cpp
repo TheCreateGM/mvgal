@@ -9,6 +9,7 @@
 #include "scheduler.hpp"
 #include "device_registry.hpp"
 #include "daemon.hpp"
+#include <mvgal/mvgal_ai.h>
 #include <algorithm>
 #include <chrono>
 #include <thread>
@@ -233,6 +234,82 @@ void Scheduler::processPending()
     checkWorkStealing();
 }
 
+/* Network-aware scheduling */
+uint32_t Scheduler::scheduleNetwork(std::shared_ptr<Workload> workload)
+{
+    /* Fall back to dynamic scheduling when network is disabled or no remotes */
+    if (!m_networkEnabled || !m_daemon) {
+        return scheduleDynamic(workload);
+    }
+
+    const auto& deviceRegistry = m_daemon->deviceRegistry();
+    if (deviceRegistry.remoteGpuCount() == 0) {
+        /* No remote GPUs available, fall back to local scheduling */
+        return scheduleDynamic(workload);
+    }
+
+    /* Select the best remote GPU based on metrics:
+     *   - Prefer remote GPUs with lowest latency
+     *   - Prefer remote GPUs with highest free VRAM
+     *   - Prefer compute workloads on remote GPUs with most compute units
+     */
+    const auto& remotes = deviceRegistry.remoteGpus();
+    int bestIndex = -1;
+    uint64_t bestScore = 0;
+
+    for (size_t i = 0; i < remotes.size(); i++) {
+        const auto& remote = remotes[i];
+        if (!remote.isOnline) {
+            continue;
+        }
+
+        /* Score: higher is better
+         *   vramScore  = vramFree / 1MB (normalized)
+         *   latencyPenalty = latencyUs (subtracted)
+         *   computeBonus  = computeUnits * 100 (for compute workloads)
+         */
+        uint64_t vramScore = remote.vramFree / (1024 * 1024);
+        uint64_t latencyPenalty = remote.latencyUs;
+        uint64_t computeBonus = (workload->type() == WorkloadType::COMPUTE)
+            ? static_cast<uint64_t>(remote.computeUnits) * 100
+            : 0;
+
+        uint64_t score = vramScore + computeBonus;
+        if (latencyPenalty < score) {
+            score -= latencyPenalty;
+        } else {
+            score = 0;
+        }
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestIndex = static_cast<int>(i);
+        }
+    }
+
+    if (bestIndex >= 0) {
+        /* Remote GPU selected — offset by local GPU count so the daemon
+         * can distinguish local (0..N-1) vs remote (N..) indices */
+        return deviceRegistry.gpuCount() + static_cast<uint32_t>(bestIndex);
+    }
+
+    /* Fall back to dynamic scheduling if no suitable remote found */
+    return scheduleDynamic(workload);
+}
+
+bool Scheduler::remoteGpuAvailable() const
+{
+    if (!m_daemon) {
+        return false;
+    }
+    return m_daemon->deviceRegistry().remoteGpuCount() > 0;
+}
+
+void Scheduler::setNetworkEnabled(bool enabled)
+{
+    m_networkEnabled = enabled;
+}
+
 void Scheduler::setMode(SchedulingMode mode)
 {
     m_mode = mode;
@@ -328,6 +405,39 @@ uint32_t Scheduler::scheduleByProfile(std::shared_ptr<Workload> workload)
 {
     /* Application profile mode: use pre-configured profile if available */
     /* For now, fall back to dynamic scheduling */
+    return scheduleDynamic(workload);
+}
+
+/* AI-driven scheduling */
+uint32_t Scheduler::scheduleAI(std::shared_ptr<Workload> workload)
+{
+    /* Fall back to dynamic scheduling when AI is disabled */
+    if (!m_aiEnabled || !m_daemon) {
+        return scheduleDynamic(workload);
+    }
+
+    /* AI inference pipeline (future wiring):
+     *
+     *   1. Build feature vector from MetricsCollector telemetry:
+     *        mvgal_ai_features_t features;
+     *        features.num_gpus      = deviceRegistry.gpuCount();
+     *        features.workload_type = static_cast<uint32_t>(workload->type());
+     *        // populate gpu_utilization[], vram_pressure[],
+     *        // queue_depth[], workload_history[], temperature[]
+     *        // from MetricsCollector / DeviceRegistry
+     *
+     *   2. Run inference:
+     *        mvgal_ai_model_t model = getModelHandle();  // owned by Scheduler
+     *        mvgal_ai_prediction_t pred;
+     *        int ret = mvgal_ai_model_predict(model, &features, &pred);
+     *
+     *   3. Apply result:
+     *        if (ret == 0 && pred.confidence >= confidenceThreshold) {
+     *            return static_cast<uint32_t>(pred.recommended_gpu);
+     *        }
+     *        // fallback on low confidence or inference failure
+     */
+
     return scheduleDynamic(workload);
 }
 

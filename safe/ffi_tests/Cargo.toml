@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Cross-crate FFI integration tests for MVGAL safety subsystems
+
+[package]
+name = "mvgal-ffi-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Cross-crate FFI integration tests for MVGAL"
+
+[dependencies]
+fence_manager = { path = "../fence_manager" }
+memory_safety = { path = "../memory_safety" }
+capability_model = { path = "../capability_model" }

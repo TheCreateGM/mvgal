@@ -4,6 +4,7 @@
 //! This crate provides memory-safe wrappers for cross-GPU fence operations,
 //! exposed via a C FFI interface for use by the C++ runtime daemon.
 
+use std::panic::{self, AssertUnwindSafe};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::collections::HashMap;
@@ -98,11 +99,10 @@ impl FenceRegistry {
 }
 
 fn monotonic_ns() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(0)
+    use std::time::Instant;
+    static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    let start = START.get_or_init(|| Instant::now());
+    Instant::now().duration_since(*start).as_nanos() as u64
 }
 
 static REGISTRY: Mutex<Option<FenceRegistry>> = Mutex::new(None);
@@ -135,77 +135,91 @@ where
     }
 }
 
+/// Wrap an FFI-exported closure so a Rust panic cannot unwind across the C boundary.
+fn ffi_catch<R: Default>(f: impl FnOnce() -> R) -> R {
+    match panic::catch_unwind(AssertUnwindSafe(f)) {
+        Ok(v) => v,
+        Err(_) => R::default(),
+    }
+}
+
 // ============================================================================
 // C FFI interface
 // ============================================================================
 
 /// Allocate a new fence for the given GPU index.
 ///
-/// Returns a non-zero handle on success, 0 on failure.
+/// Returns a non-zero handle on success, 0 on failure or panic.
 ///
 /// # Safety
 /// Thread-safe. The returned handle must be freed with `mvgal_fence_destroy`.
+/// Panics inside the registry are caught and return 0 (no unwind across FFI).
 #[no_mangle]
 pub extern "C" fn mvgal_fence_create(gpu_index: u32) -> MvgalFenceHandle {
-    with_registry(|r| r.allocate(gpu_index))
+    ffi_catch(|| with_registry(|r| r.allocate(gpu_index)))
 }
 
 /// Submit a fence (Pending → Submitted).
 ///
-/// Returns 1 on success, 0 otherwise.
+/// Returns 1 on success, 0 otherwise or on panic.
 ///
 /// # Safety
 /// `handle` must be a valid handle returned by `mvgal_fence_create`.
+/// Panics are caught and return 0 (no unwind across FFI).
 #[no_mangle]
 pub extern "C" fn mvgal_fence_submit(handle: MvgalFenceHandle) -> i32 {
-    with_registry(|r| r.submit(handle) as i32)
+    ffi_catch(|| with_registry(|r| r.submit(handle) as i32))
 }
 
 /// Signal a fence (Submitted/Pending → Signalled).
 ///
-/// Returns 1 on success, 0 otherwise.
+/// Returns 1 on success, 0 otherwise or on panic.
 ///
 /// # Safety
 /// `handle` must be a valid handle returned by `mvgal_fence_create`.
+/// Panics are caught and return 0 (no unwind across FFI).
 #[no_mangle]
 pub extern "C" fn mvgal_fence_signal(handle: MvgalFenceHandle) -> i32 {
-    with_registry(|r| r.signal(handle) as i32)
+    ffi_catch(|| with_registry(|r| r.signal(handle) as i32))
 }
 
 /// Query the state of a fence.
 ///
-/// Returns the `FenceState` value, or -1 if the handle is invalid.
+/// Returns the `FenceState` value, -1 if the handle is invalid, or 0 on panic.
 ///
 /// # Safety
 /// `handle` must be a valid handle returned by `mvgal_fence_create`.
+/// Panics are caught and return 0 (no unwind across FFI).
 #[no_mangle]
 pub extern "C" fn mvgal_fence_state(handle: MvgalFenceHandle) -> i32 {
-    with_registry_read(|r| match r.state(handle) {
+    ffi_catch(|| with_registry_read(|r| match r.state(handle) {
         Some(s) => s as i32,
         None => -1_i32,
-    })
+    }))
 }
 
 /// Reset a signalled fence.
 ///
-/// Returns 1 on success, 0 otherwise.
+/// Returns 1 on success, 0 otherwise or on panic.
 ///
 /// # Safety
 /// `handle` must be a valid handle returned by `mvgal_fence_create`.
+/// Panics are caught and return 0 (no unwind across FFI).
 #[no_mangle]
 pub extern "C" fn mvgal_fence_reset(handle: MvgalFenceHandle) -> i32 {
-    with_registry(|r| r.reset(handle) as i32)
+    ffi_catch(|| with_registry(|r| r.reset(handle) as i32))
 }
 
 /// Destroy a fence and release its resources.
 ///
-/// Returns 1 on success, 0 if the handle was not found.
+/// Returns 1 on success, 0 if the handle was not found or on panic.
 ///
 /// # Safety
 /// `handle` must be a valid handle. After this call the handle is invalid.
+/// Panics are caught and return 0 (no unwind across FFI).
 #[no_mangle]
 pub extern "C" fn mvgal_fence_destroy(handle: MvgalFenceHandle) -> i32 {
-    with_registry(|r| r.destroy(handle) as i32)
+    ffi_catch(|| with_registry(|r| r.destroy(handle) as i32))
 }
 
 #[cfg(test)]
