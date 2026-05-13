@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Removed
 - Stale GitHub Actions CI/CD workflows (ci.yml, copr.yml)
 
-## [v0.2.1] — 2025-07-01
+## [v0.2.1] — 2026-05-01
 
 ### Added
 - RPM/COPR packaging: spec file fixes for Fedora, conditional OpenCL, debuginfo
@@ -62,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Function name mismatch (`mvgal_gpu_` → `mvgal_`) in device_group.c
 - Build fixes for openSUSE, Mageia 8 compat
 
-## [0.2.1-5..0.2.1-12] — 2025-06
+## [0.2.1-5..0.2.1-12] — 2026-04/05
 
 ### Added
 - Moore Threads Driver Installer with Loginwall Support
@@ -76,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - RPM debuginfo package conflict
 - Spec file to match actual build outputs
 
-## [0.2.0-1] — 2025-05
+## [0.2.0-1] — 2026-04-21
 
 ### Added
 - GPU enumeration and capability discovery
@@ -85,7 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Initial Vulkan device group emulation
 - Compute kernel dispatch infrastructure
 
-## [0.1.0-1] — 2025-04
+## [0.1.0-1] — 2026-04-20
 
 ### Added
 - Initial project structure and build system
