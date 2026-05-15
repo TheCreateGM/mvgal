@@ -11,6 +11,7 @@
 #ifndef MVGAL_PROMETHEUS_H
 #define MVGAL_PROMETHEUS_H
 
+#include <stddef.h>
 #include "mvgal/mvgal_types.h"
 
 #ifdef __cplusplus

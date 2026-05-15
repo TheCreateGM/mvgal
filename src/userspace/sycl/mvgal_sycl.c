@@ -9,6 +9,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#define _GNU_SOURCE
 #include "mvgal/mvgal_sycl.h"
 #include "mvgal/mvgal.h"
 #include "mvgal/mvgal_gpu.h"
@@ -20,7 +21,13 @@
 #include <string.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <errno.h>
 
+#define MVGAL_ERROR_INVALID_ARG MVGAL_ERROR_INVALID_ARGUMENT
+
+#define MVGAL_LOG_ERROR(...) mvgal_log_error(__VA_ARGS__)
+#define MVGAL_LOG_INFO(...) mvgal_log_info(__VA_ARGS__)
+#define MVGAL_LOG_DEBUG(...) mvgal_log_debug(__VA_ARGS__)
 /* ============================================================================
  * Internal State
  * ============================================================================ */
@@ -92,96 +99,39 @@ static pthread_mutex_t g_cache_lock = PTHREAD_MUTEX_INITIALIZER;
  * Internal Helpers
  * ============================================================================ */
 
-static mvgal_vendor_t mvgal_gpu_index_to_vendor(uint32_t gpu_index) {
-    mvgal_gpu_info_t info;
-    if (mvgal_gpu_get_info(gpu_index, &info) == MVGAL_SUCCESS) {
-        return (mvgal_vendor_t)info.vendor_id;
-    }
-    return MVGAL_VENDOR_UNKNOWN;
+static mvgal_error_t mvgal_sycl_fill_device_info(uint32_t gpu_index, mvgal_sycl_device_info_t *info) {
+    mvgal_gpu_descriptor_t gpu;
+    mvgal_error_t err = mvgal_gpu_get_descriptor(gpu_index, &gpu);
+    if (err != MVGAL_SUCCESS) return err;
+
+    memset(info, 0, sizeof(*info));
+    info->device_index = gpu_index;
+    info->device_type = (gpu.type == MVGAL_GPU_TYPE_DISCRETE) ? MVGAL_SYCL_DEVICE_TYPE_GPU : MVGAL_SYCL_DEVICE_TYPE_AUTOMATIC;
+    info->vendor = gpu.vendor;
+    strncpy(info->name, gpu.name, sizeof(info->name) - 1);
+    strncpy(info->vendor_name, gpu.driver_name, sizeof(info->vendor_name) - 1);
+    strncpy(info->driver_version, gpu.driver_version, sizeof(info->driver_version) - 1);
+    
+    info->global_mem_size = gpu.vram_total;
+    info->max_mem_alloc_size = gpu.vram_total / 2;
+    info->clock_frequency_mhz = (uint32_t)gpu.memory_bandwidth_gbps; /* Placeholder */
+    
+    return MVGAL_SUCCESS;
 }
 
 static void refresh_device_cache(void) {
     pthread_mutex_lock(&g_cache_lock);
 
-    if (g_cache_initialized) {
-        pthread_mutex_unlock(&g_cache_lock);
-        return;
-    }
-
     int32_t gpu_count = mvgal_gpu_get_count();
-    if (gpu_count <= 0) {
-        g_num_cached_devices = 0;
-        g_cache_initialized = true;
-        pthread_mutex_unlock(&g_cache_lock);
-        return;
-    }
+    if (gpu_count < 0) gpu_count = 0;
 
-    uint32_t count = (uint32_t)gpu_count;
-    if (count > MVGAL_SYCL_MAX_DEVICES)
-        count = MVGAL_SYCL_MAX_DEVICES;
-
-    for (uint32_t i = 0; i < count; i++) {
-        mvgal_gpu_info_t gpu_info;
-        memset(&g_device_cache[i], 0, sizeof(mvgal_sycl_device_info_t));
-        g_device_cache[i].device_index = i;
-        g_device_cache[i].device_type = MVGAL_SYCL_DEVICE_TYPE_GPU;
-
-        if (mvgal_gpu_get_info(i, &gpu_info) == MVGAL_SUCCESS) {
-            snprintf(g_device_cache[i].name, sizeof(g_device_cache[i].name),
-                     "%s", gpu_info.name);
-            g_device_cache[i].vendor = (mvgal_vendor_t)gpu_info.vendor_id;
-            g_device_cache[i].global_mem_size = gpu_info.vram_total_bytes;
-            g_device_cache[i].max_compute_units = (uint32_t)gpu_info.num_compute_units;
-            g_device_cache[i].clock_frequency_mhz = gpu_info.core_clock_mhz;
-            g_device_cache[i].local_mem_size = 65536;
-            g_device_cache[i].max_mem_alloc_size = gpu_info.vram_total_bytes / 2;
-            g_device_cache[i].max_work_group_size = 1024;
-            g_device_cache[i].max_work_item_dimensions = 3;
-            g_device_cache[i].max_work_item_sizes[0] = 1024;
-            g_device_cache[i].max_work_item_sizes[1] = 1024;
-            g_device_cache[i].max_work_item_sizes[2] = 1024;
-            g_device_cache[i].has_fp64 = true;
-            g_device_cache[i].has_fp16 = true;
-            g_device_cache[i].has_atomic64 = true;
-            g_device_cache[i].preferred_vector_width_int = 4;
-            g_device_cache[i].preferred_vector_width_float = 4;
-            g_device_cache[i].preferred_vector_width_double = 2;
-            g_device_cache[i].native_vector_width_int = 4;
-            g_device_cache[i].native_vector_width_float = 4;
-            g_device_cache[i].native_vector_width_double = 2;
-            g_device_cache[i].subgroup_sizes[0] = 32;
-            g_device_cache[i].num_subgroup_sizes = 1;
-            g_device_cache[i].max_num_sub_groups = 32;
-
-            switch (gpu_info.vendor_id) {
-                case 0x1002:
-                    snprintf(g_device_cache[i].vendor_name,
-                             sizeof(g_device_cache[i].vendor_name), "AMD");
-                    break;
-                case 0x10DE:
-                    snprintf(g_device_cache[i].vendor_name,
-                             sizeof(g_device_cache[i].vendor_name), "NVIDIA");
-                    break;
-                case 0x8086:
-                    snprintf(g_device_cache[i].vendor_name,
-                             sizeof(g_device_cache[i].vendor_name), "Intel");
-                    break;
-                case 0x1ED5:
-                    snprintf(g_device_cache[i].vendor_name,
-                             sizeof(g_device_cache[i].vendor_name), "Moore Threads");
-                    break;
-                default:
-                    snprintf(g_device_cache[i].vendor_name,
-                             sizeof(g_device_cache[i].vendor_name), "Unknown");
-                    break;
-            }
-            snprintf(g_device_cache[i].driver_version,
-                     sizeof(g_device_cache[i].driver_version), "MVGAL %s",
-                     MVGAL_VERSION_STRING);
+    g_num_cached_devices = 0;
+    for (int32_t i = 0; i < gpu_count && i < MVGAL_SYCL_MAX_DEVICES; i++) {
+        if (mvgal_sycl_fill_device_info((uint32_t)i, &g_device_cache[g_num_cached_devices]) == MVGAL_SUCCESS) {
+            g_num_cached_devices++;
         }
     }
 
-    g_num_cached_devices = count;
     g_cache_initialized = true;
     pthread_mutex_unlock(&g_cache_lock);
 }
@@ -195,30 +145,25 @@ mvgal_error_t mvgal_sycl_get_devices(
     mvgal_sycl_device_info_t *devices,
     uint32_t *num_devices)
 {
-    if (!num_devices || !devices) return MVGAL_ERROR_INVALID_ARG;
-    if (*num_devices == 0) return MVGAL_ERROR_INVALID_ARG;
+    if (!num_devices) return MVGAL_ERROR_INVALID_ARG;
 
     refresh_device_cache();
 
-    uint32_t capacity = *num_devices;
-    uint32_t written = 0;
-
     pthread_mutex_lock(&g_cache_lock);
-
-    for (uint32_t i = 0; i < g_num_cached_devices && written < capacity; i++) {
-        if (dev_type != MVGAL_SYCL_DEVICE_TYPE_AUTOMATIC &&
-            g_device_cache[i].device_type != dev_type) {
-            continue;
+    uint32_t count = 0;
+    for (uint32_t i = 0; i < g_num_cached_devices; i++) {
+        if (dev_type == MVGAL_SYCL_DEVICE_TYPE_AUTOMATIC || 
+            g_device_cache[i].device_type == dev_type) {
+            if (devices && count < *num_devices) {
+                memcpy(&devices[count], &g_device_cache[i], sizeof(mvgal_sycl_device_info_t));
+            }
+            count++;
         }
-        memcpy(&devices[written], &g_device_cache[i],
-               sizeof(mvgal_sycl_device_info_t));
-        written++;
     }
 
+    *num_devices = count;
     pthread_mutex_unlock(&g_cache_lock);
-    *num_devices = written;
 
-    mvgal_log(MVGAL_LOG_DEBUG, "sycl: enumerated %u device(s)", written);
     return MVGAL_SUCCESS;
 }
 
@@ -227,18 +172,7 @@ mvgal_error_t mvgal_sycl_get_device_info(
     mvgal_sycl_device_info_t *info)
 {
     if (!info) return MVGAL_ERROR_INVALID_ARG;
-
-    refresh_device_cache();
-
-    pthread_mutex_lock(&g_cache_lock);
-    if (device_index >= g_num_cached_devices) {
-        pthread_mutex_unlock(&g_cache_lock);
-        return MVGAL_ERROR_INVALID_ARG;
-    }
-    memcpy(info, &g_device_cache[device_index], sizeof(mvgal_sycl_device_info_t));
-    pthread_mutex_unlock(&g_cache_lock);
-
-    return MVGAL_SUCCESS;
+    return mvgal_sycl_fill_device_info(device_index, info);
 }
 
 mvgal_error_t mvgal_sycl_get_platforms(
@@ -291,7 +225,7 @@ mvgal_error_t mvgal_sycl_queue_create(
     pthread_mutex_init(&q->lock, NULL);
 
     *queue = q;
-    mvgal_log(MVGAL_LOG_DEBUG, "sycl: queue created for device %u", device_index);
+    mvgal_log_debug("sycl: queue created for device %u", device_index);
     return MVGAL_SUCCESS;
 }
 
@@ -311,7 +245,7 @@ mvgal_error_t mvgal_sycl_queue_submit(mvgal_sycl_queue_t queue) {
     queue->submit_count++;
     pthread_mutex_unlock(&queue->lock);
 
-    mvgal_log(MVGAL_LOG_DEBUG, "sycl: submit to queue (device %u, count %lu)",
+    mvgal_log_debug("sycl: submit to queue (device %u, count %lu)",
               queue->device_index, (unsigned long)queue->submit_count);
     return MVGAL_SUCCESS;
 }
@@ -357,29 +291,28 @@ mvgal_error_t mvgal_sycl_mem_alloc(
     pthread_mutex_init(&buf->lock, NULL);
 
     /* Translate SYCL flags to MVGAL allocation flags */
-    mvgal_memory_flags_t mflags = MVGAL_MEMORY_FLAG_GPU_VALID;
-    if (flags & MVGAL_SYCL_MEM_FLAG_HOST_VISIBLE) {
-        mflags |= MVGAL_MEMORY_FLAG_HOST_VALID;
-    }
-    if (flags & MVGAL_SYCL_MEM_FLAG_HOST_COHERENT) {
-        mflags |= MVGAL_MEMORY_FLAG_CPU_UNCACHED;
-    }
-    if (flags & MVGAL_SYCL_MEM_FLAG_DEVICE_READ_WRITE) {
-        mflags |= MVGAL_MEMORY_FLAG_SHARED;
-    }
+    mvgal_memory_alloc_info_t alloc_info;
+    memset(&alloc_info, 0, sizeof(alloc_info));
+    alloc_info.size = size;
+    alloc_info.flags = MVGAL_MEMORY_FLAG_GPU_VALID;
 
-    mvgal_buffer_t mvgal_buf = NULL;
-    mvgal_error_t err = mvgal_buffer_create(&mvgal_buf, size, mflags);
+    if (flags & MVGAL_SYCL_MEM_FLAG_HOST_VISIBLE)
+        alloc_info.flags |= MVGAL_MEMORY_FLAG_HOST_VALID;
+    if (flags & MVGAL_SYCL_MEM_FLAG_HOST_COHERENT)
+        alloc_info.flags |= MVGAL_MEMORY_FLAG_CPU_UNCACHED;
+    if (flags & MVGAL_SYCL_MEM_FLAG_DEVICE_READ_WRITE)
+        alloc_info.flags |= MVGAL_MEMORY_FLAG_SHARED;
+
+    mvgal_error_t err = mvgal_memory_allocate(NULL, &alloc_info, &buf->mvgal_buf);
     if (err != MVGAL_SUCCESS) {
+        mvgal_log_error("sycl: failed to allocate MVGAL buffer (%u bytes)", (unsigned)size);
         pthread_mutex_destroy(&buf->lock);
         free(buf);
         return err;
     }
-
-    buf->mvgal_buf = mvgal_buf;
     *buffer = buf;
 
-    mvgal_log(MVGAL_LOG_DEBUG, "sycl: allocated %zu bytes on device %u", size, device_index);
+    mvgal_log_debug("sycl: allocated %zu bytes on device %u", size, device_index);
     return MVGAL_SUCCESS;
 }
 
@@ -387,19 +320,18 @@ mvgal_error_t mvgal_sycl_mem_free(mvgal_sycl_buffer_t buffer) {
     if (!buffer) return MVGAL_ERROR_INVALID_ARG;
 
     pthread_mutex_lock(&buffer->lock);
-    if (buffer->ref_count > 1) {
-        buffer->ref_count--;
+    if (--buffer->ref_count > 0) {
         pthread_mutex_unlock(&buffer->lock);
         return MVGAL_SUCCESS;
     }
+    pthread_mutex_unlock(&buffer->lock);
 
     if (buffer->mvgal_buf) {
-        mvgal_buffer_destroy(buffer->mvgal_buf);
+        mvgal_memory_free(buffer->mvgal_buf);
     }
     if (buffer->host_ptr) {
         free(buffer->host_ptr);
     }
-    pthread_mutex_unlock(&buffer->lock);
     pthread_mutex_destroy(&buffer->lock);
     free(buffer);
     return MVGAL_SUCCESS;
@@ -412,15 +344,21 @@ mvgal_error_t mvgal_sycl_mem_write(
     size_t size,
     const void *data)
 {
-    (void)queue;
     if (!buffer || !data) return MVGAL_ERROR_INVALID_ARG;
-    if (offset + size > buffer->size) return MVGAL_ERROR_INVALID_ARG;
 
-    mvgal_error_t err = mvgal_buffer_write(buffer->mvgal_buf, data, size, offset);
+    mvgal_error_t err = mvgal_memory_write(buffer->mvgal_buf, offset, size, data);
     if (err != MVGAL_SUCCESS) {
-        mvgal_log(MVGAL_LOG_ERROR, "sycl: mem_write failed: %d", err);
+        mvgal_log_error("sycl: failed to write to buffer");
+        return err;
     }
-    return err;
+
+    if (queue) {
+        pthread_mutex_lock(&queue->lock);
+        queue->submit_count++;
+        pthread_mutex_unlock(&queue->lock);
+    }
+
+    return MVGAL_SUCCESS;
 }
 
 mvgal_error_t mvgal_sycl_mem_read(
@@ -430,15 +368,21 @@ mvgal_error_t mvgal_sycl_mem_read(
     size_t size,
     void *data)
 {
-    (void)queue;
     if (!buffer || !data) return MVGAL_ERROR_INVALID_ARG;
-    if (offset + size > buffer->size) return MVGAL_ERROR_INVALID_ARG;
 
-    mvgal_error_t err = mvgal_buffer_read(buffer->mvgal_buf, data, size, offset);
+    mvgal_error_t err = mvgal_memory_read(buffer->mvgal_buf, offset, size, data);
     if (err != MVGAL_SUCCESS) {
-        mvgal_log(MVGAL_LOG_ERROR, "sycl: mem_read failed: %d", err);
+        mvgal_log_error("sycl: failed to read from buffer");
+        return err;
     }
-    return err;
+
+    if (queue) {
+        pthread_mutex_lock(&queue->lock);
+        queue->submit_count++;
+        pthread_mutex_unlock(&queue->lock);
+    }
+
+    return MVGAL_SUCCESS;
 }
 
 mvgal_error_t mvgal_sycl_mem_copy(
@@ -447,22 +391,29 @@ mvgal_error_t mvgal_sycl_mem_copy(
     mvgal_sycl_buffer_t dst,
     size_t size)
 {
-    (void)queue;
     if (!src || !dst) return MVGAL_ERROR_INVALID_ARG;
-    if (size > src->size || size > dst->size) return MVGAL_ERROR_INVALID_ARG;
 
-    /* Stage through host memory */
-    void *tmp = malloc(size);
-    if (!tmp) return MVGAL_ERROR_OUT_OF_MEMORY;
+    mvgal_memory_copy_region_t region = {
+        .src_buffer = src->mvgal_buf,
+        .src_offset = 0,
+        .dst_buffer = dst->mvgal_buf,
+        .dst_offset = 0,
+        .size = size
+    };
 
-    mvgal_error_t err;
-    err = mvgal_buffer_read(src->mvgal_buf, tmp, size, 0);
-    if (err == MVGAL_SUCCESS) {
-        err = mvgal_buffer_write(dst->mvgal_buf, tmp, size, 0);
+    mvgal_error_t err = mvgal_memory_copy(NULL, &region, 1, NULL);
+    if (err != MVGAL_SUCCESS) {
+        mvgal_log_error("sycl: failed to copy buffer");
+        return err;
     }
 
-    free(tmp);
-    return err;
+    if (queue) {
+        pthread_mutex_lock(&queue->lock);
+        queue->submit_count++;
+        pthread_mutex_unlock(&queue->lock);
+    }
+
+    return MVGAL_SUCCESS;
 }
 
 mvgal_error_t mvgal_sycl_mem_map(
@@ -482,18 +433,28 @@ mvgal_error_t mvgal_sycl_mem_map(
         return MVGAL_SUCCESS;
     }
 
-    buffer->host_ptr = malloc(buffer->size);
-    if (!buffer->host_ptr) {
-        pthread_mutex_unlock(&buffer->lock);
-        return MVGAL_ERROR_OUT_OF_MEMORY;
+    /* We use the internal memory map if the backend supports it, otherwise fallback */
+    void *ptr = NULL;
+    mvgal_error_t err = mvgal_memory_map(buffer->mvgal_buf, 0, buffer->size, &ptr);
+    if (err == MVGAL_SUCCESS) {
+        buffer->host_ptr = ptr;
+        buffer->is_mapped = true;
+        *mapped_ptr = ptr;
+    } else {
+        /* Fallback: allocate host memory and read from buffer */
+        buffer->host_ptr = malloc(buffer->size);
+        if (!buffer->host_ptr) {
+            pthread_mutex_unlock(&buffer->lock);
+            return MVGAL_ERROR_OUT_OF_MEMORY;
+        }
+        mvgal_memory_read(buffer->mvgal_buf, 0, buffer->size, buffer->host_ptr);
+        buffer->is_mapped = true;
+        *mapped_ptr = buffer->host_ptr;
+        err = MVGAL_SUCCESS;
     }
 
-    mvgal_buffer_read(buffer->mvgal_buf, buffer->host_ptr, buffer->size, 0);
-    buffer->is_mapped = true;
-    *mapped_ptr = buffer->host_ptr;
-
     pthread_mutex_unlock(&buffer->lock);
-    return MVGAL_SUCCESS;
+    return err;
 }
 
 mvgal_error_t mvgal_sycl_mem_unmap(
@@ -509,9 +470,15 @@ mvgal_error_t mvgal_sycl_mem_unmap(
         return MVGAL_SUCCESS;
     }
 
-    /* Write back and free host copy */
-    mvgal_buffer_write(buffer->mvgal_buf, buffer->host_ptr, buffer->size, 0);
-    free(buffer->host_ptr);
+    /* Check if it was a real map or a fallback */
+    if (mvgal_memory_is_mapped(buffer->mvgal_buf)) {
+        mvgal_memory_unmap(buffer->mvgal_buf);
+    } else {
+        /* If not a real map, it was a fallback malloc'd buffer */
+        mvgal_memory_write(buffer->mvgal_buf, 0, buffer->size, buffer->host_ptr);
+        free(buffer->host_ptr);
+    }
+    
     buffer->host_ptr = NULL;
     buffer->is_mapped = false;
 
@@ -552,8 +519,7 @@ mvgal_error_t mvgal_sycl_program_create_from_spirv(
     prog->is_compiled = true;
 
     *program = prog;
-
-    mvgal_log(MVGAL_LOG_DEBUG, "sycl: program created from SPIR-V (%zu bytes)", spirv_size);
+    mvgal_log_debug("sycl: program created from SPIR-V (%zu bytes) for device %u", spirv_size, device_index);
     return MVGAL_SUCCESS;
 }
 
@@ -587,8 +553,7 @@ mvgal_error_t mvgal_sycl_program_create_from_source(
     }
 
     *program = prog;
-
-    mvgal_log(MVGAL_LOG_DEBUG, "sycl: program created from source (%zu bytes)", len);
+    mvgal_log_debug("sycl: program created from source for device %u", device_index);
     return MVGAL_SUCCESS;
 }
 
@@ -630,8 +595,8 @@ mvgal_error_t mvgal_sycl_kernel_create(
 
     *kernel = k;
 
-    mvgal_log(MVGAL_LOG_DEBUG, "sycl: kernel '%s' created for device %u",
-              kernel_name, program->device_index);
+    mvgal_log_debug("sycl: kernel '%s' created for device %u",
+                    kernel_name, program->device_index);
     return MVGAL_SUCCESS;
 }
 
@@ -697,26 +662,21 @@ mvgal_error_t mvgal_sycl_parallel_for(
 
     /* Build an execution plan via the MVGAL execution engine */
     mvgal_execution_submit_info_t submit_info;
+    mvgal_execution_plan_t plan;
     memset(&submit_info, 0, sizeof(submit_info));
     submit_info.api = MVGAL_API_SYCL;
-    submit_info.strategy = MVGAL_STRATEGY_ROUND_ROBIN;
+    submit_info.requested_strategy = MVGAL_STRATEGY_ROUND_ROBIN;
     submit_info.gpu_mask = (uint32_t)(1u << kernel->device_index);
 
     /* Calculate total work items */
-    submit_info.workload_size = 1;
+    submit_info.telemetry.data_size = 1;
     for (uint32_t d = 0; d < ndrange->dimensions; d++) {
-        submit_info.workload_size *= ndrange->global_range[d];
+        submit_info.telemetry.data_size *= ndrange->global_range[d];
     }
 
-    mvgal_execution_submit(&submit_info);
-
-    mvgal_log(MVGAL_LOG_DEBUG, "sycl: parallel_for '%s' (%ux%ux%u) on device %u",
-              kernel->name,
-              (unsigned)ndrange->global_range[0],
-              (unsigned)ndrange->global_range[1],
-              (unsigned)ndrange->global_range[2],
-              kernel->device_index);
-
+    mvgal_execution_submit(NULL, &submit_info, &plan);
+    mvgal_log_debug("sycl: kernel '%s' launched on device %u (size %lu)",
+              kernel->name, kernel->device_index, (unsigned long)submit_info.telemetry.data_size);
     return MVGAL_SUCCESS;
 }
 
@@ -732,17 +692,16 @@ mvgal_error_t mvgal_sycl_single_task(
     pthread_mutex_unlock(&queue->lock);
 
     mvgal_execution_submit_info_t submit_info;
+    mvgal_execution_plan_t plan;
     memset(&submit_info, 0, sizeof(submit_info));
     submit_info.api = MVGAL_API_SYCL;
-    submit_info.strategy = MVGAL_STRATEGY_SINGLE_GPU;
+    submit_info.requested_strategy = MVGAL_STRATEGY_SINGLE_GPU;
     submit_info.gpu_mask = (uint32_t)(1u << kernel->device_index);
-    submit_info.workload_size = 1;
+    submit_info.telemetry.data_size = 1;
 
-    mvgal_execution_submit(&submit_info);
-
-    mvgal_log(MVGAL_LOG_DEBUG, "sycl: single_task '%s' on device %u",
-              kernel->name, kernel->device_index);
-
+    mvgal_execution_submit(NULL, &submit_info, &plan);
+    mvgal_log_debug("sycl: kernel '%s' launched on device %u (size %lu)",
+              kernel->name, kernel->device_index, (unsigned long)submit_info.telemetry.data_size);
     return MVGAL_SUCCESS;
 }
 
@@ -753,8 +712,7 @@ mvgal_error_t mvgal_sycl_single_task(
 mvgal_error_t mvgal_sycl_queue_barrier(mvgal_sycl_queue_t queue) {
     if (!queue) return MVGAL_ERROR_INVALID_ARG;
 
-    mvgal_execution_barrier();
-    mvgal_log(MVGAL_LOG_DEBUG, "sycl: barrier on device %u", queue->device_index);
+    mvgal_log_debug("sycl: barrier on device %u", queue->device_index);
     return MVGAL_SUCCESS;
 }
 

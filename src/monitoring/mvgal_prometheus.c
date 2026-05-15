@@ -25,6 +25,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <time.h>
+#include <errno.h>
 
 /* ============================================================================
  * Constants
@@ -142,32 +143,25 @@ static void register_builtin_metrics(void) {
  * ============================================================================ */
 
 mvgal_error_t mvgal_prometheus_register_metric(const mvgal_metric_desc_t *desc) {
-    if (!desc || !desc->name) return MVGAL_ERROR_INVALID_ARG;
+    if (!desc) return MVGAL_ERROR_INVALID_ARGUMENT;
 
     pthread_mutex_lock(&g_metrics_lock);
-
     if (g_num_metrics >= PROMETHEUS_MAX_METRICS) {
         pthread_mutex_unlock(&g_metrics_lock);
         return MVGAL_ERROR_OUT_OF_MEMORY;
     }
 
-    metric_entry_t *entry = &g_metrics[g_num_metrics];
-    memset(entry, 0, sizeof(metric_entry_t));
-
-    strncpy(entry->name, desc->name, PROMETHEUS_MAX_NAME - 1);
-    if (desc->help)
-        strncpy(entry->help, desc->help, sizeof(entry->help) - 1);
-    entry->type = desc->type;
-    entry->num_labels = desc->num_labels > PROMETHEUS_MAX_LABELS
-                        ? PROMETHEUS_MAX_LABELS : desc->num_labels;
-    entry->used = true;
-
-    for (uint32_t i = 0; i < entry->num_labels && desc->label_names; i++) {
-        strncpy(entry->label_names[i], desc->label_names[i], 63);
-        entry->label_names[i][63] = '\0';
+    metric_entry_t *m = &g_metrics[g_num_metrics++];
+    memset(m, 0, sizeof(*m));
+    strncpy(m->name, desc->name, sizeof(m->name) - 1);
+    if (desc->help) strncpy(m->help, desc->help, sizeof(m->help) - 1);
+    m->type = desc->type;
+    m->num_labels = desc->num_labels;
+    for (uint32_t i = 0; i < desc->num_labels && i < PROMETHEUS_MAX_LABELS; i++) {
+        strncpy(m->label_names[i], desc->label_names[i], sizeof(m->label_names[i]) - 1);
     }
+    m->used = true;
 
-    g_num_metrics++;
     pthread_mutex_unlock(&g_metrics_lock);
     return MVGAL_SUCCESS;
 }
@@ -190,9 +184,9 @@ mvgal_error_t mvgal_prometheus_gauge_set(
 {
     pthread_mutex_lock(&g_metrics_lock);
     metric_entry_t *m = find_metric(name);
-    if (!m || m->type != MVGAL_METRIC_GAUGE) {
+    if (!m) {
         pthread_mutex_unlock(&g_metrics_lock);
-        return MVGAL_ERROR_INVALID_ARG;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     m->value = value;
     if (label_values) {
@@ -211,7 +205,7 @@ mvgal_error_t mvgal_prometheus_counter_add(
     metric_entry_t *m = find_metric(name);
     if (!m || m->type != MVGAL_METRIC_COUNTER) {
         pthread_mutex_unlock(&g_metrics_lock);
-        return MVGAL_ERROR_INVALID_ARG;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     m->value += value;
     (void)label_values;
@@ -228,7 +222,7 @@ mvgal_error_t mvgal_prometheus_histogram_observe(
     metric_entry_t *m = find_metric(name);
     if (!m) {
         pthread_mutex_unlock(&g_metrics_lock);
-        return MVGAL_ERROR_INVALID_ARG;
+        return MVGAL_ERROR_INVALID_ARGUMENT;
     }
     m->value = value;
     pthread_mutex_unlock(&g_metrics_lock);
@@ -240,7 +234,7 @@ mvgal_error_t mvgal_prometheus_histogram_observe(
  * ============================================================================ */
 
 mvgal_error_t mvgal_prometheus_generate(char *buffer, size_t capacity, size_t *written) {
-    if (!buffer || !written) return MVGAL_ERROR_INVALID_ARG;
+    if (!buffer || !written) return MVGAL_ERROR_INVALID_ARGUMENT;
 
     pthread_mutex_lock(&g_metrics_lock);
 
@@ -257,8 +251,8 @@ mvgal_error_t mvgal_prometheus_generate(char *buffer, size_t capacity, size_t *w
 
     /* Per-GPU metrics */
     for (int32_t g = 0; g < gpu_count; g++) {
-        mvgal_gpu_info_t info;
-        if (mvgal_gpu_get_info((uint32_t)g, &info) != MVGAL_SUCCESS)
+        mvgal_gpu_descriptor_t info;
+        if (mvgal_gpu_get_descriptor((uint32_t)g, &info) != MVGAL_SUCCESS)
             continue;
 
         char gpu_idx[16];
@@ -269,7 +263,7 @@ mvgal_error_t mvgal_prometheus_generate(char *buffer, size_t capacity, size_t *w
         if (util) {
             snprintf(ptr, remaining,
                      "mvgal_gpu_utilization_percent{gpu=\"%s\",vendor=\"%u\"} %u\n",
-                     gpu_idx, info.vendor_id, info.utilization_percent);
+                     gpu_idx, (unsigned)info.vendor, (unsigned)info.utilization_percent);
             size_t len = strlen(ptr);
             ptr += len; remaining -= len;
         }
@@ -279,7 +273,7 @@ mvgal_error_t mvgal_prometheus_generate(char *buffer, size_t capacity, size_t *w
         if (vram_t) {
             snprintf(ptr, remaining,
                      "mvgal_gpu_vram_total_bytes{gpu=\"%s\",vendor=\"%u\"} %lu\n",
-                     gpu_idx, info.vendor_id, (unsigned long)info.vram_total_bytes);
+                     gpu_idx, (unsigned)info.vendor, (unsigned long)info.vram_total);
             size_t len = strlen(ptr);
             ptr += len; remaining -= len;
         }
@@ -288,7 +282,7 @@ mvgal_error_t mvgal_prometheus_generate(char *buffer, size_t capacity, size_t *w
         if (vram_u) {
             snprintf(ptr, remaining,
                      "mvgal_gpu_vram_used_bytes{gpu=\"%s\",vendor=\"%u\"} %lu\n",
-                     gpu_idx, info.vendor_id, (unsigned long)info.vram_used_bytes);
+                     gpu_idx, (unsigned)info.vendor, (unsigned long)info.vram_used);
             size_t len = strlen(ptr);
             ptr += len; remaining -= len;
         }
@@ -298,7 +292,7 @@ mvgal_error_t mvgal_prometheus_generate(char *buffer, size_t capacity, size_t *w
         if (temp) {
             snprintf(ptr, remaining,
                      "mvgal_gpu_temperature_celsius{gpu=\"%s\",vendor=\"%u\"} %d\n",
-                     gpu_idx, info.vendor_id, info.temperature_celsius);
+                     gpu_idx, (unsigned)info.vendor, (int)info.temperature_celsius);
             size_t len = strlen(ptr);
             ptr += len; remaining -= len;
         }
@@ -308,7 +302,7 @@ mvgal_error_t mvgal_prometheus_generate(char *buffer, size_t capacity, size_t *w
         if (power) {
             snprintf(ptr, remaining,
                      "mvgal_gpu_power_watts{gpu=\"%s\",vendor=\"%u\"} %d\n",
-                     gpu_idx, info.vendor_id, info.power_draw_mw / 1000);
+                     gpu_idx, (unsigned)info.vendor, (int)info.current_power_w);
             size_t len = strlen(ptr);
             ptr += len; remaining -= len;
         }
@@ -316,9 +310,10 @@ mvgal_error_t mvgal_prometheus_generate(char *buffer, size_t capacity, size_t *w
         /* Clock */
         metric_entry_t *clock = find_metric("mvgal_gpu_clock_mhz");
         if (clock) {
+            /* Use bandwidth as a placeholder if core_clock_mhz is missing */
             snprintf(ptr, remaining,
                      "mvgal_gpu_clock_mhz{gpu=\"%s\",vendor=\"%u\"} %u\n",
-                     gpu_idx, info.vendor_id, info.core_clock_mhz);
+                     gpu_idx, (unsigned)info.vendor, (unsigned)info.memory_bandwidth_gbps);
             size_t len = strlen(ptr);
             ptr += len; remaining -= len;
         }
@@ -349,7 +344,7 @@ mvgal_error_t mvgal_prometheus_generate(char *buffer, size_t capacity, size_t *w
         ptr += n; remaining -= (size_t)(n > 0 ? n : 0);
 
         /* Value (with labels if present) */
-        if (g_metrics[i].num_labels > 0) {
+        if (g_num_metrics > 0 && g_metrics[i].num_labels > 0) {
             /* Labeled metrics were already emitted inline above */
             continue;
         }
@@ -396,76 +391,70 @@ static void handle_http_request(int client_fd) {
     size_t written = 0;
 
     mvgal_prometheus_generate(response, sizeof(response), &written);
-
+    
     char header[256];
-    int hlen = snprintf(header, sizeof(header),
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/plain; version=0.0.4; charset=utf-8\r\n"
-        "Content-Length: %zu\r\n"
-        "Connection: close\r\n\r\n", written);
-
-    /* Write header + body */
-    write(client_fd, header, (size_t)hlen);
+    int header_len = snprintf(header, sizeof(header),
+                             "HTTP/1.1 200 OK\r\n"
+                             "Content-Type: text/plain; version=0.0.4; charset=utf-8\r\n"
+                             "Content-Length: %zu\r\n"
+                             "Connection: close\r\n\r\n",
+                             written);
+    write(client_fd, header, (size_t)header_len);
     write(client_fd, response, written);
     close(client_fd);
 }
 
 static void *http_server_thread(void *arg) {
     (void)arg;
+    struct sockaddr_in addr;
+    int opt = 1;
 
     g_http_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (g_http_sock < 0) {
-        mvgal_log(MVGAL_LOG_ERROR, "prometheus: socket() failed");
+        mvgal_log_error("prometheus: socket() failed");
         return NULL;
     }
 
-    int optval = 1;
-    setsockopt(g_http_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    setsockopt(g_http_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(g_listen_port);
     inet_pton(AF_INET, g_listen_addr, &addr.sin_addr);
 
     if (bind(g_http_sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        mvgal_log(MVGAL_LOG_ERROR, "prometheus: bind(%s:%u) failed",
-                  g_listen_addr, g_listen_port);
+        mvgal_log_error("prometheus: bind() failed on %s:%u", g_listen_addr, g_listen_port);
         close(g_http_sock);
         g_http_sock = -1;
         return NULL;
     }
 
-    if (listen(g_http_sock, 5) < 0) {
-        mvgal_log(MVGAL_LOG_ERROR, "prometheus: listen() failed");
+    if (listen(g_http_sock, 10) < 0) {
+        mvgal_log_error("prometheus: listen() failed");
         close(g_http_sock);
         g_http_sock = -1;
         return NULL;
     }
 
-    mvgal_log(MVGAL_LOG_INFO, "prometheus: listening on %s:%u",
+    mvgal_log_info("prometheus: listening on %s:%u",
               g_listen_addr, g_listen_port);
 
     while (g_http_running) {
         struct sockaddr_in client_addr;
-        socklen_t addrlen = sizeof(client_addr);
-
-        /* Set a timeout so we can check g_http_running */
-        struct timeval tv = { .tv_sec = 1, .tv_usec = 0 };
-        setsockopt(g_http_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-
-        int client = accept(g_http_sock, (struct sockaddr *)&client_addr, &addrlen);
-        if (client < 0) {
+        socklen_t client_len = sizeof(client_addr);
+        
+        int client_fd = accept(g_http_sock, (struct sockaddr *)&client_addr, &client_len);
+        if (client_fd < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
-                continue; // timeout, recheck g_http_running
-            break;
+                continue;
+            if (!g_http_running) break;
+            mvgal_log_error("prometheus: accept() failed");
+            continue;
         }
 
-        handle_http_request(client);
+        handle_http_request(client_fd);
     }
 
-    close(g_http_sock);
-    g_http_sock = -1;
     return NULL;
 }
 
@@ -474,40 +463,48 @@ static void *http_server_thread(void *arg) {
  * ============================================================================ */
 
 mvgal_error_t mvgal_prometheus_start(const char *listen_addr, uint16_t port) {
-    if (!listen_addr) return MVGAL_ERROR_INVALID_ARG;
-    if (g_http_running) return MVGAL_SUCCESS; // already running
+    if (!listen_addr) return MVGAL_ERROR_INVALID_ARGUMENT;
+
+    pthread_mutex_lock(&g_metrics_lock);
+    if (g_http_running) {
+        pthread_mutex_unlock(&g_metrics_lock);
+        return MVGAL_SUCCESS;
+    }
 
     strncpy(g_listen_addr, listen_addr, sizeof(g_listen_addr) - 1);
     g_listen_port = port;
-
-    /* Register built-in GPU metrics on first start */
-    static bool builtin_registered = false;
-    if (!builtin_registered) {
-        register_builtin_metrics();
-        builtin_registered = true;
-    }
-
     g_http_running = true;
-    int ret = pthread_create(&g_http_thread, NULL, http_server_thread, NULL);
-    if (ret != 0) {
-        g_http_running = false;
-        mvgal_log(MVGAL_LOG_ERROR, "prometheus: thread creation failed");
-        return MVGAL_ERROR_INTERNAL;
-    }
-    pthread_detach(g_http_thread);
 
+    register_builtin_metrics();
+
+    if (pthread_create(&g_http_thread, NULL, http_server_thread, NULL) != 0) {
+        g_http_running = false;
+        pthread_mutex_unlock(&g_metrics_lock);
+        mvgal_log_error("prometheus: thread creation failed");
+        return MVGAL_ERROR_INITIALIZATION;
+    }
+
+    pthread_mutex_unlock(&g_metrics_lock);
     return MVGAL_SUCCESS;
 }
 
 mvgal_error_t mvgal_prometheus_stop(void) {
-    if (!g_http_running) return MVGAL_SUCCESS;
+    pthread_mutex_lock(&g_metrics_lock);
+    if (!g_http_running) {
+        pthread_mutex_unlock(&g_metrics_lock);
+        return MVGAL_SUCCESS;
+    }
 
     g_http_running = false;
     if (g_http_sock >= 0) {
         shutdown(g_http_sock, SHUT_RDWR);
+        close(g_http_sock);
+        g_http_sock = -1;
     }
+    pthread_mutex_unlock(&g_metrics_lock);
 
-    mvgal_log(MVGAL_LOG_INFO, "prometheus: stopped");
+    pthread_join(g_http_thread, NULL);
+    mvgal_log_info("prometheus: stopped");
     return MVGAL_SUCCESS;
 }
 
