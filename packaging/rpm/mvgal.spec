@@ -3,7 +3,7 @@
 
 Name: mvgal
 Version: 0.2.2
-Release: 13%{?dist}
+Release: 1%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -144,6 +144,9 @@ fi
 %{_libdir}/libmvgal_metal.so
 %{_libdir}/libmvgal_webgpu.so
 %{_libdir}/libmvgal_gl.so
+# Additional static libraries
+%{_libdir}/libmvgal_prometheus.a
+%{_libdir}/libmvgal_sycl_backend.a
 # Conditionally built (OpenCL support - enabled by default)
 %if %{with opencl}
 %{_libdir}/libmvgal_opencl.so
@@ -180,6 +183,12 @@ fi
 %{_docdir}/mvgal/
 
 %changelog
+* Sat May 16 2026 AxoGM <creategm10@proton.me> - 0.2.2-1
+- Version bump to 0.2.2
+- Add libmvgal_prometheus.a and libmvgal_sycl_backend.a to %%files
+  (fix unpackaged files error on COPR)
+- Fix Release numbering for 0.2.2
+
 * Wed May 13 2026 AxoGM <creategm10@proton.me> - 0.2.1-13
 - Fix COPR source script: use packaging/rpm/mvgal.spec instead of
   pkg/rpm/mvgal.spec (broken path preventing SRPM builds)
