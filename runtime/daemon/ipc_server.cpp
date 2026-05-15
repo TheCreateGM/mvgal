@@ -9,6 +9,9 @@
 #include "ipc_server.hpp"
 #include "daemon.hpp"
 #include "device_registry.hpp"
+#include "scheduler.hpp"
+#include "memory_manager.hpp"
+#include <mvgal/mvgal_gpu.h>
 
 #include <cerrno>
 #include <cstdint>
@@ -37,10 +40,11 @@ namespace mvgal {
  * =========================================================================
  */
 
-IpcClientConnection::IpcClientConnection(int socketFd, const struct sockaddr_un& remoteAddr, uint32_t clientId)
+IpcClientConnection::IpcClientConnection(int socketFd, const struct sockaddr_un& remoteAddr, uint32_t clientId, Daemon* daemon)
     : m_socketFd(socketFd),
       m_remoteAddr(remoteAddr),
       m_clientId(clientId),
+      m_daemon(daemon),
       m_receiveBuffer(4096)
 {
     /* Set non-blocking mode */
@@ -233,37 +237,111 @@ bool IpcClientConnection::processMessages()
         }
 
         case IpcMessageType::QUERY_DEVICES: {
-            /* Handle device query - placeholder */
-            std::cerr << "IPC: QUERY_DEVICES not yet implemented" << std::endl;
-            sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
+            auto& registry = m_daemon->deviceRegistry();
+            uint32_t count = registry.gpuCount();
+            
+            std::vector<mvgal_gpu_descriptor_t> descriptors(count);
+            for (uint32_t i = 0; i < count; ++i) {
+                const auto* gpu = registry.getGpu(i);
+                auto& desc = descriptors[i];
+                memset(&desc, 0, sizeof(desc));
+                
+                desc.id = gpu->index();
+                strncpy(desc.name, gpu->name().c_str(), sizeof(desc.name) - 1);
+                desc.vendor = static_cast<mvgal_vendor_t>(gpu->vendor());
+                desc.vram_total = gpu->capabilities().vramSize;
+                desc.vram_free = gpu->capabilities().vramFree;
+                desc.vram_used = desc.vram_total - desc.vram_free;
+                desc.temperature_celsius = static_cast<float>(gpu->state().temperature);
+                desc.utilization_percent = static_cast<float>(gpu->state().utilization);
+                desc.enabled = gpu->isEnabled();
+                desc.available = gpu->isAvailable();
+            }
+            
+            sendMessage(msgType, descriptors.data(), descriptors.size() * sizeof(mvgal_gpu_descriptor_t), header.requestId);
             break;
         }
 
         case IpcMessageType::QUERY_DEVICE_CAPABILITIES: {
-            std::cerr << "IPC: QUERY_DEVICE_CAPABILITIES not yet implemented" << std::endl;
-            sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
+            if (m_receiveBuffer.size() < sizeof(uint32_t)) {
+                sendError(msgType, IpcErrorCode::INVALID_ARGUMENT, header.requestId);
+                break;
+            }
+            
+            uint32_t index = *reinterpret_cast<uint32_t*>(m_receiveBuffer.data());
+            /* Assume host byte order for now, or convert if needed: index = ntohl(index); */
+            
+            auto* gpu = m_daemon->deviceRegistry().getGpu(index);
+            if (!gpu) {
+                sendError(msgType, IpcErrorCode::NOT_FOUND, header.requestId);
+                break;
+            }
+            
+            mvgal_gpu_descriptor_t desc;
+            memset(&desc, 0, sizeof(desc));
+            desc.id = gpu->index();
+            strncpy(desc.name, gpu->name().c_str(), sizeof(desc.name) - 1);
+            desc.vendor = static_cast<mvgal_vendor_t>(gpu->vendor());
+            desc.vram_total = gpu->capabilities().vramSize;
+            desc.vram_free = gpu->capabilities().vramFree;
+            desc.vram_used = desc.vram_total - desc.vram_free;
+            desc.temperature_celsius = static_cast<float>(gpu->state().temperature);
+            desc.utilization_percent = static_cast<float>(gpu->state().utilization);
+            desc.enabled = gpu->isEnabled();
+            desc.available = gpu->isAvailable();
+            
+            sendMessage(msgType, &desc, sizeof(desc), header.requestId);
             break;
         }
 
         case IpcMessageType::QUERY_UNIFIED_CAPABILITIES: {
-            std::cerr << "IPC: QUERY_UNIFIED_CAPABILITIES not yet implemented" << std::endl;
-            sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
+            auto& registry = m_daemon->deviceRegistry();
+            mvgal_logical_device_descriptor_t desc;
+            memset(&desc, 0, sizeof(desc));
+            
+            desc.gpu_count = registry.gpuCount();
+            desc.descriptor.vram_total = registry.totalVRAM();
+            desc.descriptor.vram_free = registry.freeVRAM();
+            desc.heterogeneous = (registry.capabilityTier() == 2); // TIER_MIXED
+            
+            sendMessage(msgType, &desc, sizeof(desc), header.requestId);
             break;
         }
 
         case IpcMessageType::ALLOC_MEMORY: {
-            std::cerr << "IPC: ALLOC_MEMORY not yet implemented" << std::endl;
-            sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
+            if (m_receiveBuffer.size() < sizeof(size_t)) {
+                sendError(msgType, IpcErrorCode::INVALID_ARGUMENT, header.requestId);
+                break;
+            }
+            
+            size_t size = *reinterpret_cast<size_t*>(m_receiveBuffer.data());
+            uint64_t id = m_daemon->memoryManager().allocate(size);
+            
+            if (id == 0) {
+                sendError(msgType, IpcErrorCode::OUT_OF_MEMORY, header.requestId);
+            } else {
+                sendMessage(msgType, &id, sizeof(id), header.requestId);
+            }
             break;
         }
 
         case IpcMessageType::FREE_MEMORY: {
-            std::cerr << "IPC: FREE_MEMORY not yet implemented" << std::endl;
-            sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
+            if (m_receiveBuffer.size() < sizeof(uint64_t)) {
+                sendError(msgType, IpcErrorCode::INVALID_ARGUMENT, header.requestId);
+                break;
+            }
+            
+            uint64_t id = *reinterpret_cast<uint64_t*>(m_receiveBuffer.data());
+            if (m_daemon->memoryManager().free(id)) {
+                sendMessage(msgType, nullptr, 0, header.requestId);
+            } else {
+                sendError(msgType, IpcErrorCode::NOT_FOUND, header.requestId);
+            }
             break;
         }
 
         case IpcMessageType::IMPORT_DMABUF: {
+            /* Complex due to fd passing, needs SCM_RIGHTS */
             std::cerr << "IPC: IMPORT_DMABUF not yet implemented" << std::endl;
             sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
             break;
@@ -276,32 +354,57 @@ bool IpcClientConnection::processMessages()
         }
 
         case IpcMessageType::SUBMIT_WORKLOAD: {
-            std::cerr << "IPC: SUBMIT_WORKLOAD not yet implemented" << std::endl;
-            sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
+            /* Placeholder for workload submission */
+            uint32_t workloadId = m_daemon->scheduler().submit(WorkloadType::GRAPHICS);
+            sendMessage(msgType, &workloadId, sizeof(workloadId), header.requestId);
             break;
         }
 
         case IpcMessageType::WAIT_WORKLOAD: {
-            std::cerr << "IPC: WAIT_WORKLOAD not yet implemented" << std::endl;
-            sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
+            if (m_receiveBuffer.size() < sizeof(uint32_t)) {
+                sendError(msgType, IpcErrorCode::INVALID_ARGUMENT, header.requestId);
+                break;
+            }
+            
+            uint32_t id = *reinterpret_cast<uint32_t*>(m_receiveBuffer.data());
+            bool completed = m_daemon->scheduler().wait(id);
+            sendMessage(msgType, &completed, sizeof(completed), header.requestId);
             break;
         }
 
         case IpcMessageType::SET_SCHEDULING_MODE: {
-            std::cerr << "IPC: SET_SCHEDULING_MODE not yet implemented" << std::endl;
-            sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
+            if (m_receiveBuffer.size() < sizeof(uint32_t)) {
+                sendError(msgType, IpcErrorCode::INVALID_ARGUMENT, header.requestId);
+                break;
+            }
+            
+            uint32_t mode = *reinterpret_cast<uint32_t*>(m_receiveBuffer.data());
+            m_daemon->scheduler().setMode(static_cast<SchedulingMode>(mode));
+            sendMessage(msgType, nullptr, 0, header.requestId);
             break;
         }
 
         case IpcMessageType::SET_GPU_PRIORITY: {
-            std::cerr << "IPC: SET_GPU_PRIORITY not yet implemented" << std::endl;
-            sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
+            if (m_receiveBuffer.size() < sizeof(uint32_t) + sizeof(int)) {
+                sendError(msgType, IpcErrorCode::INVALID_ARGUMENT, header.requestId);
+                break;
+            }
+            
+            struct { uint32_t index; int priority; } *args = reinterpret_cast<decltype(args)>(m_receiveBuffer.data());
+            m_daemon->deviceRegistry().setGpuPriority(args->index, args->priority);
+            sendMessage(msgType, nullptr, 0, header.requestId);
             break;
         }
 
         case IpcMessageType::SET_GPU_ENABLED: {
-            std::cerr << "IPC: SET_GPU_ENABLED not yet implemented" << std::endl;
-            sendError(msgType, IpcErrorCode::NOT_IMPLEMENTED, header.requestId);
+            if (m_receiveBuffer.size() < sizeof(uint32_t) + sizeof(bool)) {
+                sendError(msgType, IpcErrorCode::INVALID_ARGUMENT, header.requestId);
+                break;
+            }
+            
+            struct { uint32_t index; bool enabled; } *args = reinterpret_cast<decltype(args)>(m_receiveBuffer.data());
+            m_daemon->deviceRegistry().enableGpu(args->index, args->enabled);
+            sendMessage(msgType, nullptr, 0, header.requestId);
             break;
         }
 
@@ -546,7 +649,7 @@ bool IpcServer::acceptConnections()
             clientId = m_nextClientId++;
         }
 
-        auto connection = std::make_shared<IpcClientConnection>(clientFd, remoteAddr, clientId);
+        auto connection = std::make_shared<IpcClientConnection>(clientFd, remoteAddr, clientId, m_daemon);
 
         /* Add to client map */
         {

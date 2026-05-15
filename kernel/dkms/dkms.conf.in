@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+PACKAGE_NAME="mvgal"
+PACKAGE_VERSION="@PROJECT_VERSION@"
+BUILT_MODULE_NAME[0]="mvgal"
+DEST_MODULE_LOCATION[0]="/updates/dkms"
+AUTOINSTALL="yes"
+MAKE[0]="make -C ${kernel_source_dir}/kernel"
+CLEAN="make -C ${kernel_source_dir}/kernel clean"

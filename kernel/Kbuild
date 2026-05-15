@@ -1,7 +1,6 @@
-# Kbuild file for MVGAL kernel module
-# This file tells the kernel build system that this is a standalone module
-# and not part of the kernel source tree.
+# Kbuild file for MVGAL kernel module (out-of-tree)
 
 obj-m := mvgal.o
+mvgal-y := mvgal_main.o
 
-mvgal-y := mvgal_stub.o
+ccflags-y += -I$(src)/../include

@@ -34,7 +34,7 @@ The major missing components now have concrete buildable implementations or prot
   - `com.mvgal.installer.mtt`
 - Added CMake install rules for Polkit policy, helper scripts, MTT installer, udev rules, and default configuration.
 - Reworked kernel build detection for `/lib/modules/$(uname -r)/build`, `/usr/src/kernels`, Debian headers, and Arch-style source trees.
-- Added a conservative buildable `mvgal.ko` misc-device shim exposing `/dev/mvgal0`; the older DRM/vendor-hook sources remain in-tree as experimental code and are not used by the DKMS-built module.
+- Phase 1 kernel module (`kernel/mvgal_main.c`) exposes `/dev/mvgal0`, UAPI ioctls from `include/mvgal/mvgal_uapi.h`, and `/sys/class/mvgal/mvgal0/` sysfs (`gpu_count`, `rescan`, per-GPU `enabled`/`pci_path`/`power_state`). Older DRM/vendor-hook sources remain experimental and are not linked by default.
 
 Verified locally on Fedora kernel `7.0.4-200.fc44.x86_64`:
 

@@ -791,13 +791,54 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
             static _Atomic uint32_t s_frame_count = 0;
             uint32_t frame_idx = atomic_fetch_add(&s_frame_count, 1);
             
-            /* Assume 2 GPUs for now, in a real implementation we'd query device_dispatch->internal_device_count */
+            /* Assume 2 GPUs for now */
             uint32_t gpu_idx = frame_idx % 2; 
             uint32_t device_mask = (1U << gpu_idx);
 
             mvgal_vk_layer_log("AFR: Dispatching submission to GPU %u (mask 0x%x)", gpu_idx, device_mask);
 
-            /* In a full implementation, we would inject VkDeviceGroupSubmitInfo into pNext */
+            /* Inject VkDeviceGroupSubmitInfo to route to specific GPU */
+            VkSubmitInfo *new_submits = (VkSubmitInfo *)malloc(submitCount * sizeof(VkSubmitInfo));
+            VkDeviceGroupSubmitInfo *group_infos = (VkDeviceGroupSubmitInfo *)malloc(submitCount * sizeof(VkDeviceGroupSubmitInfo));
+            uint32_t **masks_pool = (uint32_t **)malloc(submitCount * sizeof(uint32_t *));
+
+            for (uint32_t i = 0; i < submitCount; ++i) {
+                new_submits[i] = pSubmits[i];
+                group_infos[i].sType = VK_STRUCTURE_TYPE_DEVICE_GROUP_SUBMIT_INFO;
+                group_infos[i].pNext = pSubmits[i].pNext;
+                group_infos[i].waitSemaphoreCount = 0;
+                group_infos[i].pWaitSemaphoreDeviceIndices = NULL;
+                group_infos[i].commandBufferCount = pSubmits[i].commandBufferCount;
+                
+                uint32_t *masks = (uint32_t *)malloc(pSubmits[i].commandBufferCount * sizeof(uint32_t));
+                for (uint32_t j = 0; j < pSubmits[i].commandBufferCount; ++j) {
+                    masks[j] = device_mask;
+                }
+                group_infos[i].pCommandBufferDeviceMasks = masks;
+                masks_pool[i] = masks;
+                
+                group_infos[i].signalSemaphoreCount = 0;
+                group_infos[i].pSignalSemaphoreDeviceIndices = NULL;
+                
+                new_submits[i].pNext = &group_infos[i];
+            }
+
+            VkResult result = queue_dispatch->device_dispatch->queue_submit(
+                queue,
+                submitCount,
+                new_submits,
+                fence
+            );
+
+            /* Cleanup */
+            for (uint32_t i = 0; i < submitCount; ++i) {
+                free(masks_pool[i]);
+            }
+            free(masks_pool);
+            free(group_infos);
+            free(new_submits);
+
+            return result;
         }
     }
 

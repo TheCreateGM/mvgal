@@ -179,7 +179,7 @@ struct PeerInfo {
  */
 class IpcClientConnection {
 public:
-    IpcClientConnection(int socketFd, const struct sockaddr_un& remoteAddr, uint32_t clientId);
+    IpcClientConnection(int socketFd, const struct sockaddr_un& remoteAddr, uint32_t clientId, Daemon* daemon);
     ~IpcClientConnection();
 
     int fd() const { return m_socketFd; }
@@ -201,6 +201,7 @@ private:
     int m_socketFd;
     struct sockaddr_un m_remoteAddr;
     uint32_t m_clientId;
+    Daemon* m_daemon;
     
     /* Receive buffer */
     std::vector<uint8_t> m_receiveBuffer;

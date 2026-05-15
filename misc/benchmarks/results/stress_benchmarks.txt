@@ -1,0 +1,93 @@
+Starting MVGAL Stress Testing Benchmarks
+WARNING: These tests push system limits!
+Press Ctrl+C to stop early if needed
+=== Benchmark: Max Thread Creation (256 threads) ===
+  Min time:    550.6610 ms
+  Max time:    550.6610 ms
+  Avg time:    550.6610 ms
+  Std dev:     0.0000 ms
+  Operations:  1
+  Throughput:  1.82 ops/sec
+  Status:      PASS
+---
+=== Benchmark: Memory Allocation Storm (10K allocs) ===
+  Min time:    9.4410 ms
+  Max time:    9.4410 ms
+  Avg time:    9.4410 ms
+  Std dev:     0.0000 ms
+  Operations:  1
+  Throughput:  105.92 ops/sec
+  Status:      PASS
+---
+=== Benchmark: Mutex Contention (32 threads, 64 mutexes) ===
+  Min time:    1003.7430 ms
+  Max time:    1003.7430 ms
+  Avg time:    1003.7430 ms
+  Std dev:     0.0000 ms
+  Operations:  1
+  Throughput:  1.00 ops/sec
+  Status:      PASS
+---
+=== Benchmark: Rapid Workload Submission (100K) ===
+  Min time:    0.1660 ms
+  Max time:    0.1660 ms
+  Avg time:    0.1660 ms
+  Std dev:     0.0000 ms
+  Operations:  1
+  Throughput:  6024.10 ops/sec
+  Status:      PASS
+---
+=== Benchmark: Memory Pressure (1GB total) ===
+  Min time:    5581.8470 ms
+  Max time:    5581.8470 ms
+  Avg time:    5581.8470 ms
+  Std dev:     0.0000 ms
+  Operations:  1
+  Throughput:  0.18 ops/sec
+  Status:      PASS
+---
+=== Benchmark: FD Stress (512 descriptors) ===
+  Min time:    502.1830 ms
+  Max time:    502.1830 ms
+  Avg time:    502.1830 ms
+  Std dev:     0.0000 ms
+  Operations:  1
+  Throughput:  1.99 ops/sec
+  Status:      PASS
+---
+=== Benchmark: Concurrent I/O (16 threads) ===
+  Min time:    502.9760 ms
+  Max time:    502.9760 ms
+  Avg time:    502.9760 ms
+  Std dev:     0.0000 ms
+  Operations:  1
+  Throughput:  1.99 ops/sec
+  Status:      PASS
+---
+=== Benchmark: Nested Locks (10 threads, 3 levels) ===
+  Min time:    501.0840 ms
+  Max time:    501.0840 ms
+  Avg time:    501.0840 ms
+  Std dev:     0.0000 ms
+  Operations:  1
+  Throughput:  2.00 ops/sec
+  Status:      PASS
+---
+=== Benchmark: Context Switching (100 threads) ===
+  Min time:    508.2100 ms
+  Max time:    508.2100 ms
+  Avg time:    508.2100 ms
+  Std dev:     0.0000 ms
+  Operations:  1
+  Throughput:  1.97 ops/sec
+  Status:      PASS
+---
+=== Benchmark: Resource Exhaustion Simulation ===
+  Min time:    21.7250 ms
+  Max time:    21.7250 ms
+  Avg time:    21.7250 ms
+  Std dev:     0.0000 ms
+  Operations:  1
+  Throughput:  46.03 ops/sec
+  Status:      PASS
+---

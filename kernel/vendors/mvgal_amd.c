@@ -70,7 +70,7 @@ struct mvgal_amd_priv {
 int mvgal_amd_init(struct mvgal_gpu_device *gpu)
 {
 	struct mvgal_amd_priv *priv;
-	int ret = 0;
+	struct drm_device *ddev = NULL;
 
 	if (!gpu) {
 		return -EINVAL;
@@ -82,14 +82,13 @@ int mvgal_amd_init(struct mvgal_gpu_device *gpu)
 	}
 
 	priv->pdev = gpu->pdev;
-	priv->drm_dev = NULL;
 	
-	/* Try to get the amdgpu DRM device for this PCI device */
-	/* In the full implementation, we would:
-	 * 1. Use drm_find_device_by_pci() or similar
-	 * 2. Or traverse /sys/class/drm to find matching device
-	 * 3. Get the amdgpu_device from drm->dev_private
-	 */
+	/* Attempt to get the drm_device from PCI drvdata */
+	ddev = pci_get_drvdata(gpu->pdev);
+	if (ddev) {
+		priv->drm_dev = ddev;
+		pr_debug("MVGAL: Found AMD DRM device %p for PCI %s\n", ddev, pci_name(gpu->pdev));
+	}
 
 	/* Check for TTM support */
 	priv->ttm.ttm_available = true; /* amdgpu uses TTM */
@@ -102,7 +101,7 @@ int mvgal_amd_init(struct mvgal_gpu_device *gpu)
 	priv->dpm_supported = true; /* Most modern AMD GPUs support DPM */
 
 	/* Set reasonable defaults for AMD GPUs */
-	gpu->vram_size = 16 * 1024 * 1024 * 1024; /* 16GB default for newer cards */
+	gpu->vram_size = pci_resource_len(gpu->pdev, 0); /* BAR0 is VRAM on AMD */
 	gpu->vram_bandwidth = 512 * 1024; /* ~512 GB/s */
 	gpu->compute_units = 72; /* 72 CUs for RDNA 2 */
 	gpu->api_flags = MVGAL_API_VULKAN | MVGAL_API_OPENCL;
@@ -110,8 +109,8 @@ int mvgal_amd_init(struct mvgal_gpu_device *gpu)
 	/* Set private data */
 	gpu->vendor_priv = priv;
 
-	pr_info("MVGAL: AMD GPU initialized (pci %04x:%04x)\n",
-		gpu->pci_vendor_id, gpu->pci_device_id);
+	pr_info("MVGAL: AMD GPU initialized (pci %04x:%04x, vram %llu MB)\n",
+		gpu->pci_vendor_id, gpu->pci_device_id, (unsigned long long)(gpu->vram_size >> 20));
 
 	return 0;
 }

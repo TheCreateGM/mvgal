@@ -331,46 +331,6 @@ static void test_context_switching(void *data) {
     free(ids);
 }
 
-// Stress Test 9: Rapid context switching
-static void test_context_switching(void *data) {
-    (void)data;
-    const int num_threads = 100;
-    pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
-    
-    if (!threads) return;
-    
-    pthread_barrier_t barrier;
-    pthread_barrier_init(&barrier, NULL, num_threads);
-    
-    struct thread_arg *args = malloc(num_threads * sizeof(struct thread_arg));
-    
-    if (!args) {
-        free(threads);
-        return;
-    }
-    
-    for (int i = 0; i < num_threads; i++) {
-        args[i].id = i;
-        args[i].barrier = &barrier;
-        pthread_create(&threads[i], NULL, barrier_wait_wrapper, &args[i]);
-    }
-    
-    // Wait for all threads to reach barrier
-    (void)pthread_barrier_wait(&barrier);
-    
-    // Let them all proceed and contest for CPU
-    usleep(100000); // 100ms
-    
-    // Cleanup
-    for (int i = 0; i < num_threads; i++) {
-        pthread_join(threads[i], NULL);
-    }
-    
-    pthread_barrier_destroy(&barrier);
-    free(threads);
-    free(args);
-}
-
 // Stress Test 10: Resource exhaustion simulation
 static void test_resource_exhaustion(void *data) {
     (void)data;

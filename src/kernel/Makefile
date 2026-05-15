@@ -1,45 +1,13 @@
-# Makefile for MVGAL Kernel Module
-# Build with: make -C /lib/modules/$(uname -r)/build M=$(PWD) modules
+# SPDX-License-Identifier: GPL-2.0-only
+# Legacy path: build the canonical module from kernel/
 
-obj-m := mvgal.o
-mvgal-objs := mvgal_kernel.o
+.PHONY: all clean modules_install
 
-# Kernel module flags
-KVERSION := $(shell uname -r)
-KSRC := /lib/modules/$(KVERSION)/build
+all modules:
+	$(MAKE) -C ../../kernel
 
-# Additional compiler flags
-EXTRA_CFLAGS += -DDEBUG
-EXTRA_CFLAGS += -Wno-unused-variable
-EXTRA_CFLAGS += -Wno-unused-function
-EXTRA_CFLAGS += -Wno-unused-but-set-variable
-
-# Include kernel build system
-all:
-	$(MAKE) -C $(KSRC) M=$(PWD) modules
-
-# Clean
 clean:
-	$(MAKE) -C $(KSRC) M=$(PWD) clean
-	rm -f *.o *.ko *.mod.*
+	$(MAKE) -C ../../kernel clean
 
-# Install
-install:
-	$(MAKE) -C $(KSRC) M=$(PWD) modules_install
-	depmod -a $(KVERSION)
-
-# Uninstall
-uninstall:
-	rm -f /lib/modules/$(KVERSION)/extra/mvgal.ko
-	depmod -a $(KVERSION)
-
-# Load module
-load:
-	sudo insmod mvgal.ko
-	lsmod | grep mvgal
-
-# Unload module
-unload:
-	sudo rmmod mvgal.ko
-
-.PHONY: all clean install uninstall load unload
+modules_install:
+	$(MAKE) -C ../../kernel modules_install
