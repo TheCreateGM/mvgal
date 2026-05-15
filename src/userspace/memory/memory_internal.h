@@ -134,6 +134,16 @@ struct mvgal_buffer {
     // Original allocation (for wrapped memory)
     void *original_ptr;           ///< Original pointer if wrapped
     bool should_free;              ///< Whether to free original_ptr on destroy
+
+    // Alias tracking
+    struct mvgal_buffer *alias_parent;   ///< Parent buffer (NULL if root)
+    struct mvgal_buffer *aliases[16];    ///< Aliases pointing to this buffer
+    uint32_t alias_count;                ///< Number of aliases
+    uint64_t alias_offset;               ///< Offset within parent buffer
+    size_t alias_size;                   ///< Size of alias region (0 = full parent)
+    mvgal_buffer_alias_flags_t alias_flags; ///< Alias creation flags
+    bool is_alias;                        ///< True if this is an alias buffer
+    bool alias_detached;                  ///< True if alias was detached (owns copy)
     
     // Next/prev for tracking (optional)
     struct mvgal_buffer *next;

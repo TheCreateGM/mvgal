@@ -210,7 +210,7 @@ static void aggregate_device_properties(mvgal_device_group_t *group)
     
     /* Start with first device properties */
     agg->apiVersion = VK_API_VERSION_1_3;
-    agg->driverVersion = VK_MAKE_VERSION(0, 2, 1);
+    agg->driverVersion = VK_MAKE_VERSION(0, 2, 2);
     agg->vendorID = 0x1A4B; /* MVGAL vendor ID */
     agg->deviceID = generate_consistent_device_id(NULL, group->device_count);
     agg->deviceType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;

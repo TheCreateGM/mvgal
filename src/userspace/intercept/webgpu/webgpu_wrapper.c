@@ -56,7 +56,7 @@ typedef struct webgpu_encoder_mapping_t webgpu_encoder_mapping_t;
  * Configuration and State
  ******************************************************************************/
 
-#define MVGAL_WEBGPU_VERSION "0.2.0"
+#define MVGAL_WEBGPU_VERSION "0.2.2"
 
 // GPU selection strategy
 typedef enum {

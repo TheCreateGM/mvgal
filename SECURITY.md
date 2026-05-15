@@ -1,6 +1,6 @@
 # MVGAL Security Policy
 
-![Version](https://img.shields.io/badge/version-0.2.0-%2376B900?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.2.2-%2376B900?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-Active-%234CAF50?style=for-the-badge)
 
 **Project:** Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
@@ -84,4 +84,4 @@ MVGAL implements the following security measures:
 
 ---
 
-*© 2026 MVGAL Project. Version 0.2.1 "Health Monitor". All Rights Reserved.*
+*© 2026 MVGAL Project. Version 0.2.2 "Health Monitor". All Rights Reserved.*

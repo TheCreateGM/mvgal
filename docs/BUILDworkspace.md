@@ -1,11 +1,11 @@
 # MVGAL Build and Test Guide
 
-![Version](https://img.shields.io/badge/version-0.2.1-%2376B900?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.2.2-%2376B900?style=for-the-badge)
 ![Language](https://img.shields.io/badge/Language-C11-%23A8B9CC.svg?style=for-the-badge&logo=c&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Linux-%23FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)
 
 **Project:** Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
-**Version:** 0.2.1 "Health Monitor"
+**Version:** 0.2.2 "Health Monitor"
 **Last Updated:** May 01, 2026
 
 ---
@@ -269,7 +269,7 @@ ls -lh dist/
 
 #### Extract Tarball
 ```bash
-tar -xzf dist/mvgal-0.1.0.tar.gz
+tar -xzf dist/mvgal-0.2.2.tar.gz
 cd mvgal
 ```
 
@@ -285,7 +285,7 @@ dch -i  # Update changelog if needed
 dpkg-buildpackage -us -uc
 
 # Install
-sudo dpkg -i ../mvgal_0.1.0-1_amd64.deb
+sudo dpkg -i ../mvgal_0.2.2-1_amd64.deb
 ```
 
 #### RPM Package
@@ -302,7 +302,7 @@ cd ~/rpmbuild/SOURCES/mvgal
 rpmbuild -bb pkg/rpm/mvgal.spec
 
 # Install
-sudo rpm -ivh ~/rpmbuild/RPMS/x86_64/mvgal-0.1.0-1.x86_64.rpm
+sudo rpm -ivh ~/rpmbuild/RPMS/x86_64/mvgal-0.2.2-1.x86_64.rpm
 ```
 
 #### Arch Linux Package
@@ -337,7 +337,7 @@ sudo apt-get install snapd
 snapcraft --use-lxd
 
 # Install
-sudo snap install mvgal_0.1.0_amd64.snap --dangerous --devmode
+sudo snap install mvgal_0.2.2_amd64.snap --dangerous --devmode
 
 # Run
 snap run mvgal
@@ -627,4 +627,4 @@ MVGAL is licensed under GPL-3.0-or-later. See COPYING or LICENSE file for detail
 
 ---
 
-*© 2026 MVGAL Project. Version 0.2.1 "Health Monitor". All Rights Reserved.*
+*© 2026 MVGAL Project. Version 0.2.2 "Health Monitor". All Rights Reserved.*

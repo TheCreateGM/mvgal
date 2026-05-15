@@ -1,10 +1,10 @@
 # MVGAL Packaging Summary
 
-![Version](https://img.shields.io/badge/version-0.2.1-%2376B900?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.2.2-%2376B900?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-95%25_Complete-%234CAF50?style=for-the-badge)
 
 **Project:** Multi-Vendor GPU Aggregation Layer for Linux (MVGAL)
-**Version:** 0.2.0 "Health Monitor"
+**Version:** 0.2.2 "Health Monitor"
 **Last Updated:** April 21, 2026
 **Packaging Status:** ✅ All definitions ready (not yet built)
 
@@ -12,7 +12,7 @@
 
 ## 📦 Overview
 
-This document summarizes all **17 packaging and configuration files** created for the MVGAL project across **5 different packaging formats** (Debian, RPM, Arch, Flatpak, Snap) plus DBus and systemd integration.
+This document summarizes packaging and configuration files for MVGAL across **7 packaging formats** (Debian, RPM, Arch, Flatpak, Snap, Nix, Gentoo) plus DBus and systemd integration.
 
 ## 🗂️ Directory Structure
 
@@ -49,6 +49,12 @@ mvgal/
 │   ├── snap/                        # Snap
 │   │   └── snapcraft.yaml          # Snap configuration (✅ Ready)
 │   │
+│   ├── nix/                         # Nix / NixOS
+│   │   └── default.nix             # Local-source derivation (✅ Ready)
+│   │
+│   ├── gentoo/                      # Gentoo overlay
+│   │   └── mvgal-0.2.2.ebuild      # Portage ebuild (✅ Ready)
+│   │
 │   └── systemd/                    # systemd integration
 │       └── mvgal-dbus.service      # systemd service file (✅ Complete)
 │
@@ -57,7 +63,7 @@ mvgal/
     └── Makefile                     # Build system
 ```
 
-**Total: 17 packaging/config files + 2 tools = 19 files**
+**Total:** packaging/config files cover native distro packages, sandboxed application manifests, service integration, D-Bus, and PolicyKit helpers.
 
 ## Debian Packaging (`pkg/debian/`)
 
@@ -121,14 +127,14 @@ cd mvgal
 rpmbuild -bb pkg/rpm/mvgal.spec
 
 # Or with mock for clean builds
-mock -r fedora-43-x86_64 --rebuild mvgal-0.1.0-1.src.rpm
+mock -r fedora-43-x86_64 --rebuild mvgal-0.2.2-1.src.rpm
 ```
 
 ## Arch Linux Packaging (`pkg/arch/`)
 
 ### File: PKGBUILD
 
-**Package:** mvgal 0.1.0-1
+**Package:** mvgal 0.2.2-1
 
 **Architecture:** x86_64
 
@@ -212,7 +218,7 @@ flatpak run org.mvgal.MVGAL
 
 **Base:** core24
 
-**Version:** 0.1.0
+**Version:** 0.2.2
 
 **Confinement:** strict
 
@@ -250,7 +256,7 @@ flatpak run org.mvgal.MVGAL
 snapcraft --use-lxd
 
 # Install
-sudo snap install mvgal_0.1.0_amd64.snap --dangerous --devmode
+sudo snap install mvgal_0.2.2_amd64.snap --dangerous --devmode
 
 # Run
 snap run mvgal
@@ -386,7 +392,7 @@ To complete the packaging and release:
 ### Immediate (This Week)
 1. ✅ **Already Complete:** All packaging definitions created
 2. ⏳ **Build packages:** Test each format on clean systems
-3. ⏳ **Create tarball:** Source distribution for v0.2.0
+3. ⏳ **Create tarball:** Source distribution for v0.2.2
 4. ⏳ **Fix missing scripts:** Create load-module.sh, unload-module.sh
 
 ### Short Term (This Month)
@@ -470,7 +476,7 @@ To complete the packaging and release:
 ---
 
 *© 2026 MVGAL Project.*
-*Version: 0.2.1 "Health Monitor"*
+*Version: 0.2.2 "Health Monitor"*
 *Last Updated: April 21, 2026*
 *License: GPLv3*
 *All Rights Reserved*

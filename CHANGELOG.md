@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.2.2] — 2026-05-16
+
+### Changed
+- Bumped active project, runtime, API wrapper, Vulkan ICD, Steam compatibility,
+  UI, binding, and packaging metadata from 0.2.1/older stale versions to 0.2.2.
+- Added Nix and Gentoo package metadata to the supported distribution set.
+
+### Fixed
+- Runtime daemon scheduler queue consumption and wait predicate behavior.
+- Runtime daemon memory replication deadlock when populating additional GPUs.
+
 ### Added
 - Remote GPU network pooling: UDP/TCP peer discovery, heartbeat health tracking,
   RemoteGpu integration with DeviceRegistry, latency-weighted scheduler scoring
@@ -94,4 +105,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Fence synchronization primitives
 - Core API specification
 
+[v0.2.2]: https://github.com/TheCreateGM/mvgal/releases/tag/v0.2.2
 [v0.2.1]: https://github.com/TheCreateGM/mvgal/releases/tag/v0.2.1

@@ -513,7 +513,7 @@ typedef HRESULT (WINAPI *DXGISwapChain_Present_t)(
  * Configuration and State
  ******************************************************************************/
 
-#define MVGAL_D3D_VERSION "0.2.0"
+#define MVGAL_D3D_VERSION "0.2.2"
 
 // GPU selection strategy
 typedef enum {

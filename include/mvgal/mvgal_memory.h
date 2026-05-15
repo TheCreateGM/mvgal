@@ -103,6 +103,29 @@ typedef struct {
 } mvgal_memory_copy_region_t;
 
 /**
+ * @brief Buffer alias info
+ */
+typedef struct {
+    mvgal_buffer_t parent;         ///< Parent buffer (NULL if root)
+    mvgal_buffer_t alias;          ///< Alias buffer handle
+    uint64_t offset;               ///< Offset in parent buffer
+    size_t size;                   ///< Size of alias region
+    mvgal_memory_flags_t flags;    ///< Alias-specific flags
+    uint32_t gpu_mask;             ///< GPU access mask for alias
+} mvgal_buffer_alias_info_t;
+
+/**
+ * @brief Buffer alias create flags
+ */
+typedef enum {
+    MVGAL_BUFFER_ALIAS_FLAG_NONE = 0,
+    MVGAL_BUFFER_ALIAS_FLAG_READ_ONLY = 1 << 0,   ///< Read-only alias
+    MVGAL_BUFFER_ALIAS_FLAG_WRITE_ONLY = 1 << 1,  ///< Write-only alias
+    MVGAL_BUFFER_ALIAS_FLAG_OWN_REFCOUNT = 1 << 2, ///< Independent refcount
+    MVGAL_BUFFER_ALIAS_FLAG_DETACH_ON_FREE = 1 << 3, ///< Detach when parent freed
+} mvgal_buffer_alias_flags_t;
+
+/**
  * @brief Memory transfer callback
  * @param buffer Buffer handle
  * @param offset Offset in buffer
@@ -489,6 +512,55 @@ mvgal_error_t mvgal_memory_create_shared(
     uint32_t gpu_count,
     const uint32_t *gpu_indices,
     mvgal_buffer_t *buffer
+);
+
+/**
+ * @brief Create a buffer alias
+ *
+ * Creates a new buffer handle that aliases a region of an existing buffer.
+ * The alias shares the same physical memory but may have different GPU
+ * access masks and flags.
+ *
+ * @param context Context
+ * @param parent Parent buffer to alias
+ * @param offset Offset in parent buffer
+ * @param size Size of alias region (0 for remainder of parent)
+ * @param alias_flags Alias creation flags
+ * @param buffer Alias buffer handle (out)
+ * @return MVGAL_SUCCESS on success, error code on failure
+ */
+mvgal_error_t mvgal_memory_create_alias(
+    void *context,
+    mvgal_buffer_t parent,
+    uint64_t offset,
+    size_t size,
+    mvgal_buffer_alias_flags_t alias_flags,
+    mvgal_buffer_t *buffer
+);
+
+/**
+ * @brief Get alias information for a buffer
+ *
+ * @param buffer Buffer to query
+ * @param info Alias info (out)
+ * @return MVGAL_SUCCESS on success, MVGAL_ERROR_NOT_FOUND if not an alias
+ */
+mvgal_error_t mvgal_memory_get_alias_info(
+    mvgal_buffer_t buffer,
+    mvgal_buffer_alias_info_t *info
+);
+
+/**
+ * @brief Detach an alias from its parent
+ *
+ * After detach, the alias becomes an independent buffer with its own
+ * memory allocation (copy-on-write semantics).
+ *
+ * @param buffer Alias buffer to detach
+ * @return MVGAL_SUCCESS on success, error code on failure
+ */
+mvgal_error_t mvgal_memory_alias_detach(
+    mvgal_buffer_t buffer
 );
 
 /** @} */ // end of MemoryManagement

@@ -1,7 +1,7 @@
 # Maintainer: AxoGM <creategm10@proton.me>
 # Contributor:
 pkgname=mvgal
-pkgver=0.1.0
+pkgver=0.2.2
 pkgrel=1
 pkgdesc="Multi-Vendor GPU Aggregation Layer for Linux - enabling heterogeneous GPUs to function as a single logical device"
 arch=('x86_64')

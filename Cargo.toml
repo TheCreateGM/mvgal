@@ -12,10 +12,10 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.2"
 edition = "2021"
 rust-version = "1.75"
-authors = ["MVGAL Contributors"]
+authors = ["AxoGM"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/TheCreateGM/mvgal"
 description = "Multi-Vendor GPU Aggregation Layer for Linux — Rust safety-critical subsystems"

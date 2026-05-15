@@ -1,6 +1,6 @@
 # MVGAL Development Progress
 
-**Version:** 0.2.1 | **Updated:** May 2026 | **Completion:** ~95%
+**Version:** 0.2.2 | **Updated:** May 2026 | **Completion:** ~95%
 
 ---
 

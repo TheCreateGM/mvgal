@@ -33,6 +33,11 @@ Workload::~Workload()
 }
 
 /* PriorityQueue implementation */
+PriorityQueue::PriorityQueue()
+    : m_queueByPriority(NUM_PRIORITY_LEVELS)
+{
+}
+
 void PriorityQueue::push(std::shared_ptr<Workload> workload)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -67,7 +72,9 @@ std::shared_ptr<Workload> PriorityQueue::tryPop()
     
     for (int i = NUM_PRIORITY_LEVELS - 1; i >= 0; i--) {
         if (!m_queueByPriority[static_cast<size_t>(i)].empty()) {
-            return m_queueByPriority[static_cast<size_t>(i)].front();
+            auto workload = m_queueByPriority[static_cast<size_t>(i)].front();
+            m_queueByPriority[static_cast<size_t>(i)].pop();
+            return workload;
         }
     }
     
@@ -107,7 +114,14 @@ void PriorityQueue::wakeUp()
 void PriorityQueue::waitForWorkload()
 {
     std::unique_lock<std::mutex> lock(m_mutex);
-    m_cv.wait(lock, [this] { return !empty(); });
+    m_cv.wait(lock, [this] {
+        for (const auto& queue : m_queueByPriority) {
+            if (!queue.empty()) {
+                return true;
+            }
+        }
+        return false;
+    });
 }
 
 /* Scheduler implementation */

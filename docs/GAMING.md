@@ -1,6 +1,6 @@
 # MVGAL Gaming Guide
 
-**Version:** 0.2.1
+**Version:** 0.2.2
 
 ---
 
@@ -108,7 +108,7 @@ MVGAL registers as a Steam compatibility tool. To use:
 
 1. Right-click game → Properties → Compatibility
 2. Check "Force the use of a specific Steam Play compatibility tool"
-3. Select **MVGAL 0.2.1**
+3. Select **MVGAL 0.2.2**
 
 The compatibility tool script (`steam/mvgal_steam_compat.sh`) automatically sets `ENABLE_MVGAL=1`, `MVGAL_STRATEGY=afr`, and `MVGAL_FRAME_PACING=1`.
 

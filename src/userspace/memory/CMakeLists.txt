@@ -8,6 +8,7 @@ set(MEMORY_SOURCES
     memory.c
     memory_internal.h
     allocator.c
+    coherency.c
     dmabuf.c
     sync.c
 )

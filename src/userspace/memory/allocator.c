@@ -195,6 +195,16 @@ mvgal_error_t mvgal_buffer_allocate_internal(
     buffer->original_ptr = NULL;
     buffer->should_free = false;
     buffer->gpu_binding_count = 0;
+    buffer->alias_parent = NULL;
+    buffer->alias_count = 0;
+    buffer->alias_offset = 0;
+    buffer->alias_size = 0;
+    buffer->alias_flags = MVGAL_BUFFER_ALIAS_FLAG_NONE;
+    buffer->is_alias = false;
+    buffer->alias_detached = false;
+    for (uint32_t i = 0; i < 16; i++) {
+        buffer->aliases[i] = NULL;
+    }
     
     atomic_init(&buffer->refcount, 1);
     for (uint32_t i = 0; i < MVGAL_MAX_GPUS; i++) {
@@ -310,8 +320,38 @@ void mvgal_buffer_free_internal(struct mvgal_buffer *buffer) {
         return;
     }
     
-    MVGAL_LOG_DEBUG("Freeing buffer: %p, ptr=%p, backend=%d", 
-                   (void *)buffer, buffer->host_ptr, buffer->backend);
+    MVGAL_LOG_DEBUG("Freeing buffer: %p, ptr=%p, backend=%d, is_alias=%d", 
+                   (void *)buffer, buffer->host_ptr, buffer->backend, buffer->is_alias);
+    
+    // If this is a parent with aliases, detach all aliases first
+    if (buffer->alias_count > 0) {
+        for (uint32_t i = 0; i < buffer->alias_count; i++) {
+            struct mvgal_buffer *alias = buffer->aliases[i];
+            if (alias != NULL) {
+                alias->alias_parent = NULL;
+                alias->alias_detached = true;
+                alias->is_alias = false;
+                alias->should_free = true;  /* Alias owns its copy now */
+                MVGAL_LOG_DEBUG("Alias %p detached from parent %p", (void *)alias, (void *)buffer);
+            }
+        }
+        buffer->alias_count = 0;
+    }
+    
+    // If this is an alias, remove from parent's alias list
+    if (buffer->is_alias && buffer->alias_parent != NULL && !buffer->alias_detached) {
+        struct mvgal_buffer *parent = buffer->alias_parent;
+        if (parent != NULL) {
+            for (uint32_t i = 0; i < parent->alias_count; i++) {
+                if (parent->aliases[i] == buffer) {
+                    parent->aliases[i] = parent->aliases[parent->alias_count - 1];
+                    parent->alias_count--;
+                    break;
+                }
+            }
+            mvgal_buffer_release(parent); // Drop parent ref held by alias
+        }
+    }
     
     // Unbind from all GPUs
     mvgal_buffer_unbind(buffer);
@@ -443,4 +483,218 @@ bool mvgal_dmabuf_is_supported(uint32_t gpu_mask) {
     }
     
     return true;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Buffer alias operations                                           */
+/* ------------------------------------------------------------------ */
+
+mvgal_error_t mvgal_memory_create_alias(
+    void *context,
+    mvgal_buffer_t parent,
+    uint64_t offset,
+    size_t size,
+    mvgal_buffer_alias_flags_t alias_flags,
+    mvgal_buffer_t *buffer
+) {
+    (void)context;
+
+    if (parent == NULL || buffer == NULL) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+
+    struct mvgal_buffer *p = (struct mvgal_buffer *)parent;
+
+    /* Validate offset and size against parent */
+    if (offset >= p->size) {
+        MVGAL_LOG_ERROR("Alias offset %lu exceeds parent size %zu",
+                        (unsigned long)offset, p->size);
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+
+    size_t alias_size = size;
+    if (alias_size == 0) {
+        alias_size = p->size - offset;
+    }
+    if (offset + alias_size > p->size) {
+        MVGAL_LOG_ERROR("Alias region [%lu, %lu) exceeds parent size %zu",
+                        (unsigned long)offset, (unsigned long)(offset + alias_size), p->size);
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+
+    /* Check parent alias limit */
+    if (p->alias_count >= 16) {
+        MVGAL_LOG_ERROR("Parent buffer %p has too many aliases (max 16)", (void *)p);
+        return MVGAL_ERROR_MEMORY;
+    }
+
+    /* Allocate alias buffer structure */
+    struct mvgal_buffer *alias = calloc(1, sizeof(struct mvgal_buffer));
+    if (alias == NULL) {
+        MVGAL_LOG_ERROR("Failed to allocate alias buffer");
+        return MVGAL_ERROR_OUT_OF_MEMORY;
+    }
+
+    /* Copy parent buffer properties */
+    alias->size = alias_size;
+    alias->alignment = p->alignment;
+    alias->flags = p->flags;
+    alias->memory_type = p->memory_type;
+    alias->sharing_mode = p->sharing_mode;
+    alias->access = p->access;
+    alias->gpu_mask = p->gpu_mask;
+    alias->priority = p->priority;
+    alias->backend = p->backend;
+
+    /* Shared host pointer with offset */
+    alias->host_ptr = (p->host_ptr != NULL)
+                      ? (void *)((char *)p->host_ptr + offset)
+                      : NULL;
+    alias->host_offset = offset;
+    alias->dmabuf_fd = p->dmabuf_fd;
+    alias->dmabuf_offset = p->dmabuf_offset + offset;
+    alias->dmabuf_owner = false;  /* Parent owns the DMA-BUF */
+    alias->state = p->state;
+    alias->original_ptr = (p->host_ptr != NULL)
+                          ? (void *)((char *)p->host_ptr + offset)
+                          : NULL;
+    alias->should_free = false;   /* Parent owns the memory */
+
+    /* Set up alias tracking */
+    alias->alias_parent = p;
+    alias->alias_offset = offset;
+    alias->alias_size = alias_size;
+    alias->alias_flags = alias_flags;
+    alias->is_alias = true;
+    alias->alias_detached = false;
+    alias->alias_count = 0;
+
+    atomic_init(&alias->refcount, 1);
+    for (uint32_t i = 0; i < MVGAL_MAX_GPUS; i++) {
+        atomic_init(&alias->access_count[i], 0);
+    }
+    atomic_init(&alias->bytes_read, 0);
+    atomic_init(&alias->bytes_written, 0);
+    atomic_init(&alias->bytes_transferred, 0);
+
+    /* Copy GPU bindings (pointing to same memory) */
+    for (uint32_t i = 0; i < p->gpu_binding_count; i++) {
+        alias->gpu_bindings[i] = p->gpu_bindings[i];
+    }
+    alias->gpu_binding_count = p->gpu_binding_count;
+
+    /* Register alias in parent's alias list */
+    p->aliases[p->alias_count++] = alias;
+    mvgal_buffer_retain(p);  /* Parent held alive while alias exists */
+
+    /* Restrict access based on alias flags */
+    if (alias_flags & MVGAL_BUFFER_ALIAS_FLAG_READ_ONLY) {
+        for (uint32_t i = 0; i < alias->gpu_binding_count; i++) {
+            alias->gpu_bindings[i].writable = false;
+        }
+        alias->access &= ~MVGAL_MEMORY_ACCESS_WRITE;
+    }
+    if (alias_flags & MVGAL_BUFFER_ALIAS_FLAG_WRITE_ONLY) {
+        alias->access &= ~MVGAL_MEMORY_ACCESS_READ;
+    }
+
+    /* Add to global buffer list for tracking */
+    pthread_mutex_lock(&g_memory_state.lock);
+    alias->next = g_memory_state.buffers;
+    alias->prev = NULL;
+    if (g_memory_state.buffers != NULL) {
+        g_memory_state.buffers->prev = alias;
+    }
+    g_memory_state.buffers = alias;
+    pthread_mutex_unlock(&g_memory_state.lock);
+
+    *buffer = alias;
+
+    MVGAL_LOG_DEBUG("Alias created: %p -> parent %p offset=%lu size=%zu flags=%u",
+                    (void *)alias, (void *)p, (unsigned long)offset, alias_size, alias_flags);
+
+    return MVGAL_SUCCESS;
+}
+
+mvgal_error_t mvgal_memory_get_alias_info(
+    mvgal_buffer_t buffer,
+    mvgal_buffer_alias_info_t *info
+) {
+    if (buffer == NULL || info == NULL) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+
+    struct mvgal_buffer *b = (struct mvgal_buffer *)buffer;
+
+    if (!b->is_alias) {
+        return MVGAL_ERROR_NOT_FOUND;
+    }
+
+    info->parent = b->alias_parent;
+    info->alias = buffer;
+    info->offset = b->alias_offset;
+    info->size = b->alias_size;
+    info->flags = b->alias_flags;
+    info->gpu_mask = b->gpu_mask;
+
+    return MVGAL_SUCCESS;
+}
+
+mvgal_error_t mvgal_memory_alias_detach(
+    mvgal_buffer_t buffer
+) {
+    if (buffer == NULL) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+
+    struct mvgal_buffer *b = (struct mvgal_buffer *)buffer;
+
+    if (!b->is_alias || b->alias_detached) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+
+    struct mvgal_buffer *parent = b->alias_parent;
+    if (parent == NULL) {
+        return MVGAL_ERROR_INVALID_ARGUMENT;
+    }
+
+    /* Allocate private copy of the aliased region */
+    size_t copy_size = b->alias_size;
+    void *private_copy = malloc(copy_size);
+    if (private_copy == NULL) {
+        MVGAL_LOG_ERROR("Failed to allocate private copy for alias detach (%zu bytes)", copy_size);
+        return MVGAL_ERROR_OUT_OF_MEMORY;
+    }
+
+    /* Copy data from shared memory */
+    if (parent->host_ptr != NULL) {
+        memcpy(private_copy, parent->host_ptr, copy_size);
+    }
+
+    /* Remove from parent's alias list */
+    for (uint32_t i = 0; i < parent->alias_count; i++) {
+        if (parent->aliases[i] == b) {
+            parent->aliases[i] = parent->aliases[parent->alias_count - 1];
+            parent->alias_count--;
+            break;
+        }
+    }
+    mvgal_buffer_release(parent); /* Drop parent ref */
+
+    /* Convert alias to independent buffer */
+    b->alias_parent = NULL;
+    b->alias_detached = true;
+    b->is_alias = false;
+    b->host_ptr = private_copy;
+    b->host_offset = 0;
+    b->original_ptr = private_copy;
+    b->should_free = true;
+    b->alias_offset = 0;
+    b->alias_size = 0;
+    b->alias_flags = MVGAL_BUFFER_ALIAS_FLAG_NONE;
+
+    MVGAL_LOG_DEBUG("Alias %p detached from parent %p, private copy at %p",
+                    (void *)b, (void *)parent, private_copy);
+
+    return MVGAL_SUCCESS;
 }

@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-MVGAL_VERSION="0.2.1"
+MVGAL_VERSION="0.2.2"
 MVGAL_SOCKET="/run/mvgal/mvgal.sock"
 
 # ---------------------------------------------------------------------------

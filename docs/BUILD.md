@@ -1,6 +1,6 @@
 # MVGAL Build Guide
 
-**Version:** 0.2.1
+**Version:** 0.2.2
 
 ---
 
@@ -260,16 +260,16 @@ sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
 ```bash
 cd packaging && bash build_deb.sh
-# Output: packaging/build/mvgal_0.2.1_amd64.deb
-pkexec dpkg -i packaging/build/mvgal_0.2.1_amd64.deb
+# Output: packaging/build/mvgal_0.2.2_amd64.deb
+pkexec dpkg -i packaging/build/mvgal_0.2.2_amd64.deb
 ```
 
 ### RPM (Fedora / RHEL / openSUSE)
 
 ```bash
 rpmbuild -bb packaging/rpm/mvgal.spec
-# Output: ~/rpmbuild/RPMS/x86_64/mvgal-0.2.1-1.x86_64.rpm
-pkexec rpm -ivh ~/rpmbuild/RPMS/x86_64/mvgal-0.2.1-1.x86_64.rpm
+# Output: ~/rpmbuild/RPMS/x86_64/mvgal-0.2.2-1.x86_64.rpm
+pkexec rpm -ivh ~/rpmbuild/RPMS/x86_64/mvgal-0.2.2-1.x86_64.rpm
 ```
 
 ### Arch Linux

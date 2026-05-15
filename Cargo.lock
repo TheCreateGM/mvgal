@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "capability_model"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -12,7 +12,7 @@ dependencies = [
 
 [[package]]
 name = "fence_manager"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "serde",
 ]
@@ -37,14 +37,14 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
 name = "memory_safety"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "mvgal-ffi-tests"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "capability_model",
  "fence_manager",
@@ -53,7 +53,7 @@ dependencies = [
 
 [[package]]
 name = "mvgal_safe"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "libc",
  "serde",

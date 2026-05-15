@@ -1,6 +1,6 @@
 # MVGAL Public API Reference
 
-**Version:** 0.2.1 | **Header:** `#include <mvgal/mvgal.h>`
+**Version:** 0.2.2 | **Header:** `#include <mvgal/mvgal.h>`
 
 ---
 

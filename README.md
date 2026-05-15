@@ -4,7 +4,7 @@
 
 <img src="assets/icons/mvgal.svg" alt="MVGAL Logo" width="128" height="128" />
 
-![Version](https://img.shields.io/badge/version-0.2.1-76B900?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.2.2-76B900?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-95%25_complete-4CAF50?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-GPL--2.0-blue?style=for-the-badge)
 ![Language](https://img.shields.io/badge/C17-A8B9CC?style=for-the-badge&logo=c&logoColor=white)
@@ -414,7 +414,7 @@ mvgal/
 
 ## Status
 
-**Version 0.2.1 "Health Monitor" — ~95% complete**
+**Version 0.2.2 "Health Monitor" — ~95% complete**
 
 | Component | Status |
 |-----------|--------|

@@ -213,9 +213,14 @@ bool MemoryManager::replicate(uint64_t allocationId, const std::vector<uint32_t>
             continue;
         }
         if (!alloc.populated[gpuIndex]) {
-            if (!mapToGpu(allocationId, gpuIndex)) {
+            if (canUseDmaBuf(gpuIndex)) {
+                if (!importViaDmaBuf(alloc, gpuIndex)) {
+                    return false;
+                }
+            } else if (!copyViaStagingBuffer(alloc, gpuIndex)) {
                 return false;
             }
+            alloc.populated[gpuIndex] = true;
         }
     }
     

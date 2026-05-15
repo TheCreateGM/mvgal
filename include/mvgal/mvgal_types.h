@@ -147,6 +147,7 @@ typedef uint64_t mvgal_api_type_t;
 #define MVGAL_API_METAL     (1ULL << 6)
 #define MVGAL_API_WEBGPU    (1ULL << 7)
 #define MVGAL_API_VA_API    (1ULL << 8)
+#define MVGAL_API_SYCL      (1ULL << 9)
 
 /******************************************************************************
  * Memory Types

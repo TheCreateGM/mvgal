@@ -340,7 +340,7 @@ func router() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
 			"service": "MVGAL REST API",
-			"version": "0.2.1",
+			"version": "0.2.2",
 			"endpoints": "/api/v1/gpus, /api/v1/scheduler, /api/v1/stats, /api/v1/logs",
 		})
 	})

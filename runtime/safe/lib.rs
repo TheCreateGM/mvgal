@@ -11,7 +11,7 @@ pub mod memory_safety;
 pub mod capability_model;
 
 /// MVGAL version
-pub const VERSION: &str = "0.2.0";
+pub const VERSION: &str = "0.2.2";
 
 /// Result type for MVGAL operations
 pub type MvgalResult<T> = Result<T, MvgalError>;
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_version() {
-        assert_eq!(VERSION, "0.2.0");
+        assert_eq!(VERSION, "0.2.2");
         assert_eq!(API_VERSION, 1);
     }
 }

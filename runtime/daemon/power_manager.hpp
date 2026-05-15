@@ -67,6 +67,54 @@ struct GpuPowerProfile {
 };
 
 /**
+ * Fan curve point (temperature -> fan speed)
+ */
+struct FanCurvePoint {
+    int32_t temperatureCelsius;   /* Temperature point */
+    uint8_t fanSpeedPercent;      /* Fan speed at this temperature (0-100) */
+};
+
+/**
+ * Fan curve definition
+ */
+#define MVGAL_MAX_FAN_CURVE_POINTS 10
+
+struct GpuFanCurve {
+    FanCurvePoint points[MVGAL_MAX_FAN_CURVE_POINTS];
+    uint32_t numPoints;
+};
+
+/**
+ * Per-GPU fan control state
+ */
+struct GpuFanControl {
+    bool enabled;
+    bool automatic;               /* Auto fan curve vs manual override */
+    uint8_t manualSpeedPercent;   /* Manual fan speed if not automatic */
+    uint8_t currentSpeedPercent;  /* Current fan speed */
+    uint32_t currentRpm;          /* Current fan RPM (0 if not available) */
+};
+
+/**
+ * PSU headroom information
+ */
+struct PsuHeadroom {
+    uint32_t totalCapacityWatts;  /* Total PSU capacity */
+    uint32_t currentDrawWatts;    /* Current total draw */
+    uint32_t headroomWatts;       /* Available headroom */
+    float safetyMarginPercent;    /* Safety margin (e.g., 20.0 = 20%) */
+};
+
+/**
+ * PSU configuration
+ */
+struct PsuConfig {
+    uint32_t totalCapacityWatts;  /* Total PSU capacity in watts */
+    uint32_t safetyMarginPercent; /* Safety margin percentage (default 20) */
+    bool enableHeadroomTracking;  /* Enable PSU headroom tracking */
+};
+
+/**
  * Power management configuration
  */
 struct PowerConfig {
@@ -139,6 +187,18 @@ public:
     /* Apply DVFS settings */
     void applyDvfs();
 
+    /* Fan control */
+    void setFanCurve(uint32_t gpuIndex, const GpuFanCurve& curve);
+    GpuFanCurve getFanCurve(uint32_t gpuIndex) const;
+    void setFanSpeed(uint32_t gpuIndex, uint8_t speedPercent);
+    void setFanAutomatic(uint32_t gpuIndex, bool automatic);
+    void applyFanControl();
+
+    /* PSU headroom */
+    void setPsuConfig(const PsuConfig& config);
+    PsuHeadroom getPsuHeadroom() const;
+    const PsuConfig& psuConfig() const { return m_psuConfig; }
+
 private:
     Daemon* m_daemon;
     DeviceRegistry* m_deviceRegistry;
@@ -158,6 +218,7 @@ private:
         int32_t lastTemperature;
         bool enabled;
         bool inThermalThrottle;
+        GpuFanControl fanControl;
     };
     std::vector<GpuPowerInfo> m_gpuPowerInfo;
     
@@ -173,6 +234,12 @@ private:
     };
     std::vector<DvfsState> m_dvfsState;
 
+    /* Fan curves */
+    std::vector<GpuFanCurve> m_fanCurves;
+
+    /* PSU configuration */
+    PsuConfig m_psuConfig;
+
     /* Helper functions */
     void checkIdleTimeouts();
     void checkThermalState();
@@ -180,6 +247,14 @@ private:
     bool readPowerDraw(uint32_t gpuIndex, uint32_t* milliwatts);
     bool readTemperature(uint32_t gpuIndex, int32_t* temperatureCelsius);
     bool writeFrequency(uint32_t gpuIndex, uint32_t mhz);
+
+    /* Fan helpers */
+    uint8_t interpolateFanSpeed(const GpuFanCurve& curve, int32_t temperature) const;
+    bool readFanSpeed(uint32_t gpuIndex, uint32_t* rpm);
+    bool writeFanSpeed(uint32_t gpuIndex, uint8_t speedPercent);
+
+    /* PSU helpers */
+    void updatePsuHeadroom();
 };
 
 } // namespace mvgal

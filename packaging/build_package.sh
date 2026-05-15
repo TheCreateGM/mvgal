@@ -1,12 +1,12 @@
 #!/bin/bash
 # Universal MVGAL Package Builder
-# Usage: ./packaging/build_package.sh [deb|rpm|arch]
+# Usage: ./packaging/build_package.sh [deb|rpm|arch|nix|gentoo]
 # Run from mvgal project root directory
 
 set -e
 
 PACKAGE_NAME="mvgal"
-VERSION="0.1.0"
+VERSION="0.2.2"
 ARCH="$(uname -m)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -149,15 +149,43 @@ build_arch() {
     fi
 }
 
+build_nix() {
+    echo_header "Preparing Nix Package"
+    [ -f "$SCRIPT_DIR/nix/default.nix" ] || { echo_error "Missing packaging/nix/default.nix"; exit 1; }
+    echo_ok "Nix derivation: $SCRIPT_DIR/nix/default.nix"
+    echo "Build: nix-build packaging/nix"
+    echo "Or with flakes disabled: nix-build -E 'with import <nixpkgs> {}; callPackage ./packaging/nix/default.nix {}'"
+}
+
+build_gentoo() {
+    echo_header "Preparing Gentoo Ebuild"
+    [ -f "$SCRIPT_DIR/gentoo/${PACKAGE_NAME}-${VERSION}.ebuild" ] || {
+        echo_error "Missing packaging/gentoo/${PACKAGE_NAME}-${VERSION}.ebuild"
+        exit 1
+    }
+    echo_ok "Gentoo ebuild: $SCRIPT_DIR/gentoo/${PACKAGE_NAME}-${VERSION}.ebuild"
+    echo "Copy into an overlay under sys-fs/mvgal/, then run:"
+    echo "  ebuild ${PACKAGE_NAME}-${VERSION}.ebuild manifest"
+    echo "  emerge --ask sys-fs/mvgal"
+}
+
 main() {
     echo_header "MVGAL Universal Package Builder"
     cleanup
-    build_mvgal
+    case "${1:-auto}" in
+        nix|NIX|gentoo|GENTOO|ebuild|EBUILD)
+            ;;
+        *)
+            build_mvgal
+            ;;
+    esac
     echo
     case "${1:-auto}" in
         deb|DEB) build_deb ;;
         rpm|RPM) build_rpm ;;
         arch|ARCH) build_arch ;;
+        nix|NIX) build_nix ;;
+        gentoo|GENTOO|ebuild|EBUILD) build_gentoo ;;
         auto)
             if command -v dpkg >/dev/null 2>&1; then
                 build_deb
@@ -171,10 +199,12 @@ main() {
             fi
             ;;
         *)
-            echo "Usage: $0 [deb|rpm|arch]"
+            echo "Usage: $0 [deb|rpm|arch|nix|gentoo]"
             echo "  deb  - Debian/Ubuntu (.deb)"
             echo "  rpm  - Fedora/RHEL (.rpm)"
             echo "  arch - Arch Linux (.pkg.tar.zst)"
+            echo "  nix  - Nix derivation"
+            echo "  gentoo - Gentoo ebuild"
             exit 1
             ;;
     esac

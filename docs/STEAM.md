@@ -1,6 +1,6 @@
 # MVGAL Steam & Proton Integration
 
-**Version:** 0.2.1
+**Version:** 0.2.2
 
 ---
 
@@ -27,7 +27,7 @@ cp steam/toolmanifest.vdf steam/compatibilitytool.vdf steam/mvgal_steam_compat.s
 pkexec cp -r steam/ /usr/share/steam/compatibilitytools.d/MVGAL/
 ```
 
-Restart Steam. The tool appears as **MVGAL 0.2.1** in the compatibility tool selector.
+Restart Steam. The tool appears as **MVGAL 0.2.2** in the compatibility tool selector.
 
 ---
 

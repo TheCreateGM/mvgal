@@ -1,6 +1,6 @@
 # MVGAL Architecture
 
-**Version:** 0.2.1 | **Last Updated:** May 2026
+**Version:** 0.2.2 | **Last Updated:** May 2026
 
 ---
 

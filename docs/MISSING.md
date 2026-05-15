@@ -1,6 +1,6 @@
 # MVGAL — Remaining Work
 
-**Version:** 0.2.1 | **Updated:** May 2026 | **Completion:** ~99%
+**Version:** 0.2.2 | **Updated:** May 2026 | **Completion:** ~99%
 
 ---
 

@@ -1,6 +1,6 @@
 # MVGAL Rust Development Guide
 
-**Version:** 0.2.1 | **Rust Edition:** 2021 | **MSRV:** 1.75
+**Version:** 0.2.2 | **Rust Edition:** 2021 | **MSRV:** 1.75
 
 ---
 

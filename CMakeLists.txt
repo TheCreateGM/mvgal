@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 cmake_minimum_required(VERSION 3.16)
-project(mvgal VERSION 0.2.1 LANGUAGES C CXX)
+project(mvgal VERSION 0.2.2 LANGUAGES C CXX)
 
 # =============================================================================
 # Project Metadata
@@ -292,6 +292,11 @@ if(MVGAL_BUILD_API AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/userspace/CMakeLi
     # Propagate OpenCL_FOUND to subdirectory
     set(OpenCL_FOUND ${OPENCL_FOUND})
     add_subdirectory(src/userspace)
+endif()
+
+# Monitoring components (Prometheus metrics, health checks)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/monitoring/CMakeLists.txt")
+    add_subdirectory(src/monitoring)
 endif()
 
 # Vulkan ICD (Phase 5 - Virtual VkPhysicalDevice)

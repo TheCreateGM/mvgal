@@ -105,6 +105,8 @@ private:
  */
 class PriorityQueue {
 public:
+    PriorityQueue();
+
     void push(std::shared_ptr<Workload> workload);
     std::shared_ptr<Workload> pop();
     std::shared_ptr<Workload> tryPop();

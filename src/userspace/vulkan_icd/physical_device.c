@@ -106,7 +106,7 @@ mvgal_virtual_physical_device_t* mvgal_physical_device_create(void) {
     
     /* Initialize properties */
     dev->properties.apiVersion = VK_API_VERSION_1_3;
-    dev->properties.driverVersion = VK_MAKE_VERSION(0, 2, 1);
+    dev->properties.driverVersion = VK_MAKE_VERSION(0, 2, 2);
     dev->properties.vendorID = dev->vendorID;
     dev->properties.deviceID = dev->deviceID;
     dev->properties.deviceType = dev->deviceType;
@@ -124,7 +124,7 @@ mvgal_virtual_physical_device_t* mvgal_physical_device_create(void) {
         memcpy(&dev->properties.pipelineCacheUUID[5], &hash, sizeof(hash));
         uint32_t gpu_count_u32 = (uint32_t)((gpu_count > 0) ? gpu_count : 0);
         memcpy(&dev->properties.pipelineCacheUUID[9], &gpu_count_u32, sizeof(gpu_count_u32));
-        uint32_t dv = VK_MAKE_VERSION(0, 2, 1);
+        uint32_t dv = VK_MAKE_VERSION(0, 2, 2);
         memcpy(&dev->properties.pipelineCacheUUID[13], &dv, 3);
     }
     

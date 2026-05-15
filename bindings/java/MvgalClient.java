@@ -7,7 +7,7 @@
  *
  * Build:
  *   mvn package
- *   java -jar target/mvgal-client-0.2.0.jar
+ *   java -jar target/mvgal-client-0.2.2.jar
  */
 
 package org.mvgal;

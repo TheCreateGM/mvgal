@@ -1,6 +1,6 @@
 # MVGAL Project Status
 
-**Version:** 0.2.1 "Health Monitor" | **Updated:** May 2026
+**Version:** 0.2.2 "Health Monitor" | **Updated:** May 2026
 
 ---
 

@@ -1,5 +1,5 @@
 Package: mvgal
-Version: 0.1.0
+Version: 0.2.2
 Section: libs
 Priority: optional
 Architecture: amd64
@@ -25,7 +25,7 @@ Provides:
 Built-Using:
 
 Package: mvgal-dev
-Version: 0.1.0
+Version: 0.2.2
 Section: libdevel
 Priority: optional
 Architecture: amd64
@@ -36,10 +36,10 @@ Description: MVGAL Development Files
  This package contains the development files needed to build
  applications that use MVGAL.
 
-Depends: mvgal (= 0.1.0)
+Depends: mvgal (= 0.2.2)
 
 Package: mvgal-vulkan
-Version: 0.1.0
+Version: 0.2.2
 Section: libs
 Priority: optional
 Architecture: amd64
@@ -50,10 +50,10 @@ Description: MVGAL Vulkan Layer
  This package provides the Vulkan layer that enables transparent
  GPU aggregation for Vulkan applications.
 
-Depends: mvgal (= 0.1.0), libvulkan-dev
+Depends: mvgal (= 0.2.2), libvulkan-dev
 
 Package: mvgal-daemon
-Version: 0.1.0
+Version: 0.2.2
 Section: admin
 Priority: optional
 Architecture: amd64
@@ -65,4 +65,4 @@ Description: MVGAL Background Daemon
  GPU detection, workload distribution, and inter-process
  communication.
 
-Depends: mvgal (= 0.1.0), libsystemd-dev
+Depends: mvgal (= 0.2.2), libsystemd-dev

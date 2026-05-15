@@ -21,7 +21,7 @@
 
 #include "../../include/mvgal/mvgal_uapi.h"
 
-#define MVGAL_KERNEL_VERSION "0.1.0"
+#define MVGAL_KERNEL_VERSION "0.2.2"
 
 struct mvgal_gpu_slot {
     struct mvgal_gpu_info info;

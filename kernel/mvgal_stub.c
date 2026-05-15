@@ -140,4 +140,4 @@ module_exit(mvgal_exit);
 MODULE_DESCRIPTION("MVGAL kernel interface shim");
 MODULE_AUTHOR("MVGAL Project");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.2.1");
+MODULE_VERSION("0.2.2");

@@ -1,6 +1,6 @@
 name: mvgal
 base: core24
-version: 0.1.0
+version: 0.2.2
 summary: Multi-Vendor GPU Aggregation Layer for Linux
 description: |
   MVGAL is a Linux kernel module and userspace library that provides

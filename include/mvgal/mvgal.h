@@ -36,6 +36,9 @@
 // Configuration
 #include "mvgal_config.h"
 
+// SYCL backend
+#include "mvgal_sycl.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

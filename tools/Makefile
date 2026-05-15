@@ -12,7 +12,7 @@ LDFLAGS = -L../build -lmvgal -lpthread
 MVGAL_TOOLS = mvgal mvgal-config
 
 # Standalone tools (no libmvgal dependency — use sysfs directly)
-STANDALONE_TOOLS = mvgal-info mvgal-status mvgal-bench mvgal-compat
+STANDALONE_TOOLS = mvgal-info mvgal-status mvgal-bench mvgal-compat mvgal-steam-setup
 
 ALL_TOOLS = $(MVGAL_TOOLS) $(STANDALONE_TOOLS)
 
@@ -42,11 +42,15 @@ mvgal-bench: mvgal-bench.c
 mvgal-compat: mvgal-compat.c
 	$(CC) $(CFLAGS) -o $@ $^
 
+mvgal-steam-setup: mvgal-steam-setup.c
+	$(CC) $(CFLAGS) -o $@ $^ -lpthread
+
 install: $(STANDALONE_TOOLS)
 	install -Dm755 mvgal-info    $(DESTDIR)/usr/bin/mvgal-info
 	install -Dm755 mvgal-status  $(DESTDIR)/usr/bin/mvgal-status
 	install -Dm755 mvgal-bench   $(DESTDIR)/usr/bin/mvgal-bench
 	install -Dm755 mvgal-compat  $(DESTDIR)/usr/bin/mvgal-compat
+	install -Dm755 mvgal-steam-setup $(DESTDIR)/usr/bin/mvgal-steam-setup
 
 clean:
 	rm -f $(ALL_TOOLS)

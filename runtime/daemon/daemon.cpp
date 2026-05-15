@@ -125,7 +125,7 @@ void Daemon::cleanup()
 
 void Daemon::run()
 {
-    std::cout << "MVGAL daemon version 0.2.0 started" << std::endl;
+    std::cout << "MVGAL daemon version 0.2.2 started" << std::endl;
     std::cout << "Socket: /run/mvgal/mvgal.sock" << std::endl;
 
     /* Main loop */

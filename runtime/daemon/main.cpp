@@ -20,7 +20,7 @@
 #include "daemon.hpp"
 
 /* Version information */
-#define MVGAL_DAEMON_VERSION "0.2.0"
+#define MVGAL_DAEMON_VERSION "0.2.2"
 #define MVGAL_DAEMON_NAME "mvgald"
 
 /* Socket path */

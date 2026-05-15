@@ -222,6 +222,11 @@ if(MVGAL_BUILD_API)
     )
 endif()
 
+# SYCL backend
+if(MVGAL_BUILD_API AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/sycl/CMakeLists.txt")
+    add_subdirectory(sycl)
+endif()
+
 # CUDA wrapper (experimental)
 if(WITH_CUDA AND CUDAToolkit_FOUND)
     add_library(mvgal_cuda SHARED

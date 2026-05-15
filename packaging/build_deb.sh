@@ -4,7 +4,7 @@
 set -e
 
 PACKAGE_NAME="mvgal"
-VERSION="0.1.0"
+VERSION="0.2.2"
 ARCH="amd64"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"

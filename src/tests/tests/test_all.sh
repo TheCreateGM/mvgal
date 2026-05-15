@@ -40,9 +40,9 @@ fi
 echo ""
 
 echo "5. Checking Source Tarball..."
-if [ -f dist/mvgal-0.1.0.tar.gz ]; then
-    echo "   ✓ Tarball exists: dist/mvgal-0.1.0.tar.gz"
-    echo "   Size: $(du -h dist/mvgal-0.1.0.tar.gz | cut -f1)"
+if [ -f dist/mvgal-0.2.2.tar.gz ]; then
+    echo "   ✓ Tarball exists: dist/mvgal-0.2.2.tar.gz"
+    echo "   Size: $(du -h dist/mvgal-0.2.2.tar.gz | cut -f1)"
 else
     echo "   ✗ Tarball not found"
 fi

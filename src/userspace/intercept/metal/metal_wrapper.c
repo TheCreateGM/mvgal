@@ -78,7 +78,7 @@ static MetalDeviceRef get_device_for_command_buffer(MetalCommandBufferRef comman
  * Configuration and State
  ******************************************************************************/
 
-#define MVGAL_METAL_VERSION "0.2.0"
+#define MVGAL_METAL_VERSION "0.2.2"
 
 // GPU selection strategy
 typedef enum {

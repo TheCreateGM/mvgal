@@ -11,6 +11,7 @@
 #include <sstream>
 #include <thread>
 #include <cmath>
+#include <algorithm>
 
 namespace mvgal {
 
@@ -42,6 +43,7 @@ bool PowerManager::init()
     
     m_gpuPowerInfo.resize(gpuCount);
     m_dvfsState.resize(gpuCount);
+    m_fanCurves.resize(gpuCount);
     
     for (uint32_t i = 0; i < gpuCount; i++) {
         auto ts = std::chrono::high_resolution_clock::now().time_since_epoch();
@@ -55,7 +57,8 @@ bool PowerManager::init()
             ThermalState::NORMAL,    /* thermalState */
             0,                       /* lastTemperature */
             true,                    /* enabled */
-            false                     /* inThermalThrottle */
+            false,                    /* inThermalThrottle */
+            {true, true, 0, 0, 0} /* fanControl (enabled, automatic) */
         };
         
         m_dvfsState[i] = {
@@ -64,6 +67,31 @@ bool PowerManager::init()
             0                        /* currentClockMhz */
         };
     }
+    
+    // Initialize default fan curves for all GPUs
+    const FanCurvePoint defaultCurve[] = {
+        {40, 20},  /* 40C -> 20% */
+        {50, 30},  /* 50C -> 30% */
+        {60, 45},  /* 60C -> 45% */
+        {70, 60},  /* 70C -> 60% */
+        {80, 75},  /* 80C -> 75% */
+        {90, 90},  /* 90C -> 90% */
+        {100, 100} /* 100C -> 100% */
+    };
+    const uint32_t numDefaultPoints = sizeof(defaultCurve) / sizeof(defaultCurve[0]);
+    
+    for (uint32_t i = 0; i < gpuCount; i++) {
+        GpuFanCurve& curve = m_fanCurves[i];
+        curve.numPoints = numDefaultPoints;
+        for (uint32_t j = 0; j < numDefaultPoints; j++) {
+            curve.points[j] = defaultCurve[j];
+        }
+    }
+    
+    // Initialize default PSU config
+    m_psuConfig.totalCapacityWatts = 0;      /* Unknown, will be probed */
+    m_psuConfig.safetyMarginPercent = 20;     /* 20% safety margin */
+    m_psuConfig.enableHeadroomTracking = false; /* Disabled by default */
     
     m_lastThermalUpdate = std::chrono::high_resolution_clock::now().time_since_epoch();
     m_lastDvfsUpdate = m_lastThermalUpdate;
@@ -104,6 +132,14 @@ void PowerManager::processEvents()
             applyDvfs();
             m_lastDvfsUpdate = now;
         }
+    }
+    
+    /* Apply fan control */
+    applyFanControl();
+    
+    /* Update PSU headroom if enabled */
+    if (m_psuConfig.enableHeadroomTracking) {
+        updatePsuHeadroom();
     }
 }
 
@@ -421,6 +457,229 @@ bool PowerManager::writeFrequency(uint32_t gpuIndex, uint32_t /*mhz*/)
      */
     
     return true; /* Assume success for now */
+}
+
+/* ======================== Fan Curve Methods ======================== */
+
+void PowerManager::setFanCurve(uint32_t gpuIndex, const GpuFanCurve& curve)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    
+    if (gpuIndex >= m_fanCurves.size()) {
+        return;
+    }
+    
+    m_fanCurves[gpuIndex] = curve;
+}
+
+GpuFanCurve PowerManager::getFanCurve(uint32_t gpuIndex) const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    
+    if (gpuIndex >= m_fanCurves.size()) {
+        GpuFanCurve empty = {{}, 0};
+        return empty;
+    }
+    
+    return m_fanCurves[gpuIndex];
+}
+
+void PowerManager::setFanSpeed(uint32_t gpuIndex, uint8_t speedPercent)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    
+    if (gpuIndex >= m_gpuPowerInfo.size()) {
+        return;
+    }
+    
+    auto& fan = m_gpuPowerInfo[gpuIndex].fanControl;
+    fan.automatic = false;
+    fan.manualSpeedPercent = std::min<uint8_t>(speedPercent, 100);
+    
+    writeFanSpeed(gpuIndex, fan.manualSpeedPercent);
+    fan.currentSpeedPercent = fan.manualSpeedPercent;
+}
+
+void PowerManager::setFanAutomatic(uint32_t gpuIndex, bool automatic)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    
+    if (gpuIndex >= m_gpuPowerInfo.size()) {
+        return;
+    }
+    
+    m_gpuPowerInfo[gpuIndex].fanControl.automatic = automatic;
+}
+
+void PowerManager::applyFanControl()
+{
+    for (uint32_t i = 0; i < m_gpuPowerInfo.size(); i++) {
+        auto& info = m_gpuPowerInfo[i];
+        auto& fan = info.fanControl;
+        
+        if (!fan.enabled) {
+            continue;
+        }
+        
+        uint8_t targetSpeed = 0;
+        
+        if (fan.automatic && i < m_fanCurves.size() && m_fanCurves[i].numPoints > 0) {
+            /* Use interpolated fan curve based on temperature */
+            targetSpeed = interpolateFanSpeed(m_fanCurves[i], info.lastTemperature);
+        } else if (!fan.automatic) {
+            /* Manual override */
+            targetSpeed = fan.manualSpeedPercent;
+        }
+        
+        /* Only write if changed significantly (hysteresis: >5% difference) */
+        uint8_t current = fan.currentSpeedPercent;
+        if (targetSpeed > current + 5 || targetSpeed < current - 5) {
+            if (writeFanSpeed(i, targetSpeed)) {
+                fan.currentSpeedPercent = targetSpeed;
+            }
+        }
+        
+        /* Read back actual fan RPM */
+        uint32_t rpm = 0;
+        if (readFanSpeed(i, &rpm)) {
+            fan.currentRpm = rpm;
+        }
+    }
+}
+
+uint8_t PowerManager::interpolateFanSpeed(const GpuFanCurve& curve, int32_t temperature) const
+{
+    if (curve.numPoints == 0) {
+        return 0;
+    }
+    
+    /* Below first point — use first point value */
+    if (temperature <= curve.points[0].temperatureCelsius) {
+        return curve.points[0].fanSpeedPercent;
+    }
+    
+    /* Above last point — use last point value */
+    if (temperature >= curve.points[curve.numPoints - 1].temperatureCelsius) {
+        return curve.points[curve.numPoints - 1].fanSpeedPercent;
+    }
+    
+    /* Linear interpolation between surrounding points */
+    for (uint32_t i = 0; i < curve.numPoints - 1; i++) {
+        int32_t tLow = curve.points[i].temperatureCelsius;
+        int32_t tHigh = curve.points[i + 1].temperatureCelsius;
+        
+        if (temperature >= tLow && temperature < tHigh) {
+            uint8_t sLow = curve.points[i].fanSpeedPercent;
+            uint8_t sHigh = curve.points[i + 1].fanSpeedPercent;
+            
+            if (tHigh == tLow) {
+                return sLow;
+            }
+            
+            float t = static_cast<float>(temperature - tLow) / static_cast<float>(tHigh - tLow);
+            uint8_t result = static_cast<uint8_t>(sLow + t * (sHigh - sLow));
+            return std::min<uint8_t>(result, 100);
+        }
+    }
+    
+    return 0;
+}
+
+bool PowerManager::readFanSpeed(uint32_t gpuIndex, uint32_t* rpm)
+{
+    (void)gpuIndex;
+    (void)rpm;
+    
+    /* In a full implementation:
+     * 1. For AMD: read /sys/class/drm/cardX/device/hwmon/<hwmonN>/fan1_input
+     * 2. For NVIDIA: Use NVML nvmlDeviceGetFanSpeed()
+     * 3. For Intel: Read /sys/class/drm/cardX/gt/gt0/rps_cur_freq
+     */
+    
+    /* Simplified: return 0 RPM for now */
+    *rpm = 0;
+    return true;
+}
+
+bool PowerManager::writeFanSpeed(uint32_t gpuIndex, uint8_t speedPercent)
+{
+    (void)gpuIndex;
+    (void)speedPercent;
+    
+    /* In a full implementation:
+     * 1. For AMD: write to /sys/class/drm/cardX/device/hwmon/<hwmonN>/pwm1
+     * 2. For NVIDIA: Use NVML nvmlDeviceSetFanSpeed()
+     * 3. For Intel: Use /sys/class/drm/cardX/gt/gt0/rps_boost_freq_mhz
+     */
+    
+    return true; /* Assume success for now */
+}
+
+/* ======================== PSU Headroom Methods ======================== */
+
+void PowerManager::setPsuConfig(const PsuConfig& config)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_psuConfig = config;
+}
+
+PsuHeadroom PowerManager::getPsuHeadroom() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    
+    PsuHeadroom headroom = {};
+    headroom.totalCapacityWatts = m_psuConfig.totalCapacityWatts;
+    headroom.safetyMarginPercent = static_cast<float>(m_psuConfig.safetyMarginPercent);
+    
+    /* Sum up current draw from all GPUs */
+    uint32_t totalDraw = 0;
+    for (size_t i = 0; i < m_gpuPowerInfo.size(); i++) {
+        totalDraw += m_gpuPowerInfo[i].stats.powerDrawMilliwatts / 1000;
+    }
+    headroom.currentDrawWatts = totalDraw;
+    
+    if (m_psuConfig.totalCapacityWatts > 0) {
+        if (totalDraw >= m_psuConfig.totalCapacityWatts) {
+            headroom.headroomWatts = 0;
+        } else {
+            headroom.headroomWatts = m_psuConfig.totalCapacityWatts - totalDraw;
+        }
+    } else {
+        headroom.headroomWatts = 0;
+    }
+    
+    return headroom;
+}
+
+void PowerManager::updatePsuHeadroom()
+{
+    if (!m_psuConfig.enableHeadroomTracking || m_psuConfig.totalCapacityWatts == 0) {
+        return;
+    }
+    
+    PsuHeadroom hr = getPsuHeadroom();
+    uint32_t safetyMargin = m_psuConfig.totalCapacityWatts * m_psuConfig.safetyMarginPercent / 100;
+    
+    /* If we're exceeding the safety margin, reduce power limits */
+    if (hr.currentDrawWatts > m_psuConfig.totalCapacityWatts - safetyMargin) {
+        /* Apply proportional power limiting */
+        for (size_t i = 0; i < m_gpuPowerInfo.size(); i++) {
+            if (!m_gpuPowerInfo[i].enabled) {
+                continue;
+            }
+            
+            /* Reduce DVFS target to lower power consumption */
+            if (m_config.enableDvfs && i < m_dvfsState.size()) {
+                uint32_t reduction = static_cast<uint32_t>(
+                    (hr.currentDrawWatts - (m_psuConfig.totalCapacityWatts - safetyMargin)) * 10
+                );
+                if (m_dvfsState[i].targetClockMhz > reduction) {
+                    m_dvfsState[i].targetClockMhz -= reduction;
+                    writeFrequency(static_cast<uint32_t>(i), m_dvfsState[i].targetClockMhz);
+                }
+            }
+        }
+    }
 }
 
 } // namespace mvgal

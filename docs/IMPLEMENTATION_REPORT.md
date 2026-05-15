@@ -3,7 +3,7 @@
 ## Project: Multi-Vendor GPU Aggregation Layer for Linux
 
 **Date:** May 2026  
-**Version:** 0.2.1  
+**Version:** 0.2.2  
 **Status:** Buildable prototype / research implementation
 
 ---

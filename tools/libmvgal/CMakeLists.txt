@@ -57,7 +57,7 @@ if(EXISTS "${MVGAL_WRAPPER_SRC}")
 
     # Set a public version property (consumers can query it)
     set_target_properties(${LIBMVGAL_TARGET} PROPERTIES
-        VERSION 0.1.0
+        VERSION 0.2.2
         SOVERSION 0
         PUBLIC_HEADER "${MVGAL_INCLUDE_DIR}/mvgal/mvgal_uapi.h"
     )

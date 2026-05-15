@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name: mvgal
-Version: 0.2.1
+Version: 0.2.2
 Release: 13%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 

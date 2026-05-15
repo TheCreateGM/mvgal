@@ -482,7 +482,7 @@ VkResult mvgal_vkCreateInstance(const VkInstanceCreateInfo* pCreateInfo,
              VK_MAX_PHYSICAL_DEVICE_NAME_SIZE,
              "MVGAL Virtual Multi-GPU Device");
     g_virtual_physical_device.apiVersion = VK_API_VERSION_1_3;
-    g_virtual_physical_device.driverVersion = VK_MAKE_VERSION(0, 2, 1);
+    g_virtual_physical_device.driverVersion = VK_MAKE_VERSION(0, 2, 2);
     g_virtual_physical_device.mvgal_initialized = true;
     
     /* Aggregate memory properties from all real GPUs */
@@ -595,7 +595,7 @@ void mvgal_vkGetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
         int32_t count = mvgal_gpu_get_count();
         uint32_t gpu_info = (uint32_t)((count > 0) ? count : 0);
         memcpy(&pProperties->pipelineCacheUUID[9], &gpu_info, sizeof(gpu_info));
-        uint32_t dv = VK_MAKE_VERSION(0, 2, 1);
+        uint32_t dv = VK_MAKE_VERSION(0, 2, 2);
         memcpy(&pProperties->pipelineCacheUUID[13], &dv, 3);
     }
     

@@ -8,7 +8,7 @@
 #   ninja -C builddir test
 
 project('mvgal', 'c',
-  version : '0.2.0',
+  version : '0.2.2',
   license : 'GPL-2.0-only',
   default_options : [
     'c_std=c17',
