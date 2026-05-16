@@ -144,19 +144,19 @@ fi
 %{_libdir}/libmvgal_core.a
 # API interception libraries
 %{_libdir}/libVK_LAYER_MVGAL.so*
-%{_libdir}/libmvgal_d3d.so
-%{_libdir}/libmvgal_metal.so
-%{_libdir}/libmvgal_webgpu.so
-%{_libdir}/libmvgal_gl.so
+%{_libdir}/libmvgal_d3d.so*
+%{_libdir}/libmvgal_metal.so*
+%{_libdir}/libmvgal_webgpu.so*
+%{_libdir}/libmvgal_gl.so*
 # Additional static libraries
 %{_libdir}/libmvgal_prometheus.a
 %{_libdir}/libmvgal_sycl_backend.a
 # Conditionally built (OpenCL support - enabled by default)
 %if %{with opencl}
-%{_libdir}/libmvgal_opencl.so
+%{_libdir}/libmvgal_opencl.so*
 %endif
 # Conditionally built (Vulkan ICD)
-%{_libdir}/mvgal_vulkan_icd.so
+%{_libdir}/mvgal_vulkan_icd.so*
 # Vulkan layer manifest
 %{_datadir}/vulkan/implicit_layer.d/VK_LAYER_MVGAL.json
 %{_datadir}/vulkan/icd.d/mvgal_icd.json
