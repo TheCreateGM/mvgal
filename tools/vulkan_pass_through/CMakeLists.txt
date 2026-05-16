@@ -123,7 +123,7 @@ install(FILES "${MANIFEST_OUT}"
 )
 
 # Provide a convenience target to print build/install info
-add_custom_target(mvgal-info
+add_custom_target(mvgal-vulkan-info
     COMMAND ${CMAKE_COMMAND} -E echo \"MVGAL Vulkan Layer:\"
     COMMAND ${CMAKE_COMMAND} -E echo \"  Library target: ${LIB_NAME}\"
     COMMAND ${CMAKE_COMMAND} -E echo \"  Shared object will be installed to: \${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}\"

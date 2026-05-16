@@ -84,7 +84,7 @@ int mvgal_nvidia_query_utilization(struct mvgal_gpu_device *gpu, uint32_t *util_
 /* Device detection helpers */
 u64 mvgal_nvidia_estimate_vram(u16 device_id);
 u32 mvgal_nvidia_estimate_bandwidth(u16 device_id);
-float mvgal_nvidia_get_compute_capability(u16 device_id);
+u32 mvgal_nvidia_get_compute_capability(u16 device_id);
 u32 mvgal_nvidia_get_sm_count(u16 device_id);
 bool mvgal_nvidia_is_rtx_series(u16 device_id);
 bool mvgal_nvidia_has_nvlink(struct pci_dev *pdev);

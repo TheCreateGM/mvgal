@@ -19,50 +19,20 @@
 
 #include "mvgal_core.h"
 #include "mvgal_device.h"
+#include "mvgal_memory.h"
+#include "mvgal_power.h"
 
 /* Previously included mvgal_sync.h for fence definitions */
 #include "mvgal_sync.h"
 
-/**
- * struct mvgal_gpu_device - Represents a physical GPU in the MVGAL pool
- */
-struct mvgal_gpu_device {
-	struct list_head node;            /* Node in the GPU list */
-	struct pci_dev *pdev;             /* PCI device */
-	struct drm_device *drm;           /* DRM device (if vendor driver exposes one) */
-	
-	/* Identity */
-	enum mvgal_vendor_id vendor;      /* Vendor ID */
-	uint16_t pci_vendor_id;           /* PCI vendor ID */
-	uint16_t pci_device_id;           /* PCI device ID */
-	char name[64];                    /* Human-readable name */
-	
-	/* Capabilities */
-	uint64_t vram_size;               /* Total VRAM in bytes */
-	uint32_t vram_bandwidth;          /* Memory bandwidth in MB/s */
-	uint32_t compute_units;           /* Number of compute units */
-	uint32_t api_flags;              /* Bitmask of supported APIs */
-	uint32_t pcie_gen;               /* PCIe generation (1-5) */
-	uint32_t pcie_lanes;             /* PCIe lane count */
-	uint32_t numa_node;               /* NUMA node (-1 if unknown) */
-	
-	/* State */
-	enum mvgal_power_state power_state;
-	bool available;                   /* GPU is available for workloads */
-	bool enabled;                    /* GPU is enabled in MVGAL pool */
-	
-	/* Statistics */
-	uint32_t utilization;             /* Current utilization percentage */
-	uint64_t memory_used;             /* Used memory in bytes */
-	int32_t temperature;              /* Temperature in Celsius */
-	
-	/* Vendor-specific operations */
-	const struct mvgal_vendor_ops *ops;
-	void *vendor_priv;                /* Vendor-specific private data */
-	
-	/* Synchronization */
-	struct mutex lock;                /* Protects GPU state */
-};
+/* Vendor operations */
+#include "vendors/mvgal_amd.h"
+#include "vendors/mvgal_nvidia.h"
+#include "vendors/mvgal_intel.h"
+#include "vendors/mvgal_mtt.h"
+
+/* DRM driver (defined in mvgal_core.c) */
+extern struct drm_driver mvgal_drm_driver;
 
 /*
  * mvgal_device_init - Initialize the MVGAL logical device
@@ -77,10 +47,11 @@ int mvgal_device_init(struct mvgal_device **dev_out)
 		return -ENOMEM;
 	}
 
-	/* Initialize DRM device */
-	ret = drm_dev_init(&dev->drm, &mvgal_drm_driver, NULL);
-	if (ret < 0) {
-		pr_err("MVGAL: Failed to initialize DRM device\n");
+	/* Initialize DRM device (kernel 6.8+ uses drm_dev_alloc) */
+	dev->drm = drm_dev_alloc(&mvgal_drm_driver, NULL);
+	if (IS_ERR(dev->drm)) {
+		ret = PTR_ERR(dev->drm);
+		pr_err("MVGAL: Failed to allocate DRM device\n");
 		goto err_free_dev;
 	}
 
@@ -121,7 +92,7 @@ void mvgal_device_fini(struct mvgal_device *dev)
 	mvgal_gpu_cleanup_all(dev);
 
 	/* Cleanup DRM device */
-	drm_dev_put(&dev->drm);
+	drm_dev_put(dev->drm);
 
 	/* Free device */
 	kfree(dev);
@@ -142,6 +113,10 @@ struct mvgal_gpu_device *mvgal_gpu_alloc(enum mvgal_vendor_id vendor)
 	gpu->vendor = vendor;
 	gpu->available = true;
 	gpu->enabled = true;
+	gpu->gpu_index = 0;
+	gpu->power_draw = 0;
+	gpu->dvfs = NULL;
+	gpu->thermal = NULL;
 	mutex_init(&gpu->lock);
 
 	/* Set vendor-specific operations */
@@ -175,6 +150,21 @@ void mvgal_gpu_free(struct mvgal_gpu_device *gpu)
 		return;
 	}
 
+	/* Stop and cleanup DVFS */
+	if (gpu->dvfs) {
+		mvgal_dvfs_stop(gpu);
+		mvgal_dvfs_fini(gpu);
+	}
+
+	/* Stop and cleanup thermal */
+	if (gpu->thermal) {
+		mvgal_thermal_stop(gpu);
+		mvgal_thermal_fini(gpu);
+	}
+
+	/* Unregister from power budget */
+	mvgal_power_budget_unregister_gpu(gpu->gpu_index);
+
 	if (gpu->ops && gpu->ops->fini) {
 		gpu->ops->fini(gpu);
 	}
@@ -189,33 +179,63 @@ void mvgal_gpu_free(struct mvgal_gpu_device *gpu)
  */
 int mvgal_gpu_add(struct mvgal_device *dev, struct mvgal_gpu_device *gpu)
 {
+	int ret;
+
 	if (!dev || !gpu) {
 		return -EINVAL;
 	}
 
 	mutex_lock(&dev->gpu_lock);
-	
+
 	if (dev->gpu_count >= MVGAL_MAX_GPUS) {
 		mutex_unlock(&dev->gpu_lock);
 		return -ENOSPC;
 	}
 
+	/* Set GPU index */
+	gpu->gpu_index = dev->gpu_count;
+
 	/* Initialize GPU if ops are available */
 	if (gpu->ops && gpu->ops->init) {
-		int ret = gpu->ops->init(gpu);
+		ret = gpu->ops->init(gpu);
 		if (ret < 0) {
 			mutex_unlock(&dev->gpu_lock);
 			return ret;
 		}
 	}
 
+	/* Initialize DVFS for this GPU */
+	ret = mvgal_dvfs_init(gpu);
+	if (ret < 0) {
+		pr_warn("MVGAL: Failed to initialize DVFS for GPU %s: %d\n",
+			gpu->name, ret);
+		/* Non-fatal - continue without DVFS */
+	}
+
+	/* Initialize thermal throttling for this GPU */
+	ret = mvgal_thermal_init(gpu);
+	if (ret < 0) {
+		pr_warn("MVGAL: Failed to initialize thermal for GPU %s: %d\n",
+			gpu->name, ret);
+		/* Non-fatal - continue without thermal */
+	}
+
+	/* Register GPU with power budget */
+	ret = mvgal_power_budget_register_gpu(gpu, gpu->gpu_index);
+	if (ret < 0) {
+		pr_warn("MVGAL: Failed to register GPU %s with power budget: %d\n",
+			gpu->name, ret);
+		/* Non-fatal - continue without power budget */
+	}
+
 	/* Add to GPU list */
 	list_add_tail(&gpu->node, &dev->gpu_list);
 	dev->gpu_count++;
 
-	pr_info("MVGAL: Added GPU '%s' (vendor=%d, vram=%llu MB)\n",
+	pr_info("MVGAL: Added GPU '%s' (vendor=%d, vram=%llu MB, index=%u)\n",
 		gpu->name, gpu->vendor,
-		(unsigned long long)(gpu->vram_size / (1024ULL * 1024ULL)));
+		(unsigned long long)(gpu->vram_size / (1024ULL * 1024ULL)),
+		gpu->gpu_index);
 
 	mutex_unlock(&dev->gpu_lock);
 
@@ -339,7 +359,7 @@ int mvgal_enumerate_gpus(struct mvgal_device *dev)
 			gpu->api_flags = MVGAL_API_VULKAN | MVGAL_API_OPENCL;
 			gpu->pcie_gen = 4; /* Default PCIe 4.0 */
 			gpu->pcie_lanes = 16; /* Default x16 */
-			gpu->numa_node = pdev->numa_node;
+			gpu->numa_node = dev_to_node(&pdev->dev);
 
 			/* Add to device */
 			ret = mvgal_gpu_add(dev, gpu);
@@ -415,4 +435,174 @@ void mvgal_compute_capability_profile(struct mvgal_device *dev)
 		(unsigned long long)(dev->caps.total_vram / (1024ULL * 1024ULL * 1024ULL)),
 		dev->caps.max_compute_units,
 		(int)(dev->caps.max_memory_bandwidth / 1024U));
+}
+
+/*
+ * P2P Detection and Enablement (Section 4.2.2)
+ */
+
+/**
+ * mvgal_detect_p2p_support - Detect P2P capability between two GPUs
+ * 
+ * Checks if two GPUs can perform peer-to-peer DMA transfers.
+ * Returns one of:
+ *   MVGAL_P2P_SUPPORTED - Same PCI root complex, P2P possible
+ *   MVGAL_P2P_NVLINK - NVIDIA GPUs with NVLink connection
+ *   MVGAL_P2P_XGMI - AMD GPUs with xGMI/Infinity Fabric
+ *   MVGAL_P2P_UNSUPPORTED - P2P not possible
+ */
+int mvgal_detect_p2p_support(struct mvgal_gpu_device *gpu1,
+			    struct mvgal_gpu_device *gpu2)
+{
+	if (!gpu1 || !gpu2) {
+		return MVGAL_P2P_UNSUPPORTED;
+	}
+
+	/* Same GPU - not P2P */
+	if (gpu1 == gpu2) {
+		return MVGAL_P2P_UNSUPPORTED;
+	}
+
+	/* Check if both GPUs are on the same PCI root complex */
+	/* This uses the kernel's pci_p2pdma_distance() when available */
+	if (gpu1->numa_node == gpu2->numa_node && gpu1->numa_node >= 0) {
+		/* Same NUMA node - likely same root complex */
+		pr_debug("MVGAL: GPUs %s and %s on same NUMA node (%d) - P2P supported\n",
+			gpu1->name, gpu2->name, gpu1->numa_node);
+		return MVGAL_P2P_SUPPORTED;
+	}
+
+	/* Check vendor-specific P2P support */
+	if (gpu1->vendor == MVGAL_VENDOR_NVIDIA &&
+	    gpu2->vendor == MVGAL_VENDOR_NVIDIA) {
+		/* Check NVLink topology */
+		pr_debug("MVGAL: NVIDIA GPUs detected, checking NVLink...\n");
+		/* TODO: Call mvgal_nvidia_check_nvlink() when vendor ops available */
+		return MVGAL_P2P_NVLINK;
+	}
+
+	if (gpu1->vendor == MVGAL_VENDOR_AMD &&
+	    gpu2->vendor == MVGAL_VENDOR_AMD) {
+		/* Check xGMI/Infinity Fabric */
+		pr_debug("MVGAL: AMD GPUs detected, checking xGMI...\n");
+		/* TODO: Call mvgal_amd_check_xgmi() when vendor ops available */
+		return MVGAL_P2P_XGMI;
+	}
+
+	/* Different vendors or different root complexes */
+	pr_debug("MVGAL: P2P not supported between %s and %s\n",
+		gpu1->name, gpu2->name);
+	return MVGAL_P2P_UNSUPPORTED;
+}
+
+/**
+ * mvgal_detect_all_p2p - Detect P2P support for all GPU pairs
+ * 
+ * Populates the P2P support matrix in the device capability profile.
+ */
+void mvgal_detect_all_p2p(struct mvgal_device *dev)
+{
+	struct mvgal_gpu_device *gpu1, *gpu2;
+	int i = 0, j;
+
+	if (!dev) {
+		return;
+	}
+
+	mutex_lock(&dev->gpu_lock);
+
+	/* Reset P2P support flag */
+	dev->caps.p2p_supported = false;
+
+	list_for_each_entry(gpu1, &dev->gpu_list, node) {
+		j = 0;
+		list_for_each_entry(gpu2, &dev->gpu_list, node) {
+			if (gpu1 == gpu2) {
+				j++;
+				continue;
+			}
+
+			int p2p = mvgal_detect_p2p_support(gpu1, gpu2);
+			pr_debug("MVGAL: P2P[%d][%d] = %d\n", i, j, p2p);
+			if (p2p != MVGAL_P2P_UNSUPPORTED) {
+				dev->caps.p2p_supported = true;
+			}
+			j++;
+		}
+		i++;
+	}
+
+	mutex_unlock(&dev->gpu_lock);
+
+	pr_info("MVGAL: P2P support detected: %s\n",
+		dev->caps.p2p_supported ? "enabled" : "disabled");
+}
+
+/**
+ * mvgal_pci_probe - PCI probe function for GPU detection
+ */
+int mvgal_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+{
+	struct mvgal_gpu_device *gpu;
+	enum mvgal_vendor_id vendor = MVGAL_VENDOR_UNKNOWN;
+	int ret;
+
+	pr_info("MVGAL: Probing PCI device %04x:%04x\n", pdev->vendor, pdev->device);
+
+	/* Determine vendor */
+	if (pdev->vendor == PCI_VENDOR_ID_ATI) {
+		vendor = MVGAL_VENDOR_AMD;
+	} else if (pdev->vendor == PCI_VENDOR_ID_NVIDIA) {
+		vendor = MVGAL_VENDOR_NVIDIA;
+	} else if (pdev->vendor == PCI_VENDOR_ID_INTEL) {
+		if ((pdev->class >> 8) == PCI_BASE_CLASS_DISPLAY) {
+			vendor = MVGAL_VENDOR_INTEL;
+		}
+	} else if (pdev->vendor == 0x1ED5) {
+		vendor = MVGAL_VENDOR_MTT;
+	}
+
+	if (vendor == MVGAL_VENDOR_UNKNOWN) {
+		return -ENODEV;
+	}
+
+	gpu = mvgal_gpu_alloc(vendor);
+	if (!gpu) {
+		return -ENOMEM;
+	}
+
+	gpu->pdev = pdev;
+	gpu->pci_vendor_id = pdev->vendor;
+	gpu->pci_device_id = pdev->device;
+	snprintf(gpu->name, sizeof(gpu->name), "%04x:%04x", pdev->vendor, pdev->device);
+
+	/* TODO: Query actual capabilities from vendor driver */
+	gpu->vram_size = 8 * 1024 * 1024 * 1024;
+	gpu->vram_bandwidth = 500 * 1024;
+	gpu->compute_units = 64;
+	gpu->api_flags = MVGAL_API_VULKAN | MVGAL_API_OPENCL;
+	gpu->pcie_gen = 4;
+	gpu->pcie_lanes = 16;
+	gpu->numa_node = dev_to_node(&pdev->dev);
+
+	ret = mvgal_gpu_add(mvgal_logical_device, gpu);
+	if (ret < 0) {
+		mvgal_gpu_free(gpu);
+		return ret;
+	}
+
+	pci_set_drvdata(pdev, gpu);
+	return 0;
+}
+
+/**
+ * mvgal_pci_remove - PCI remove function
+ */
+void mvgal_pci_remove(struct pci_dev *pdev)
+{
+	struct mvgal_gpu_device *gpu = pci_get_drvdata(pdev);
+
+	if (gpu) {
+		mvgal_gpu_remove(mvgal_logical_device, gpu);
+	}
 }

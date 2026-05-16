@@ -22,6 +22,7 @@ class DeviceRegistry;
 class IpcServer;
 class PowerManager;
 class MetricsCollector;
+class DBusService;
 
 /**
  * Main Daemon class - orchestrates all subsystems
@@ -42,6 +43,7 @@ public:
     IpcServer& ipcServer() { return *m_ipc_server; }
     PowerManager& powerManager() { return *m_power_manager; }
     MetricsCollector& metricsCollector() { return *m_metrics_collector; }
+    DBusService& dbusService() { return *m_dbus_service; }
 
 private:
     std::unique_ptr<Scheduler> m_scheduler;
@@ -50,6 +52,7 @@ private:
     std::unique_ptr<IpcServer> m_ipc_server;
     std::unique_ptr<PowerManager> m_power_manager;
     std::unique_ptr<MetricsCollector> m_metrics_collector;
+    std::unique_ptr<DBusService> m_dbus_service;
 
     /* Helper functions */
     static bool ensureDirectory(const std::string& path);

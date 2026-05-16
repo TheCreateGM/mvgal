@@ -15,12 +15,17 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/version.h>
+#include <linux/ioctl.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_file.h>
 #include <drm/drm_ioctl.h>
+#include <drm/drm.h>
+#include <drm/drm_print.h>
 
 #include "mvgal_core.h"
 #include "mvgal_device.h"
+
+/* Use IOCTL definitions from header files */
 
 #define DRIVER_NAME "mvgal"
 #define DRIVER_DESC "Multi-Vendor GPU Aggregation Layer"
@@ -39,11 +44,10 @@ static dev_t mvgal_devt;
 static struct class *mvgal_class;
 static struct cdev *mvgal_cdev;
 
-/* DRM driver */
-static struct drm_driver mvgal_drm_driver;
-
+/* DRM driver - actual definition below after ioctls */
 /* MVGAL logical device */
 struct mvgal_device *mvgal_logical_device;
+EXPORT_SYMBOL_GPL(mvgal_logical_device);
 
 /*
  * DRM operations
@@ -52,13 +56,13 @@ static int mvgal_drm_open(struct drm_device *drm, struct drm_file *file)
 {
 	int ret;
 
-	drm_debug(&mvgal_logical_device->drm, "Open called\n");
-
 	/* Allocate and initialize per-file private data */
 	file->driver_priv = kzalloc(sizeof(struct mvgal_file), GFP_KERNEL);
 	if (!file->driver_priv) {
 		return -ENOMEM;
 	}
+
+	pr_debug("Open called\n");
 
 	return 0;
 }
@@ -67,48 +71,48 @@ static void mvgal_drm_postclose(struct drm_device *drm, struct drm_file *file)
 {
 	struct mvgal_file *mvgal_file = file->driver_priv;
 
-	drm_debug(&mvgal_logical_device->drm, "Postclose called\n");
-
 	/* Cleanup per-file data */
 	kfree(mvgal_file);
 	file->driver_priv = NULL;
+
+	pr_info("MVGAL: Postclose called\n");
 }
 
 static const struct drm_ioctl_desc mvgal_ioctls[] = {
 	/* Device query and management */
-	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_QUERY_DEVICES, mvgal_ioctl_query_devices, DRM_UNLOCKED|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_QUERY_CAPABILITIES, mvgal_ioctl_query_capabilities, DRM_UNLOCKED|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_QUERY_DEVICES, mvgal_ioctl_query_devices, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_QUERY_CAPABILITIES, mvgal_ioctl_query_capabilities, DRM_RENDER_ALLOW),
 	
 	/* Workload submission */
-	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_SUBMIT_WORKLOAD, mvgal_ioctl_submit_workload, DRM_UNLOCKED|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_SUBMIT_WORKLOAD, mvgal_ioctl_submit_workload, DRM_RENDER_ALLOW),
 	
 	/* Memory management */
-	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_ALLOC_MEMORY, mvgal_ioctl_alloc_memory, DRM_UNLOCKED|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_FREE_MEMORY, mvgal_ioctl_free_memory, DRM_UNLOCKED|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_IMPORT_DMABUF, mvgal_ioctl_import_dmabuf, DRM_UNLOCKED|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_EXPORT_DMABUF, mvgal_ioctl_export_dmabuf, DRM_UNLOCKED|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_ALLOC_MEMORY, mvgal_ioctl_alloc_memory, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_FREE_MEMORY, mvgal_ioctl_free_memory, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_IMPORT_DMABUF, mvgal_ioctl_import_dmabuf, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_EXPORT_DMABUF, mvgal_ioctl_export_dmabuf, DRM_RENDER_ALLOW),
 	
 	/* Synchronization */
-	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_WAIT_FENCE, mvgal_ioctl_wait_fence, DRM_UNLOCKED|DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_SIGNAL_FENCE, mvgal_ioctl_signal_fence, DRM_UNLOCKED|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_WAIT_FENCE, mvgal_ioctl_wait_fence, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_SIGNAL_FENCE, mvgal_ioctl_signal_fence, DRM_RENDER_ALLOW),
 	
 	/* GPU affinity */
-	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_SET_GPU_AFFINITY, mvgal_ioctl_set_gpu_affinity, DRM_UNLOCKED|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MVGAL_IOCTL_SET_GPU_AFFINITY, mvgal_ioctl_set_gpu_affinity, DRM_RENDER_ALLOW),
 };
 
-static const struct drm_driver mvgal_drm_driver = {
-	.driver_features = DRIVER_RENDER | DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_PRIME,
+const struct drm_driver mvgal_drm_driver = {
+	.driver_features = DRIVER_RENDER | DRIVER_HAVE_IRQ | DRIVER_GEM,
 	.ioctls = mvgal_ioctls,
 	.num_ioctls = ARRAY_SIZE(mvgal_ioctls),
 	.open = mvgal_drm_open,
 	.postclose = mvgal_drm_postclose,
 	.name = DRIVER_NAME,
 	.desc = DRIVER_DESC,
-	.date = DRIVER_DATE,
 	.major = DRIVER_MAJOR,
 	.minor = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
 };
+EXPORT_SYMBOL_GPL(mvgal_drm_driver);
 
 /* PCI device table */
 static const struct pci_device_id mvgal_pci_table[] = {
@@ -165,7 +169,7 @@ static int __init mvgal_init(void)
 	}
 
 	/* Create device class */
-	mvgal_class = class_create(THIS_MODULE, DRIVER_NAME);
+	mvgal_class = class_create(DRIVER_NAME);
 	if (IS_ERR(mvgal_class)) {
 		ret = PTR_ERR(mvgal_class);
 		pr_err("MVGAL: Failed to create device class\n");
@@ -192,12 +196,14 @@ static int __init mvgal_init(void)
 	/* Create device node */
 	device_create(mvgal_class, NULL, mvgal_devt, NULL, "%s0", DRIVER_NAME);
 
-	/* Register DRM driver */
-	ret = drm_init(&mvgal_drm_driver, NULL);
+	/* Register DRM driver - disabled for kernel 7.x compatibility */
+#if 0
+	ret = drm_register_driver(&mvgal_drm_driver);
 	if (ret < 0) {
 		pr_err("MVGAL: DRM initialization failed\n");
 		goto err_device_destroy;
 	}
+#endif
 
 	/* Initialize logical device */
 	ret = mvgal_device_init(&mvgal_logical_device);
@@ -220,7 +226,7 @@ static int __init mvgal_init(void)
 err_device_fini:
 	mvgal_device_fini(mvgal_logical_device);
 err_drm_cleanup:
-	drm_cleanup(&mvgal_drm_driver);
+	/* drm_unregister_driver(&mvgal_drm_driver); */
 err_device_destroy:
 	device_destroy(mvgal_class, mvgal_devt);
 	cdev_del(mvgal_cdev);
@@ -246,7 +252,7 @@ static void __exit mvgal_exit(void)
 	mvgal_device_fini(mvgal_logical_device);
 
 	/* Cleanup DRM */
-	drm_cleanup(&mvgal_drm_driver);
+	/* drm_unregister_driver(&mvgal_drm_driver); */
 
 	/* Destroy character device */
 	device_destroy(mvgal_class, mvgal_devt);
@@ -260,6 +266,7 @@ static void __exit mvgal_exit(void)
 module_init(mvgal_init);
 module_exit(mvgal_exit);
 
+/* MODULE_IMPORT_NS(DMA_BUF); */
 MODULE_AUTHOR("AxoGM");
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL v2");

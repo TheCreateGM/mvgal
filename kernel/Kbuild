@@ -1,6 +1,16 @@
 # Kbuild file for MVGAL kernel module (out-of-tree)
 
 obj-m := mvgal.o
-mvgal-y := mvgal_main.o
+mvgal-y := mvgal_main.o \
+           mvgal_core.o \
+           mvgal_device.o \
+           mvgal_power.o \
+           mvgal_memory.o \
+           mvgal_scheduler.o \
+           mvgal_sync.o \
+           vendors/mvgal_amd.o \
+           vendors/mvgal_nvidia.o \
+           vendors/mvgal_intel.o \
+           vendors/mvgal_mtt.o
 
 ccflags-y += -I$(src)/../include

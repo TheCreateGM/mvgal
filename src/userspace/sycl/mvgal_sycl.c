@@ -324,13 +324,20 @@ mvgal_error_t mvgal_sycl_mem_free(mvgal_sycl_buffer_t buffer) {
         pthread_mutex_unlock(&buffer->lock);
         return MVGAL_SUCCESS;
     }
+
+    if (buffer->is_mapped && buffer->host_ptr) {
+        if (mvgal_memory_is_mapped(buffer->mvgal_buf)) {
+            mvgal_memory_unmap(buffer->mvgal_buf);
+        } else {
+            free(buffer->host_ptr);
+        }
+        buffer->host_ptr = NULL;
+        buffer->is_mapped = false;
+    }
     pthread_mutex_unlock(&buffer->lock);
 
     if (buffer->mvgal_buf) {
         mvgal_memory_free(buffer->mvgal_buf);
-    }
-    if (buffer->host_ptr) {
-        free(buffer->host_ptr);
     }
     pthread_mutex_destroy(&buffer->lock);
     free(buffer);

@@ -862,6 +862,23 @@ HRESULT WINAPI D3D11CreateDevice(
                                          SDKVersion, ppDevice, pFeatureLevel, 
                                          ppImmediateContext);
         }
+        return E_FAIL;
+    }
+
+    log_debug("D3D11CreateDevice intercepted");
+
+    submit_d3d_workload("CreateDevice", MVGAL_WORKLOAD_D3D_CONTEXT, NULL, false);
+
+    if (!real_D3D11CreateDevice) {
+        real_D3D11CreateDevice = get_real_function("D3D11CreateDevice");
+    }
+    if (real_D3D11CreateDevice) {
+        return real_D3D11CreateDevice(pAdapter, DriverTypes, Software, 
+                                     Flags, pFeatureLevels, FeatureLevels, 
+                                     SDKVersion, ppDevice, pFeatureLevel, 
+                                     ppImmediateContext);
+    }
+
     return E_FAIL;
 }
 
@@ -1645,8 +1662,6 @@ HRESULT WINAPI DXGISwapChain_Present(
     }
 
      return E_FAIL;
-}
-
 }
 
 #pragma GCC diagnostic pop

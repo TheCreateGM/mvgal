@@ -22,6 +22,7 @@
 
 #include "../mvgal_core.h"
 #include "../mvgal_device.h"
+#include "../mvgal_scheduler.h"
 #include "mvgal_mtt.h"
 
 /* Moore Threads vendor operations */

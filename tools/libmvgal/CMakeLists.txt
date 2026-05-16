@@ -41,7 +41,8 @@ if(EXISTS "${MVGAL_WRAPPER_SRC}")
     # Export API include dir for consumers
     target_include_directories(${LIBMVGAL_TARGET}
         PUBLIC
-            "${MVGAL_INCLUDE_DIR}"
+            $<BUILD_INTERFACE:${MVGAL_INCLUDE_DIR}>
+            $<INSTALL_INTERFACE:include>
     )
 
     # Provide reasonable compile args for a small system library.
@@ -82,7 +83,8 @@ else()
 
     target_include_directories(${LIBMVGAL_TARGET}
         INTERFACE
-            "${MVGAL_INCLUDE_DIR}"
+            $<BUILD_INTERFACE:${MVGAL_INCLUDE_DIR}>
+            $<INSTALL_INTERFACE:include>
     )
 
     # Install headers so packaging still works
@@ -105,6 +107,7 @@ set(CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${LIBMVGAL_TARGET}")
 # Generate a simple version/config file.
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/${LIBMVGAL_TARGET}ConfigVersion.cmake"
+    VERSION 0.2.2
     COMPATIBILITY AnyNewerVersion
 )
 

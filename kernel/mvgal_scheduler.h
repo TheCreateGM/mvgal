@@ -26,6 +26,9 @@
 /* Maximum memory resources per workload */
 #define MVGAL_MAX_MEMORY_RESOURCES 16
 
+/* Maximum workload size */
+#define MVGAL_MAX_WORKLOAD_SIZE (16 * 1024 * 1024) /* 16MB */
+
 /*
  * Workload state
  */
@@ -50,12 +53,60 @@ enum mvgal_workload_type {
 #define MVGAL_SUBMIT_FLAG_SIGNAL (1 << 1) /* Signal fence on completion */
 
 /*
+ * Workload structure
+ * Represents a workload submitted to MVGAL for execution
+ */
+struct mvgal_workload {
+	struct list_head node;            /* Node in workload queue */
+	uint32_t id;                     /* Unique workload ID */
+	uint32_t priority;               /* Priority (0 = lowest, 15 = highest) */
+	uint32_t gpu_mask;               /* Bitmask of GPUs this workload can run on */
+
+	/* Workload data */
+	uint32_t type;                   /* Workload type (GRAPHICS, COMPUTE, TRANSFER) */
+	uint64_t command_buffer_addr;    /* Address of command buffer in user space */
+	size_t command_buffer_size;      /* Size of command buffer */
+	uint32_t num_commands;           /* Number of commands */
+
+	/* Memory resources */
+	uint64_t memory_addrs[MVGAL_MAX_MEMORY_RESOURCES];
+	size_t memory_sizes[MVGAL_MAX_MEMORY_RESOURCES];
+	uint32_t num_memory_resources;
+
+	/* Synchronization */
+	uint32_t fence_seq;              /* Fence sequence number for synchronization */
+	struct completion completion;     /* Completion for signal when done */
+	bool signaled;
+
+	/* Scheduling */
+	enum mvgal_schedule_state state; /* PENDING, RUNNING, COMPLETE, ERROR */
+	int32_t result;                  /* Result code from execution */
+	struct mvgal_gpu_device *assigned_gpu; /* Assigned GPU device */
+	uint64_t start_time;             /* Start timestamp (ns) */
+	uint64_t end_time;              /* End timestamp (ns) */
+};
+
+/*
+ * Scheduler global state
+ */
+struct mvgal_scheduler_state {
+	struct list_head queues[MVGAL_NUM_PRIORITY_QUEUES];
+	struct mutex lock;
+	atomic_t next_workload_id;
+	wait_queue_head_t waitq;
+	struct workqueue_struct *dispatch_wq;
+};
+
+extern struct mvgal_scheduler_state scheduler;
+
+/*
  * IOCTL structures
  */
 
 /* Submit workload arguments */
 struct mvgal_submit_workload_args {
 	uint32_t workload_id;        /* Output: assigned workload ID */
+	uint32_t workload_type;      /* Input: workload type (GRAPHICS/COMPUTE/TRANSFER) */
 	uint32_t priority;          /* Input: priority level (0-15) */
 	uint32_t gpu_mask;          /* Input: bitmask of allowed GPUs */
 	uint32_t flags;             /* Input: submit flags */

@@ -1,0 +1,8 @@
+[D-Bus Service]
+Name=org.mvgal.MVGAL
+Exec=/usr/bin/mvgald --dbus
+User=root
+SystemdService=mvgald.service
+
+# Allow interactive activation (for GUI tools)
+Interactive=true

@@ -80,6 +80,7 @@ set(DAEMON_SOURCES
     daemon/power_manager.cpp
     daemon/metrics_collector.cpp
     daemon/ipc_server.cpp
+    daemon/dbus_service.cpp
 )
 
 # Daemon headers
@@ -91,6 +92,7 @@ set(DAEMON_HEADERS
     daemon/power_manager.hpp
     daemon/metrics_collector.hpp
     daemon/ipc_server.hpp
+    daemon/dbus_service.hpp
 )
 
 # Create daemon executable
@@ -102,11 +104,15 @@ target_include_directories(mvgald PRIVATE
     ${MVGAL_INCLUDE_DIRS}
 )
 
+# Find systemd for D-Bus
+pkg_check_modules(SYSTEMD QUIET IMPORTED_TARGET libsystemd)
+
 target_link_libraries(mvgald PRIVATE
     Threads::Threads
     PkgConfig::LIBDRM
     PkgConfig::PCIACCESS
     ${CMAKE_DL_LIBS}
+    ${SYSTEMD_LIBRARIES}
 )
 
 # Installation

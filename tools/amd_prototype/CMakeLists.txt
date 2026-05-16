@@ -51,7 +51,6 @@ endif()
 # Primary include dirs: ensure the MVGAL include path (project root) is available
 # This allows sources to include "mvgal/mvgal_uapi.h" and other shared headers.
 # Adjust path relative to this directory (../../include -> mvgal/include).
-target_include_directories_dummy() # no-op placeholder for generator formatting
 
 set(MVGAL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../include")
 if(EXISTS "${MVGAL_INCLUDE_DIR}")

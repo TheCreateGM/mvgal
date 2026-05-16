@@ -16,6 +16,7 @@ extern volatile sig_atomic_t g_running;
 #include "ipc_server.hpp"
 #include "power_manager.hpp"
 #include "metrics_collector.hpp"
+#include "dbus_service.hpp"
 
 #include <iostream>
 #include <cerrno>
@@ -93,6 +94,13 @@ bool Daemon::init()
         return false;
     }
 
+    /* Initialize D-Bus service */
+    m_dbus_service = std::make_unique<DBusService>(this);
+    if (!m_dbus_service->init()) {
+        std::cerr << "Warning: Failed to initialize D-Bus service, continuing without it" << std::endl;
+        m_dbus_service.reset();
+    }
+
     /* Write PID file */
     writePidFile("/etc/mvgal/mvgald.pid");
 
@@ -102,6 +110,7 @@ bool Daemon::init()
 void Daemon::cleanup()
 {
     /* Cleanup in reverse order */
+    if (m_dbus_service) m_dbus_service->fini();
     if (m_ipc_server) m_ipc_server->fini();
     if (m_metrics_collector) m_metrics_collector->fini();
     if (m_power_manager) m_power_manager->fini();
@@ -113,6 +122,7 @@ void Daemon::cleanup()
     std::remove("/etc/mvgal/mvgald.pid");
 
     /* Reset unique_ptrs */
+    m_dbus_service.reset();
     m_ipc_server.reset();
     m_metrics_collector.reset();
     m_power_manager.reset();
@@ -141,6 +151,11 @@ void Daemon::run()
 
         /* Process metrics collection */
         m_metrics_collector->processEvents();
+
+        /* Process D-Bus events */
+        if (m_dbus_service) {
+            m_dbus_service->processEvents();
+        }
 
         /* Sleep briefly to avoid busy loop */
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

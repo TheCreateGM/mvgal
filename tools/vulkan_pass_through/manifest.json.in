@@ -1,0 +1,11 @@
+{
+  "file": "@LIB_FILENAME@",
+  "layers": [
+    {
+      "name": "VK_LAYER_MVGAL_multi_vendor",
+      "type": "GLOBAL",
+      "library_path": "@LIB_FILENAME@",
+      "api_version": "1.2.0"
+    }
+  ]
+}

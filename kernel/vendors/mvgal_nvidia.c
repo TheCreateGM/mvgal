@@ -21,6 +21,7 @@
 
 #include "../mvgal_core.h"
 #include "../mvgal_device.h"
+#include "../mvgal_scheduler.h"
 #include "mvgal_nvidia.h"
 
 /* NVIDIA vendor operations */
@@ -35,29 +36,6 @@ const struct mvgal_vendor_ops mvgal_nvidia_ops = {
 	.export_dmabuf = mvgal_nvidia_export_dmabuf,
 	.import_dmabuf = mvgal_nvidia_import_dmabuf,
 	.query_utilization = mvgal_nvidia_query_utilization,
-};
-
-/*
- * Per-GPU NVIDIA private data
- */
-struct mvgal_nvidia_priv {
-	struct pci_dev *pdev;
-	char device_path[128];           /* Path to /dev/nvidia* device */
-	int device_fd;                   /* File descriptor for device (user-space only) */
-	bool nv_drm_available;          /* NVIDIA DRM driver is loaded */
-	
-	/* Capabilities queried from NVIDIA */
-	uint64_t vram_total;
-	uint64_t vram_free;
-	uint32_t gpu_utilization;
-	int32_t gpu_temperature;
-	
-	/* DMA-BUF support */
-	struct {
-		bool can_export;
-		bool can_import;
-		bool nv_dmabuf_available;     /* NVIDIA DMA-BUF driver available */
-	} dma_buf;
 };
 
 /**
@@ -83,18 +61,17 @@ int mvgal_nvidia_init(struct mvgal_gpu_device *gpu)
 	priv->pdev = gpu->pdev;
 	priv->device_fd = -1;
 	
-	/* Check if NVIDIA modules are loaded */
-	/* Try to get reference to nvidia-drm module if loaded */
-	if (try_module_get(THIS_MODULE)) {
-		/* Module is available - check for nvidia-drm */
-		struct module *nv_drm = find_module("nvidia-drm");
-		priv->nv_drm_available = (nv_drm != NULL && module_is_live(nv_drm));
-		module_put(THIS_MODULE);
-	}
-	
-	/* Check for nvidia-dmabuf module */
-	struct module *nv_dmabuf = find_module("nvidia-dmabuf");
-	priv->dma_buf.nv_dmabuf_available = (nv_dmabuf != NULL && module_is_live(nv_dmabuf));
+	/* Check if NVIDIA modules are loaded via sysfs */
+	priv->nv_drm_available = false;
+	priv->dma_buf.nv_dmabuf_available = false;
+
+	/* Check /sys/module/ for nvidia-drm */
+	if (sysfs_get_dirent(NULL, "/module/nvidia_drm"))
+		priv->nv_drm_available = true;
+
+	/* Check /sys/module/ for nvidia-dmabuf */
+	if (sysfs_get_dirent(NULL, "/module/nvidia_dmabuf"))
+		priv->dma_buf.nv_dmabuf_available = true;
 	
 	/* DMA-BUF capability depends on nvidia-drm or nvidia-dmabuf */
 	priv->dma_buf.can_export = priv->nv_drm_available || priv->dma_buf.nv_dmabuf_available;
@@ -455,21 +432,22 @@ u32 mvgal_nvidia_estimate_bandwidth(u16 device_id)
 
 /**
  * mvgal_nvidia_get_compute_capability - Get CUDA compute capability
+ * Returns encoded value: major * 10 + minor (e.g., 86 for 8.6, 75 for 7.5)
  */
-float mvgal_nvidia_get_compute_capability(u16 device_id)
+u32 mvgal_nvidia_get_compute_capability(u16 device_id)
 {
 	/* Blackwell (GB20x) - SM 10.0 */
-	if (device_id >= 0x2B00 && device_id <= 0x2CFF) return 10.0f;
+	if (device_id >= 0x2B00 && device_id <= 0x2CFF) return 100;
 	/* Ada Lovelace (AD10x) - SM 8.9 */
-	if (device_id >= 0x2680 && device_id <= 0x28FF) return 8.9f;
+	if (device_id >= 0x2680 && device_id <= 0x28FF) return 89;
 	/* Ampere (GA10x) - SM 8.6, GA102 - SM 8.6 */
-	if (device_id >= 0x2200 && device_id <= 0x25FF) return 8.6f;
+	if (device_id >= 0x2200 && device_id <= 0x25FF) return 86;
 	/* Turing (TU1xx) - SM 7.5 */
-	if (device_id >= 0x1E00 && device_id <= 0x21FF) return 7.5f;
+	if (device_id >= 0x1E00 && device_id <= 0x21FF) return 75;
 	/* Pascal (GP10x) - SM 6.1 */
-	if (device_id >= 0x1B00 && device_id <= 0x1DFF) return 6.1f;
-	
-	return 7.5f; /* Default to Turing level */
+	if (device_id >= 0x1B00 && device_id <= 0x1DFF) return 61;
+
+	return 75; /* Default to Turing level */
 }
 
 /**
