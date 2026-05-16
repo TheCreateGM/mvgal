@@ -56,8 +56,10 @@ struct mvgal_device_dispatch {
     PFN_vkGetDeviceQueue get_device_queue;
     PFN_vkGetDeviceQueue2 get_device_queue2;
     PFN_vkQueueSubmit queue_submit;
+#ifdef VK_VERSION_1_3
     PFN_vkQueueSubmit2 queue_submit2;
     PFN_vkQueueSubmit2KHR queue_submit2_khr;
+#endif
     
     /* Aggregation support */
     bool is_aggregate;

@@ -267,10 +267,12 @@ VkResult mvgal_vk_register_device(
         (PFN_vkGetDeviceQueue2)next_gdpa(device, "vkGetDeviceQueue2");
     dispatch->queue_submit =
         (PFN_vkQueueSubmit)next_gdpa(device, "vkQueueSubmit");
+#ifdef VK_VERSION_1_3
     dispatch->queue_submit2 =
         (PFN_vkQueueSubmit2)next_gdpa(device, "vkQueueSubmit2");
     dispatch->queue_submit2_khr =
         (PFN_vkQueueSubmit2KHR)next_gdpa(device, "vkQueueSubmit2KHR");
+#endif
 
     pthread_mutex_lock(&g_mvgal_layer_state.lock);
     dispatch->next = g_mvgal_layer_state.devices;
@@ -850,6 +852,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
     );
 }
 
+#ifdef VK_VERSION_1_3
 VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit2(
     VkQueue queue,
     uint32_t submitCount,
@@ -873,7 +876,9 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit2(
         fence
     );
 }
+#endif /* VK_VERSION_1_3 */
 
+#ifdef VK_VERSION_1_3
 VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit2KHR(
     VkQueue queue,
     uint32_t submitCount,
@@ -897,6 +902,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit2KHR(
         fence
     );
 }
+#endif /* VK_VERSION_1_3 */
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_layerGetPhysicalDeviceProcAddr(
     VkInstance instance,
@@ -939,12 +945,14 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(
     if (strcmp(pName, "vkQueueSubmit") == 0) {
         return (PFN_vkVoidFunction)vkQueueSubmit;
     }
+#ifdef VK_VERSION_1_3
     if (strcmp(pName, "vkQueueSubmit2") == 0) {
         return (PFN_vkVoidFunction)vkQueueSubmit2;
     }
     if (strcmp(pName, "vkQueueSubmit2KHR") == 0) {
         return (PFN_vkVoidFunction)vkQueueSubmit2KHR;
     }
+#endif
 
     dispatch = mvgal_vk_find_device_dispatch(device);
     if (dispatch == NULL || dispatch->next_gdpa == NULL) {
@@ -1016,12 +1024,14 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(
     if (strcmp(pName, "vkQueueSubmit") == 0) {
         return (PFN_vkVoidFunction)vkQueueSubmit;
     }
+#ifdef VK_VERSION_1_3
     if (strcmp(pName, "vkQueueSubmit2") == 0) {
         return (PFN_vkVoidFunction)vkQueueSubmit2;
     }
     if (strcmp(pName, "vkQueueSubmit2KHR") == 0) {
         return (PFN_vkVoidFunction)vkQueueSubmit2KHR;
     }
+#endif
     if (strcmp(pName, "vkEnumeratePhysicalDeviceGroups") == 0) {
         return (PFN_vkVoidFunction)vkEnumeratePhysicalDeviceGroups;
     }
