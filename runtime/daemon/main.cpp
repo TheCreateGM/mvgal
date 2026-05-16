@@ -123,19 +123,19 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    /* Initialize */
-    if (!g_daemon->init()) {
-        std::cerr << "Failed to initialize daemon" << std::endl;
-        return 1;
-    }
-
-    /* Daemonize if requested */
+    /* Daemonize before init so PID file has correct PID */
     if (daemonize) {
         int ret = daemon(1, 0);
         if (ret < 0) {
             std::cerr << "Failed to daemonize: " << strerror(errno) << std::endl;
             return 1;
         }
+    }
+
+    /* Initialize subsystems (PID written here has correct PID after daemonize) */
+    if (!g_daemon->init()) {
+        std::cerr << "Failed to initialize daemon" << std::endl;
+        return 1;
     }
 
     /* Run main loop */

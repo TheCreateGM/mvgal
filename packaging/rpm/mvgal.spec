@@ -93,6 +93,10 @@ install -m 644 %{_builddir}/%{name}-%{version}/config/mvgal.conf %{buildroot}%{_
 install -d %{buildroot}%{_unitdir}
 install -m 644 %{_builddir}/%{name}-%{version}/packaging/rpm/mvgal-daemon.service %{buildroot}%{_unitdir}/mvgal-daemon.service
 
+# Install D-Bus policy file
+install -d %{buildroot}%{_sysconfdir}/dbus-1/system.d
+install -m 644 %{_builddir}/%{name}-%{version}/config/org.mvgal.MVGAL.conf %{buildroot}%{_sysconfdir}/dbus-1/system.d/org.mvgal.MVGAL.conf
+
 # Create symlink for daemon binary name expected by service file
 ln -sf mvgald %{buildroot}%{_bindir}/mvgal-daemon
 
@@ -160,6 +164,8 @@ fi
 %config(noreplace) %{_sysconfdir}/mvgal/mvgal.conf
 # Systemd service
 %{_unitdir}/mvgal-daemon.service
+# D-Bus policy
+%config(noreplace) %{_sysconfdir}/dbus-1/system.d/org.mvgal.MVGAL.conf
 # ldconfig config
 %config(noreplace) %{_sysconfdir}/ld.so.conf.d/mvgal.conf
 # Log directory (created in the install section)

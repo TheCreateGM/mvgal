@@ -85,6 +85,15 @@ bool IpcClientConnection::readMessageHeader(IpcMessageHeader& header)
         received += static_cast<size_t>(n);
     }
 
+    /* Convert from network byte order BEFORE validation */
+    header.magic = ntohl(header.magic);
+    header.version = ntohl(header.version);
+    header.messageType = ntohl(header.messageType);
+    header.requestId = ntohl(header.requestId);
+    header.payloadSize = ntohl(header.payloadSize);
+    header.flags = ntohl(header.flags);
+    header.reserved = ntohl(header.reserved);
+
     /* Validate magic */
     if (header.magic != IPC_MAGIC) {
         std::cerr << "IPC: Invalid magic number from client " << m_clientId << std::endl;
@@ -97,15 +106,6 @@ bool IpcClientConnection::readMessageHeader(IpcMessageHeader& header)
                   << " from client " << m_clientId << std::endl;
         return false;
     }
-
-    /* Convert from network byte order */
-    header.magic = ntohl(header.magic);
-    header.version = ntohl(header.version);
-    header.messageType = ntohl(header.messageType);
-    header.requestId = ntohl(header.requestId);
-    header.payloadSize = ntohl(header.payloadSize);
-    header.flags = ntohl(header.flags);
-    header.reserved = ntohl(header.reserved);
 
     return true;
 }
@@ -569,7 +569,18 @@ bool IpcServer::init(const std::string& socketPath)
     strncpy(addr.sun_path, m_socketPath.c_str(), sizeof(addr.sun_path) - 1);
 
     /* Remove existing socket if present */
-    unlink(m_socketPath.c_str());
+    if (unlink(m_socketPath.c_str()) < 0 && errno != ENOENT) {
+        if (errno == EACCES || errno == EPERM) {
+            std::cerr << "IPC: Cannot remove stale socket " << m_socketPath
+                      << ": " << strerror(errno) << std::endl;
+            std::cerr << "IPC: Remove it manually: sudo rm -f " << m_socketPath << std::endl;
+            close(m_listenFd);
+            m_listenFd = -1;
+            return false;
+        }
+        std::cerr << "IPC: Warning: Failed to remove existing socket " << m_socketPath
+                  << ": " << strerror(errno) << std::endl;
+    }
 
     if (bind(m_listenFd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
         std::cerr << "IPC: Failed to bind socket to " << m_socketPath
@@ -602,10 +613,7 @@ void IpcServer::fini()
 
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    /* Close all client connections */
-    for (auto& pair : m_clients) {
-        pair.second->~IpcClientConnection();
-    }
+    /* Close all client connections — shared_ptr destructors handle cleanup */
     m_clients.clear();
 
     /* Close listen socket */
@@ -685,8 +693,8 @@ void IpcServer::processEvents()
         }
     }
 
-    /* Cleanup dead clients */
-    cleanupDeadClients();
+    /* Cleanup dead clients using list computed above */
+    cleanupDeadClients(deadClients);
 
     /* Process any registered handlers */
     /* Note: Custom handlers would be invoked from processMessages() in client connection */
@@ -715,24 +723,17 @@ void IpcServer::registerHandler(IpcMessageType type, std::function<void(const Ip
     m_handlers[static_cast<uint32_t>(type)] = handler;
 }
 
-void IpcServer::cleanupDeadClients()
+void IpcServer::cleanupDeadClients(const std::vector<uint32_t>& deadClients)
 {
-    std::vector<uint32_t> deadClients;
+    if (deadClients.empty()) return;
 
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        for (auto& pair : m_clients) {
-            if (pair.second.use_count() == 1) {
-                /* Only we hold the reference, client is dead */
-                deadClients.push_back(pair.first);
-            }
-        }
-    }
-
+    std::lock_guard<std::mutex> lock(m_mutex);
     for (uint32_t clientId : deadClients) {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_clients.erase(clientId);
-        std::cout << "IPC: Client " << clientId << " disconnected" << std::endl;
+        auto it = m_clients.find(clientId);
+        if (it != m_clients.end()) {
+            m_clients.erase(it);
+            std::cout << "IPC: Client " << clientId << " disconnected" << std::endl;
+        }
     }
 }
 

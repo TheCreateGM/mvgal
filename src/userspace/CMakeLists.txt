@@ -54,6 +54,8 @@ if(MVGAL_BUILD_API AND (Vulkan_FOUND OR VULKAN_FOUND))
 
     set_target_properties(mvgal_vulkan_layer PROPERTIES
         OUTPUT_NAME "VK_LAYER_MVGAL"
+        VERSION ${PROJECT_VERSION}
+        SOVERSION 1
     )
 
     target_link_options(mvgal_vulkan_layer
@@ -117,6 +119,10 @@ if(MVGAL_BUILD_API AND OpenCL_FOUND)
     add_library(mvgal_opencl SHARED
         intercept/opencl/cl_intercept.c
     )
+    set_target_properties(mvgal_opencl PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION 1
+    )
 
     target_include_directories(mvgal_opencl
         PRIVATE
@@ -146,6 +152,10 @@ if(MVGAL_BUILD_API)
     add_library(mvgal_d3d SHARED
         intercept/d3d/d3d_wrapper.c
     )
+    set_target_properties(mvgal_d3d PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION 1
+    )
 
     target_include_directories(mvgal_d3d
         PRIVATE
@@ -172,6 +182,10 @@ endif()
 if(MVGAL_BUILD_API)
     add_library(mvgal_metal SHARED
         intercept/metal/metal_wrapper.c
+    )
+    set_target_properties(mvgal_metal PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION 1
     )
 
     target_include_directories(mvgal_metal

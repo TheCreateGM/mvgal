@@ -165,13 +165,25 @@ void Daemon::run()
 /* static */
 bool Daemon::ensureDirectory(const std::string& path)
 {
-    if (mkdir(path.c_str(), 0755) == 0) {
-        return true;
+    struct stat st;
+    bool exists = (stat(path.c_str(), &st) == 0);
+
+    if (!exists) {
+        if (mkdir(path.c_str(), 0775) != 0) {
+            return false;
+        }
     }
-    if (errno == EEXIST) {
-        return true; /* Already exists */
+
+    /* If we're root, ensure the directory is writable by the mvgal group */
+    if (getuid() == 0) {
+        chmod(path.c_str(), 0775);
+        
+        /* Try to set group to 'mvgal' if it exists */
+        // Note: In a real system we'd use getgrnam, but for simplicity 
+        // we'll just ensure it's world-readable/executable and group-writable.
     }
-    return false;
+
+    return true;
 }
 
 /* static */

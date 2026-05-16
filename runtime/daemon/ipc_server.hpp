@@ -285,8 +285,8 @@ private:
     /* Handle client message */
     void handleClientMessage(IpcClientConnection* client);
     
-    /* Remove dead clients */
-    void cleanupDeadClients();
+    /* Remove dead clients from the given list */
+    void cleanupDeadClients(const std::vector<uint32_t>& deadClients);
     
     /* Helper to send message */
     bool sendMessageInternal(IpcClientConnection* client, IpcMessageType type, const void* payload, size_t payloadSize, uint32_t requestId);
