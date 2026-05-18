@@ -573,7 +573,7 @@ bool IpcServer::init(const std::string& socketPath)
         if (errno == EACCES || errno == EPERM) {
             std::cerr << "IPC: Cannot remove stale socket " << m_socketPath
                       << ": " << strerror(errno) << std::endl;
-            std::cerr << "IPC: Remove it manually: sudo rm -f " << m_socketPath << std::endl;
+            std::cerr << "IPC: Remove it manually: pkexec rm -f " << m_socketPath << std::endl;
             close(m_listenFd);
             m_listenFd = -1;
             return false;

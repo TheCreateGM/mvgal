@@ -185,7 +185,7 @@ bool DBusService::Impl::init() {
         fprintf(stderr, "Failed to request D-Bus name: %s\n", strerror(-r));
         fprintf(stderr, "  Ensure D-Bus policy is installed:\n");
         fprintf(stderr, "    /etc/dbus-1/system.d/org.mvgal.MVGAL.conf\n");
-        fprintf(stderr, "  Reload D-Bus config: sudo systemctl reload dbus\n");
+        fprintf(stderr, "  Reload D-Bus config: pkexec systemctl reload dbus\n");
         sd_bus_unref(m_bus);
         m_bus = nullptr;
         m_connected = false;

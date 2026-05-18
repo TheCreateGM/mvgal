@@ -31,30 +31,58 @@
 #define MVGAL_MAX_IOCTL_ARGS 4096
  
 /*
- * IOCTL command definitions
- * Base: DRM_COMMAND_BASE + 0x80 (custom range)
+ * DRM-private ioctl offsets (relative to DRM_COMMAND_BASE + 0x80).
+ * DRM_IOCTL_DEF_DRV(MVGAL_*, ...) expects DRM_IOCTL_MVGAL_* names.
  */
-#define MVGAL_IOCTL_BASE DRM_COMMAND_BASE + 0x80
- 
-/* Device query and management */
-#define MVGAL_IOCTL_QUERY_DEVICES       DRM_IOWR(MVGAL_IOCTL_BASE + 0x00)
-#define MVGAL_IOCTL_QUERY_CAPABILITIES DRM_IOWR(MVGAL_IOCTL_BASE + 0x01)
- 
-/* Workload submission */
-#define MVGAL_IOCTL_SUBMIT_WORKLOAD     DRM_IOWR(MVGAL_IOCTL_BASE + 0x10)
- 
-/* Memory management */
-#define MVGAL_IOCTL_ALLOC_MEMORY        DRM_IOWR(MVGAL_IOCTL_BASE + 0x20)
-#define MVGAL_IOCTL_FREE_MEMORY         DRM_IOWR(MVGAL_IOCTL_BASE + 0x21)
-#define MVGAL_IOCTL_IMPORT_DMABUF       DRM_IOWR(MVGAL_IOCTL_BASE + 0x22)
-#define MVGAL_IOCTL_EXPORT_DMABUF       DRM_IOWR(MVGAL_IOCTL_BASE + 0x23)
- 
-/* Synchronization */
-#define MVGAL_IOCTL_WAIT_FENCE          DRM_IOWR(MVGAL_IOCTL_BASE + 0x30)
-#define MVGAL_IOCTL_SIGNAL_FENCE        DRM_IOWR(MVGAL_IOCTL_BASE + 0x31)
- 
-/* GPU affinity */
-#define MVGAL_IOCTL_SET_GPU_AFFINITY    DRM_IOWR(MVGAL_IOCTL_BASE + 0x40)
+/* Private DRM ioctl indices (must stay within the driver ioctl table size) */
+#define MVGAL_QUERY_DEVICES		0x00
+#define MVGAL_QUERY_CAPABILITIES	0x01
+#define MVGAL_SUBMIT_WORKLOAD		0x02
+#define MVGAL_ALLOC_MEMORY		0x03
+#define MVGAL_FREE_MEMORY		0x04
+#define MVGAL_IMPORT_DMABUF		0x05
+#define MVGAL_EXPORT_DMABUF		0x06
+#define MVGAL_WAIT_FENCE		0x07
+#define MVGAL_SIGNAL_FENCE		0x08
+#define MVGAL_SET_GPU_AFFINITY		0x09
+
+/* Placeholder UAPI types for DRM ioctl sizing (handlers validate real structs) */
+struct drm_mvgal_generic {
+	__u64 data;
+};
+
+#define DRM_IOCTL_MVGAL_QUERY_DEVICES \
+	DRM_IOWR(DRM_COMMAND_BASE + MVGAL_QUERY_DEVICES, struct drm_mvgal_generic)
+#define DRM_IOCTL_MVGAL_QUERY_CAPABILITIES \
+	DRM_IOWR(DRM_COMMAND_BASE + MVGAL_QUERY_CAPABILITIES, struct drm_mvgal_generic)
+#define DRM_IOCTL_MVGAL_SUBMIT_WORKLOAD \
+	DRM_IOWR(DRM_COMMAND_BASE + MVGAL_SUBMIT_WORKLOAD, struct drm_mvgal_generic)
+#define DRM_IOCTL_MVGAL_ALLOC_MEMORY \
+	DRM_IOWR(DRM_COMMAND_BASE + MVGAL_ALLOC_MEMORY, struct drm_mvgal_generic)
+#define DRM_IOCTL_MVGAL_FREE_MEMORY \
+	DRM_IOWR(DRM_COMMAND_BASE + MVGAL_FREE_MEMORY, struct drm_mvgal_generic)
+#define DRM_IOCTL_MVGAL_IMPORT_DMABUF \
+	DRM_IOWR(DRM_COMMAND_BASE + MVGAL_IMPORT_DMABUF, struct drm_mvgal_generic)
+#define DRM_IOCTL_MVGAL_EXPORT_DMABUF \
+	DRM_IOWR(DRM_COMMAND_BASE + MVGAL_EXPORT_DMABUF, struct drm_mvgal_generic)
+#define DRM_IOCTL_MVGAL_WAIT_FENCE \
+	DRM_IOWR(DRM_COMMAND_BASE + MVGAL_WAIT_FENCE, struct drm_mvgal_generic)
+#define DRM_IOCTL_MVGAL_SIGNAL_FENCE \
+	DRM_IOWR(DRM_COMMAND_BASE + MVGAL_SIGNAL_FENCE, struct drm_mvgal_generic)
+#define DRM_IOCTL_MVGAL_SET_GPU_AFFINITY \
+	DRM_IOWR(DRM_COMMAND_BASE + MVGAL_SET_GPU_AFFINITY, struct drm_mvgal_generic)
+
+/* Legacy aliases for in-tree ioctl handlers */
+#define MVGAL_IOCTL_QUERY_DEVICES	DRM_IOCTL_MVGAL_QUERY_DEVICES
+#define MVGAL_IOCTL_QUERY_CAPABILITIES	DRM_IOCTL_MVGAL_QUERY_CAPABILITIES
+#define MVGAL_IOCTL_SUBMIT_WORKLOAD	DRM_IOCTL_MVGAL_SUBMIT_WORKLOAD
+#define MVGAL_IOCTL_ALLOC_MEMORY	DRM_IOCTL_MVGAL_ALLOC_MEMORY
+#define MVGAL_IOCTL_FREE_MEMORY		DRM_IOCTL_MVGAL_FREE_MEMORY
+#define MVGAL_IOCTL_IMPORT_DMABUF	DRM_IOCTL_MVGAL_IMPORT_DMABUF
+#define MVGAL_IOCTL_EXPORT_DMABUF	DRM_IOCTL_MVGAL_EXPORT_DMABUF
+#define MVGAL_IOCTL_WAIT_FENCE		DRM_IOCTL_MVGAL_WAIT_FENCE
+#define MVGAL_IOCTL_SIGNAL_FENCE	DRM_IOCTL_MVGAL_SIGNAL_FENCE
+#define MVGAL_IOCTL_SET_GPU_AFFINITY	DRM_IOCTL_MVGAL_SET_GPU_AFFINITY
  
 /*
  * Capability tiers
@@ -224,5 +252,9 @@ struct mvgal_gpu_device *mvgal_gpu_alloc(enum mvgal_vendor_id vendor);
 void mvgal_gpu_free(struct mvgal_gpu_device *gpu);
 int mvgal_gpu_add(struct mvgal_device *dev, struct mvgal_gpu_device *gpu);
 void mvgal_gpu_remove(struct mvgal_device *dev, struct mvgal_gpu_device *gpu);
- 
+
+/* Full aggregation stack (linked when MVGAL_BUILD_FULL_STACK=1) */
+int mvgal_stack_init(void);
+void mvgal_stack_exit(void);
+
 #endif /* _MVGAL_CORE_H_ */

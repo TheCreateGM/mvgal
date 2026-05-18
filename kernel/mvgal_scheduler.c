@@ -198,27 +198,30 @@ static void mvgal_scheduler_dispatch(struct work_struct *work)
 				mutex_lock(&scheduler.lock);
 				list_add_tail(&workload->node, &scheduler.queues[i]);
 				mutex_unlock(&scheduler.lock);
-				return;
+				continue;
 			}
-			
-			/* Mark as running */
+
+			/* Mark workload as running */
 			workload->state = MVGAL_SCHEDULE_STATE_RUNNING;
+			workload->target_gpu_index = gpu->gpu_index;
 			workload->assigned_gpu = gpu;
 			workload->start_time = ktime_get_ns();
-			
-			/* Submit to GPU */
+
+			/* Dispatch to vendor driver */
 			if (gpu->ops && gpu->ops->submit_cs) {
 				ret = gpu->ops->submit_cs(gpu, workload);
 			} else {
-				/* No vendor ops, mark as complete immediately */
+				/* Vendor doesn't support submission - simulate success for now */
+				pr_warn_once("MVGAL: Vendor %d does not support submit_cs, simulating\n",
+					gpu->vendor);
 				ret = 0;
 			}
-			
+
 			workload->end_time = ktime_get_ns();
-			
+
 			/* Signal completion */
 			mvgal_workload_signal(workload, ret);
-			
+
 			mutex_lock(&scheduler.lock);
 		}
 		

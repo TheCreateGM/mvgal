@@ -918,14 +918,11 @@ void mvgal_vkGetPhysicalDeviceMemoryProperties(
     
     mvgal_physical_device_t* dev = (mvgal_physical_device_t*)physicalDevice;
     
-    /* Return aggregated memory properties */
-    *pMemoryProperties = dev->memoryProperties;
+    /* Dynamically aggregate from all GPUs */
+    mvgal_aggregate_memory_properties(pMemoryProperties);
     
-    /* TODO: Actually aggregate from all GPUs:
-     * - Sum up all VRAM heaps
-     * - Merge memory types (HOST_VISIBLE, DEVICE_LOCAL, etc.)
-     * - Create unified memory heap
-     */
+    /* Keep cached device record up to date */
+    dev->memoryProperties = *pMemoryProperties;
 }
 
 /* ============================================================================
@@ -1234,7 +1231,10 @@ VkResult VKAPI_CALL mvgal_vkGetDeviceQueue2(
 
 VkResult VKAPI_CALL mvgal_vkDeviceWaitIdle(VkDevice device) {
     (void)device;
-    /* TODO: Forward to MVGAL scheduler flush */
+    mvgal_context_t ctx = mvgal_context_get_current();
+    if (ctx) {
+        mvgal_wait_idle(ctx, 0); /* 0 = wait indefinitely until idle */
+    }
     return VK_SUCCESS;
 }
 
@@ -1244,7 +1244,10 @@ VkResult VKAPI_CALL mvgal_vkDeviceWaitIdle(VkDevice device) {
 
 VkResult VKAPI_CALL mvgal_vkQueueWaitIdle(VkQueue queue) {
     (void)queue;
-    /* TODO: Forward to MVGAL scheduler flush per-queue */
+    mvgal_context_t ctx = mvgal_context_get_current();
+    if (ctx) {
+        mvgal_wait_idle(ctx, 0); /* 0 = wait indefinitely until idle */
+    }
     return VK_SUCCESS;
 }
 

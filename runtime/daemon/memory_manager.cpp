@@ -44,7 +44,14 @@ uint64_t MemoryManager::allocate(size_t size, MemoryAllocationFlags flags,
     alloc.size = size;
     alloc.flags = flags;
     alloc.preferredGpu = preferredGpu;
-    alloc.uva = 0; /* TODO: Allocate UVA */
+    
+    /* Allocate UVA (Unified Virtual Address) to reserve the range in virtual address space */
+    void* uvaPtr = mmap(nullptr, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (uvaPtr == MAP_FAILED) {
+        m_nextAllocationId--;
+        return 0; /* Allocation failed */
+    }
+    alloc.uva = reinterpret_cast<uint64_t>(uvaPtr);
     alloc.accessCount = 0;
     alloc.lastAccessTime = 0;
     alloc.isReplicated = false;
@@ -88,6 +95,7 @@ uint64_t MemoryManager::allocate(size_t size, MemoryAllocationFlags flags,
     } else {
         /* Fallback to system RAM */
         if (!allocateSystemRam(size, alloc)) {
+            munmap(reinterpret_cast<void*>(alloc.uva), size);
             m_nextAllocationId--;
             return 0; /* Allocation failed */
         }
@@ -122,7 +130,9 @@ bool MemoryManager::free(uint64_t allocationId)
     }
     
     /* Free UVA */
-    // TODO: Free unified virtual address
+    if (alloc.uva != 0) {
+        munmap(reinterpret_cast<void*>(alloc.uva), alloc.size);
+    }
     
     m_allocations.erase(it);
     return true;
@@ -271,23 +281,38 @@ uint64_t MemoryManager::importDmaBuf(int dmabufFd, size_t size)
     alloc.size = size;
     alloc.flags = MemoryAllocationFlags::CPU_VISIBLE | MemoryAllocationFlags::COHERENT;
     alloc.preferredGpu = static_cast<uint32_t>(-1);
-    alloc.uva = 0;
+    
+    /* Allocate UVA (Unified Virtual Address) to reserve the range in virtual address space */
+    void* uvaPtr = mmap(nullptr, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (uvaPtr == MAP_FAILED) {
+        m_nextAllocationId--;
+        return 0; /* Import failed */
+    }
+    alloc.uva = reinterpret_cast<uint64_t>(uvaPtr);
     
     alloc.gpuAddresses.resize(m_daemon->deviceRegistry().gpuCount());
     alloc.populated.resize(m_daemon->deviceRegistry().gpuCount(), false);
     alloc.dmaBufFds.resize(m_daemon->deviceRegistry().gpuCount(), -1);
     
     /* Import into all GPUs */
+    bool any_success = false;
     for (uint32_t i = 0; i < m_daemon->deviceRegistry().gpuCount(); i++) {
         alloc.dmaBufFds[i] = dup(dmabufFd);
         if (importViaDmaBuf(alloc, i)) {
             alloc.populated[i] = true;
+            any_success = true;
         } else {
             if (alloc.dmaBufFds[i] >= 0) {
                 close(alloc.dmaBufFds[i]);
                 alloc.dmaBufFds[i] = -1;
             }
         }
+    }
+    
+    if (!any_success && m_daemon->deviceRegistry().gpuCount() > 0) {
+        munmap(reinterpret_cast<void*>(alloc.uva), size);
+        m_nextAllocationId--;
+        return 0;
     }
     
     m_allocations[alloc.id] = alloc;

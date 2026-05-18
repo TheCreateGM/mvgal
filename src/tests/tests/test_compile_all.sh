@@ -12,7 +12,7 @@ echo "=========================================="
 echo ""
 
 CFLAGS="-D_GNU_SOURCE -std=c11 -Wall -Wextra -Werror -O2"
-BASE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+BASE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)"
 TMP_DIR="/tmp/mvgal_test"
 
 mkdir -p "$TMP_DIR"

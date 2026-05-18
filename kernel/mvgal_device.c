@@ -566,6 +566,13 @@ int mvgal_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		return -ENODEV;
 	}
 
+	ret = pci_enable_device(pdev);
+	if (ret < 0) {
+		return ret;
+	}
+
+	pci_set_master(pdev);
+
 	gpu = mvgal_gpu_alloc(vendor);
 	if (!gpu) {
 		return -ENOMEM;
@@ -576,17 +583,14 @@ int mvgal_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	gpu->pci_device_id = pdev->device;
 	snprintf(gpu->name, sizeof(gpu->name), "%04x:%04x", pdev->vendor, pdev->device);
 
-	/* TODO: Query actual capabilities from vendor driver */
-	gpu->vram_size = 8 * 1024 * 1024 * 1024;
-	gpu->vram_bandwidth = 500 * 1024;
-	gpu->compute_units = 64;
-	gpu->api_flags = MVGAL_API_VULKAN | MVGAL_API_OPENCL;
-	gpu->pcie_gen = 4;
-	gpu->pcie_lanes = 16;
+	/* Initialize hardware-specific capabilities via vendor-specific init */
+	gpu->pcie_gen = pcie_get_speed_cap(pdev);
+	gpu->pcie_lanes = pcie_get_width_cap(pdev);
 	gpu->numa_node = dev_to_node(&pdev->dev);
 
 	ret = mvgal_gpu_add(mvgal_logical_device, gpu);
 	if (ret < 0) {
+		pci_disable_device(pdev);
 		mvgal_gpu_free(gpu);
 		return ret;
 	}
@@ -604,5 +608,6 @@ void mvgal_pci_remove(struct pci_dev *pdev)
 
 	if (gpu) {
 		mvgal_gpu_remove(mvgal_logical_device, gpu);
+		pci_disable_device(pdev);
 	}
 }

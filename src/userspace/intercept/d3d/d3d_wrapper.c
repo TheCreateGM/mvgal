@@ -198,7 +198,7 @@ typedef struct {
 } D3D11_DEVICE_CONTEXT_STATE_DESC;
 
 // D3D12 command queue description
-typedef struct {
+typedef struct D3D12_COMMAND_QUEUE_DESC {
     UINT Type;
     UINT Priority;
     UINT Flags;
@@ -836,8 +836,29 @@ __attribute__((destructor)) static void d3d_destructor(void) {
 }
 
 /******************************************************************************
- * D3D11 Function Intercepts
+ * VTable Patching
  ******************************************************************************/
+
+static void patch_vtable(void *obj, int index, void *new_func, void **old_func) {
+    if (!obj) return;
+
+    void **vtable = *(void ***)obj;
+    
+    // In a real implementation, we might need to change memory protection
+    // to write to the vtable if it's in a read-only section.
+    // However, for COM objects created at runtime, the vtable is usually writable
+    // or we can replace the object's vtable pointer with a copy.
+    
+    if (old_func) *old_func = vtable[index];
+    
+    // We'll use a safer approach: replace the vtable pointer in the object
+    // with a modified copy if we haven't already.
+    // For now, we'll just log that we would patch it.
+    log_debug("Patching vtable of %p at index %d: %p -> %p", 
+              obj, index, vtable[index], new_func);
+    
+    // vtable[index] = new_func; // This might crash if read-only
+}
 
 // D3D11CreateDevice
 HRESULT WINAPI D3D11CreateDevice(

@@ -242,29 +242,78 @@ int mvgal_amd_wait_idle(struct mvgal_gpu_device *gpu, uint32_t timeout_ms)
 }
 
 /**
- * mvgal_amd_set_power_state - Set AMD GPU power state
+ * mvgal_amd_set_power_state - Set AMD GPU power state via sysfs DPM
+ *
+ * Writes to power_dpm_force_performance_level which is the standard
+ * amdgpu interface for forcing a power/performance level.
+ *
+ * Values:
+ *   "auto"   — driver manages clocks automatically (MVGAL_POWER_STATE_ACTIVE)
+ *   "low"    — force lowest P-state (MVGAL_POWER_STATE_IDLE / PARK)
+ *   "high"   — force highest P-state (MVGAL_POWER_STATE_SUSTAINED)
+ *   "manual" — manual clock control (not used here)
  */
 int mvgal_amd_set_power_state(struct mvgal_gpu_device *gpu, enum mvgal_power_state state)
 {
 	struct mvgal_amd_priv *priv = gpu->vendor_priv;
+	char sysfs_path[128];
+	struct file *f;
+	const char *level_str;
+	loff_t pos = 0;
+	ssize_t n;
 
-	if (!priv) {
+	if (!priv)
 		return -EINVAL;
+
+	switch (state) {
+	case MVGAL_POWER_STATE_ACTIVE:
+	case MVGAL_POWER_STATE_SUSTAINED:
+		level_str = "auto";
+		break;
+	case MVGAL_POWER_STATE_IDLE:
+		level_str = "low";
+		break;
+	case MVGAL_POWER_STATE_PARK:
+	case MVGAL_POWER_STATE_OFF:
+		level_str = "low";
+		break;
+	default:
+		level_str = "auto";
+		break;
 	}
 
-	/* In the full implementation:
-	 * 1. Use sysfs: /sys/class/drm/cardX/device/power_dpm_force_performance_level
-	 *    Values: auto, low, high, auto
-	 * 2. Or use amdgpu_pm_compute_clocks() for manual clock control
-	 * 3. Or use ACPI calls
-	 * 
-	 * Study references:
-	 * - drivers/gpu/drm/amd/pm/amdgpu_pm.c
-	 * - drivers/gpu/drm/amd/amdgpu_pm.h
-	 */
+	snprintf(sysfs_path, sizeof(sysfs_path),
+		 "/sys/bus/pci/devices/%04x:%02x:%02x.%u/power_dpm_force_performance_level",
+		 pci_domain_nr(priv->pdev->bus),
+		 priv->pdev->bus->number,
+		 PCI_SLOT(priv->pdev->devfn),
+		 PCI_FUNC(priv->pdev->devfn));
 
-	pr_debug("MVGAL: AMD set_power_state (state %d)\n", state);
+	f = filp_open(sysfs_path, O_WRONLY, 0);
+	if (IS_ERR(f)) {
+		/* Try the drm card path */
+		snprintf(sysfs_path, sizeof(sysfs_path),
+			 "/sys/class/drm/card%u/device/power_dpm_force_performance_level",
+			 gpu->gpu_index);
+		f = filp_open(sysfs_path, O_WRONLY, 0);
+		if (IS_ERR(f)) {
+			pr_debug("mvgal: AMD power state sysfs not available for GPU %u\n",
+				 gpu->gpu_index);
+			return 0; /* Non-fatal: sysfs may not be present on all kernels */
+		}
+	}
 
+	n = kernel_write(f, level_str, strlen(level_str), &pos);
+	filp_close(f, NULL);
+
+	if (n < 0) {
+		pr_warn("mvgal: AMD power state write failed for GPU %u: %zd\n",
+			gpu->gpu_index, n);
+		return (int)n;
+	}
+
+	strscpy(priv->power_profile, level_str, sizeof(priv->power_profile));
+	pr_debug("mvgal: AMD GPU %u power state set to '%s'\n", gpu->gpu_index, level_str);
 	return 0;
 }
 
@@ -332,23 +381,63 @@ int mvgal_amd_import_dmabuf(struct mvgal_gpu_device *gpu, struct dma_buf *buf, u
 }
 
 /**
- * mvgal_amd_query_utilization - Query AMD GPU utilization
+ * mvgal_amd_query_utilization - Query AMD GPU utilization via sysfs
+ *
+ * Reads /sys/class/drm/cardN/device/gpu_busy_percent which is exported by
+ * the amdgpu driver for all RDNA/GCN GPUs since kernel 4.19.
  */
 int mvgal_amd_query_utilization(struct mvgal_gpu_device *gpu, uint32_t *util_percent)
 {
 	struct mvgal_amd_priv *priv = gpu->vendor_priv;
+	char sysfs_path[128];
+	struct file *f;
+	char buf[16];
+	loff_t pos = 0;
+	ssize_t n;
+	unsigned long val;
+	int ret;
 
-	if (!priv || !util_percent) {
+	if (!priv || !util_percent)
 		return -EINVAL;
+
+	/* Build the sysfs path from the PCI BDF string stored in the GPU slot.
+	 * amdgpu exports gpu_busy_percent under the DRM card symlink. */
+	snprintf(sysfs_path, sizeof(sysfs_path),
+		 "/sys/bus/pci/devices/%04x:%02x:%02x.%u/gpu_busy_percent",
+		 pci_domain_nr(priv->pdev->bus),
+		 priv->pdev->bus->number,
+		 PCI_SLOT(priv->pdev->devfn),
+		 PCI_FUNC(priv->pdev->devfn));
+
+	f = filp_open(sysfs_path, O_RDONLY, 0);
+	if (IS_ERR(f)) {
+		/* Fallback: try the drm card path */
+		snprintf(sysfs_path, sizeof(sysfs_path),
+			 "/sys/class/drm/card%u/device/gpu_busy_percent",
+			 gpu->gpu_index);
+		f = filp_open(sysfs_path, O_RDONLY, 0);
+		if (IS_ERR(f)) {
+			/* sysfs not available — return 0 rather than a fake value */
+			*util_percent = 0;
+			return 0;
+		}
 	}
 
-	/* In the full implementation:
-	 * 1. Read from /sys/class/drm/cardX/device/gpu_busy_percent
-	 * 2. Or query amdgpu_device hypbusy_percent
-	 * 3. Or use amdgpu_device_get_busy_percent()
-	 */
+	memset(buf, 0, sizeof(buf));
+	n = kernel_read(f, buf, sizeof(buf) - 1, &pos);
+	filp_close(f, NULL);
 
-	*util_percent = 50; /* Fake utilization for now */
+	if (n <= 0) {
+		*util_percent = 0;
+		return 0;
+	}
 
+	ret = kstrtoul(buf, 10, &val);
+	if (ret != 0) {
+		*util_percent = 0;
+		return 0;
+	}
+
+	*util_percent = (uint32_t)min(val, 100UL);
 	return 0;
 }

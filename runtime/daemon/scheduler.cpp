@@ -7,12 +7,13 @@
  */
 
 #include "scheduler.hpp"
-#include "device_registry.hpp"
 #include "daemon.hpp"
-#include <mvgal/mvgal_ai.h>
+#include "device_registry.hpp"
 #include <algorithm>
 #include <chrono>
 #include <thread>
+#include <cstring>
+#include <mvgal/mvgal_ai.h>
 
 namespace mvgal {
 
@@ -234,6 +235,9 @@ void Scheduler::processPending()
         case SchedulingMode::APPLICATION_PROFILE:
             gpuIndex = scheduleByProfile(workload);
             break;
+        case SchedulingMode::AI_DRIVEN:
+            gpuIndex = scheduleAI(workload);
+            break;
         }
         
         auto end = std::chrono::high_resolution_clock::now();
@@ -246,6 +250,44 @@ void Scheduler::processPending()
     
     /* Check for work stealing */
     checkWorkStealing();
+}
+
+/* AI-driven scheduling implementation */
+uint32_t Scheduler::scheduleAI(std::shared_ptr<Workload> workload)
+{
+    if (!m_daemon) return 0;
+
+    /* Prepare features for the AI model */
+    mvgal_ai_features_t features;
+    memset(&features, 0, sizeof(features));
+
+    const auto& deviceRegistry = m_daemon->deviceRegistry();
+    features.num_gpus = std::min((uint32_t)deviceRegistry.gpuCount(), 8u);
+    
+    for (uint32_t i = 0; i < features.num_gpus; i++) {
+        const auto* gpu = deviceRegistry.getGpu(i);
+        if (gpu) {
+            features.gpu_utilization[i] = gpu->state().utilization / 100.0f;
+            features.vram_pressure[i] = (float)gpu->state().memoryUsed / 100.0f; // memoryUsed is % in GpuState
+            features.temperature[i] = gpu->state().temperature / 100.0f;
+        }
+    }
+
+    features.workload_type = static_cast<uint32_t>(workload->type());
+
+    /* Run inference */
+    mvgal_ai_prediction_t prediction;
+    /* In a real scenario, the model would be loaded during init */
+    static mvgal_ai_model_t model = mvgal_ai_model_load("/etc/mvgal/scheduler_model.onnx");
+    
+    if (model && mvgal_ai_model_predict(model, &features, &prediction) == 0) {
+        if (prediction.recommended_gpu >= 0 && (uint32_t)prediction.recommended_gpu < features.num_gpus) {
+            return (uint32_t)prediction.recommended_gpu;
+        }
+    }
+
+    /* Fallback to dynamic if AI fails or no recommendation */
+    return scheduleDynamic(workload);
 }
 
 /* Network-aware scheduling */
@@ -422,38 +464,6 @@ uint32_t Scheduler::scheduleByProfile(std::shared_ptr<Workload> workload)
     return scheduleDynamic(workload);
 }
 
-/* AI-driven scheduling */
-uint32_t Scheduler::scheduleAI(std::shared_ptr<Workload> workload)
-{
-    /* Fall back to dynamic scheduling when AI is disabled */
-    if (!m_aiEnabled || !m_daemon) {
-        return scheduleDynamic(workload);
-    }
-
-    /* AI inference pipeline (future wiring):
-     *
-     *   1. Build feature vector from MetricsCollector telemetry:
-     *        mvgal_ai_features_t features;
-     *        features.num_gpus      = deviceRegistry.gpuCount();
-     *        features.workload_type = static_cast<uint32_t>(workload->type());
-     *        // populate gpu_utilization[], vram_pressure[],
-     *        // queue_depth[], workload_history[], temperature[]
-     *        // from MetricsCollector / DeviceRegistry
-     *
-     *   2. Run inference:
-     *        mvgal_ai_model_t model = getModelHandle();  // owned by Scheduler
-     *        mvgal_ai_prediction_t pred;
-     *        int ret = mvgal_ai_model_predict(model, &features, &pred);
-     *
-     *   3. Apply result:
-     *        if (ret == 0 && pred.confidence >= confidenceThreshold) {
-     *            return static_cast<uint32_t>(pred.recommended_gpu);
-     *        }
-     *        // fallback on low confidence or inference failure
-     */
-
-    return scheduleDynamic(workload);
-}
 
 /* Dispatch to GPU */
 bool Scheduler::dispatchToGpu(std::shared_ptr<Workload> workload, uint32_t gpuIndex)

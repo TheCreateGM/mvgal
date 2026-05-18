@@ -96,8 +96,8 @@ void mvgal_detect_all_p2p(struct mvgal_device *dev);
 int mvgal_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id);
 void mvgal_pci_remove(struct pci_dev *pdev);
 
-/* Kernel module init/cleanup */
-static int __init mvgal_init(void);
-static void __exit mvgal_exit(void);
+/* Aggregation stack init (mvgal_core.c) */
+int mvgal_init(void);
+void mvgal_exit(void);
 
 #endif /* _MVGAL_DEVICE_H_ */

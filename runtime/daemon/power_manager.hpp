@@ -75,6 +75,21 @@ struct FanCurvePoint {
 };
 
 /**
+ * Power curve point (GPU utilization % -> power limit % of TDP)
+ */
+struct PowerCurvePoint {
+    uint8_t utilizationPercent; /* 0-100 */
+    uint8_t powerLimitPercent;  /* 0-100 of per-GPU TDP */
+};
+
+#define MVGAL_MAX_POWER_CURVE_POINTS 8
+
+struct GpuPowerCurve {
+    PowerCurvePoint points[MVGAL_MAX_POWER_CURVE_POINTS];
+    uint32_t numPoints;
+};
+
+/**
  * Fan curve definition
  */
 #define MVGAL_MAX_FAN_CURVE_POINTS 10
@@ -199,6 +214,11 @@ public:
     PsuHeadroom getPsuHeadroom() const;
     const PsuConfig& psuConfig() const { return m_psuConfig; }
 
+    /* Per-GPU power curve (utilization -> power cap) */
+    void setPowerCurve(uint32_t gpuIndex, const GpuPowerCurve& curve);
+    GpuPowerCurve getPowerCurve(uint32_t gpuIndex) const;
+    void applyPowerCurves();
+
 private:
     Daemon* m_daemon;
     DeviceRegistry* m_deviceRegistry;
@@ -237,6 +257,9 @@ private:
     /* Fan curves */
     std::vector<GpuFanCurve> m_fanCurves;
 
+    /* Power curves */
+    std::vector<GpuPowerCurve> m_powerCurves;
+
     /* PSU configuration */
     PsuConfig m_psuConfig;
 
@@ -255,6 +278,8 @@ private:
 
     /* PSU helpers */
     void updatePsuHeadroom();
+
+    uint8_t interpolatePowerLimit(const GpuPowerCurve& curve, uint8_t utilization) const;
 };
 
 } // namespace mvgal

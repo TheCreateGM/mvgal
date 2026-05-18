@@ -5,17 +5,21 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <inttypes.h>
 #include <sys/stat.h>
 #include <sys/utsname.h>
+#include <sys/ioctl.h>
+
+#include "mvgal/mvgal_uapi.h"
 
 /* -------------------------------------------------------------------------
  * Helpers: sysfs reading
@@ -23,9 +27,19 @@
 
 static int read_sysfs_str(const char *path, char *buf, size_t bufsz)
 {
-    int fd = open(path, O_RDONLY);
-    if (fd < 0) return -1;
-    ssize_t n = read(fd, buf, (ssize_t)(bufsz - 1));
+    size_t read_len;
+    int fd;
+    ssize_t n;
+
+    if (bufsz == 0)
+        return -1;
+
+    fd = open(path, O_RDONLY);
+    if (fd < 0)
+        return -1;
+
+    read_len = bufsz - 1;
+    n = read(fd, buf, read_len);
     close(fd);
     if (n <= 0) return -1;
     /* strip trailing newline */
@@ -74,10 +88,23 @@ typedef struct {
     int      utilization_pct;
     bool     display_connected;
     bool     enabled;
+    bool     from_uapi;
+    char     driver[MVGAL_UAPI_DRIVER_LEN];
+    uint32_t class_code;
+    uint32_t numa_node;
+    uint32_t pcie_link_gen;
+    uint32_t pcie_link_width;
+    long long largest_prefetchable_bar_bytes;
+    long long largest_mmio_bar_bytes;
+    uint32_t flags;
 } gpu_info_t;
 
 static int g_gpu_count = 0;
 static gpu_info_t g_gpus[MAX_GPUS];
+static bool g_used_uapi = false;
+static struct mvgal_uapi_version g_uapi_version;
+static struct mvgal_uapi_caps g_uapi_caps;
+static struct mvgal_uapi_stats g_uapi_stats;
 
 /* -------------------------------------------------------------------------
  * Enumerate GPUs via /sys/class/drm
@@ -176,6 +203,177 @@ static void enumerate_drm_gpus(void)
     closedir(d);
 }
 
+static void fill_sysfs_runtime_by_bdf(gpu_info_t *g)
+{
+    char base[512];
+    char path[768];
+
+    if (!g || g->pci_slot[0] == '\0')
+        return;
+
+    snprintf(base, sizeof(base), "/sys/bus/pci/devices/%s", g->pci_slot);
+
+    snprintf(path, sizeof(path), "%s/mem_info_vram_total", base);
+    g->vram_total_bytes = read_sysfs_ll(path);
+    snprintf(path, sizeof(path), "%s/mem_info_vram_used", base);
+    g->vram_used_bytes = read_sysfs_ll(path);
+
+    snprintf(path, sizeof(path), "%s/gpu_busy_percent", base);
+    {
+        long long util = read_sysfs_ll(path);
+        if (util >= 0)
+            g->utilization_pct = (int)util;
+    }
+
+    snprintf(path, sizeof(path), "%s/hwmon", base);
+    DIR *hw = opendir(path);
+    if (hw) {
+        struct dirent *he;
+        while ((he = readdir(hw)) != NULL) {
+            char temp_path[2048];
+            long long t;
+
+            if (strncmp(he->d_name, "hwmon", 5) != 0)
+                continue;
+
+            snprintf(temp_path, sizeof(temp_path),
+                     "%s/%s/temp1_input", path, he->d_name);
+            t = read_sysfs_ll(temp_path);
+            if (t > 0)
+                g->temperature_c = (int)(t / 1000);
+            break;
+        }
+        closedir(hw);
+    }
+}
+
+static void fill_drm_node_by_bdf(gpu_info_t *g)
+{
+    DIR *d;
+    struct dirent *ent;
+
+    if (!g || g->pci_slot[0] == '\0')
+        return;
+
+    d = opendir("/sys/class/drm");
+    if (!d)
+        return;
+
+    while ((ent = readdir(d)) != NULL) {
+        char sysfs_path[512];
+        char real_path[512];
+        char *slot;
+        const char *p;
+        bool digits_only = true;
+
+        if (strncmp(ent->d_name, "card", 4) != 0)
+            continue;
+
+        p = ent->d_name + 4;
+        for (; *p; p++) {
+            if (*p < '0' || *p > '9') {
+                digits_only = false;
+                break;
+            }
+        }
+        if (!digits_only)
+            continue;
+
+        snprintf(sysfs_path, sizeof(sysfs_path),
+                 "/sys/class/drm/%s/device", ent->d_name);
+        if (realpath(sysfs_path, real_path) == NULL)
+            continue;
+
+        slot = strrchr(real_path, '/');
+        if (!slot)
+            continue;
+        slot++;
+
+        if (strcmp(slot, g->pci_slot) == 0) {
+            snprintf(g->drm_node, sizeof(g->drm_node), "/dev/dri/%.50s",
+                     ent->d_name);
+            break;
+        }
+    }
+
+    closedir(d);
+}
+
+static void fill_mvgal_sysfs_state(gpu_info_t *g, uint32_t index)
+{
+    char path[256];
+    long long enabled;
+
+    snprintf(path, sizeof(path), "/sys/class/mvgal/%s/gpu%u/enabled",
+             MVGAL_DEVICE_NAME, index);
+    enabled = read_sysfs_ll(path);
+    if (enabled >= 0)
+        g->enabled = enabled != 0;
+}
+
+static void copy_uapi_gpu(gpu_info_t *g, const struct mvgal_gpu_info *info)
+{
+    memset(g, 0, sizeof(*g));
+
+    snprintf(g->pci_slot, sizeof(g->pci_slot), "%s", info->bdf);
+    g->vendor_id = (uint16_t)info->vendor_id;
+    g->device_id = (uint16_t)info->device_id;
+    snprintf(g->name, sizeof(g->name), "%s", info->name);
+    g->enabled = true;
+    g->from_uapi = true;
+    snprintf(g->driver, sizeof(g->driver), "%s", info->driver);
+    g->class_code = info->class_code;
+    g->numa_node = info->numa_node;
+    g->pcie_link_gen = info->pcie_link_gen;
+    g->pcie_link_width = info->pcie_link_width;
+    g->largest_prefetchable_bar_bytes = (long long)info->largest_prefetchable_bar_bytes;
+    g->largest_mmio_bar_bytes = (long long)info->largest_mmio_bar_bytes;
+    g->flags = info->flags;
+    g->vram_total_bytes = -1;
+    g->vram_used_bytes = -1;
+    g->utilization_pct = -1;
+
+    fill_sysfs_runtime_by_bdf(g);
+    fill_drm_node_by_bdf(g);
+}
+
+static bool enumerate_mvgal_uapi(void)
+{
+    int fd = open("/dev/" MVGAL_DEVICE_NAME, O_RDONLY | O_CLOEXEC);
+    struct mvgal_uapi_gpu_count count = {0};
+
+    if (fd < 0)
+        return false;
+
+    if (ioctl(fd, MVGAL_IOC_QUERY_VERSION, &g_uapi_version) != 0 ||
+        ioctl(fd, MVGAL_IOC_GET_CAPS, &g_uapi_caps) != 0 ||
+        ioctl(fd, MVGAL_IOC_GET_STATS, &g_uapi_stats) != 0 ||
+        ioctl(fd, MVGAL_IOC_GET_GPU_COUNT, &count) != 0) {
+        close(fd);
+        return false;
+    }
+
+    if (count.gpu_count > MAX_GPUS)
+        count.gpu_count = MAX_GPUS;
+
+    g_gpu_count = 0;
+    for (uint32_t i = 0; i < count.gpu_count; i++) {
+        struct mvgal_uapi_gpu_query query = {0};
+
+        query.index = i;
+        if (ioctl(fd, MVGAL_IOC_GET_GPU_INFO, &query) != 0)
+            continue;
+
+        copy_uapi_gpu(&g_gpus[g_gpu_count], &query.info);
+        fill_mvgal_sysfs_state(&g_gpus[g_gpu_count], i);
+        g_gpu_count++;
+    }
+
+    close(fd);
+    g_used_uapi = true;
+    return true;
+}
+
 /* -------------------------------------------------------------------------
  * Print functions
  * ---------------------------------------------------------------------- */
@@ -215,6 +413,11 @@ static void print_header(void)
     struct stat st;
     printf("  /dev/mvgal0: %s\n",
            stat("/dev/mvgal0", &st) == 0 ? "present" : "absent");
+    printf("  Enumeration source: %s\n", g_used_uapi ? "MVGAL UAPI" : "DRM sysfs fallback");
+    if (g_used_uapi) {
+        printf("  UAPI version: %u.%u.%u\n",
+               g_uapi_version.major, g_uapi_version.minor, g_uapi_version.patch);
+    }
     print_separator('-', 72);
 }
 
@@ -226,7 +429,23 @@ static void print_gpu(int idx, const gpu_info_t *g)
     printf("    Vendor ID  : 0x%04X  (%s)\n", g->vendor_id, vendor_name(g->vendor_id));
     printf("    Device ID  : 0x%04X\n", g->device_id);
     printf("    DRM node   : %s\n", g->drm_node);
+    if (g->driver[0] != '\0')
+        printf("    Driver     : %s\n", g->driver);
     printf("    Status     : %s\n", g->enabled ? "enabled" : "disabled");
+    if (g->from_uapi) {
+        printf("    Class code : 0x%04X\n", g->class_code);
+        if (g->numa_node != UINT32_MAX)
+            printf("    NUMA node  : %u\n", g->numa_node);
+        else
+            printf("    NUMA node  : unknown\n");
+        if (g->pcie_link_gen > 0 || g->pcie_link_width > 0)
+            printf("    PCIe link  : Gen %u x%u\n",
+                   g->pcie_link_gen, g->pcie_link_width);
+        if (g->largest_prefetchable_bar_bytes > 0)
+            printf("    BAR        : largest prefetchable %.2f GiB\n",
+                   (double)g->largest_prefetchable_bar_bytes /
+                   (1024.0 * 1024.0 * 1024.0));
+    }
 
     if (g->vram_total_bytes > 0) {
         double total_gb = (double)g->vram_total_bytes / (1024.0 * 1024.0 * 1024.0);
@@ -304,6 +523,16 @@ static void print_logical_device(void)
     bool daemon_sock = (stat("/run/mvgal/mvgal.sock", &st) == 0);
     printf("  Daemon socket            : %s\n",
            daemon_sock ? "/run/mvgal/mvgal.sock (present)" : "absent");
+
+    if (g_used_uapi) {
+        printf("  Kernel topology gen      : %u\n", g_uapi_caps.topology_generation);
+        printf("  Kernel feature flags     : 0x%08X\n", g_uapi_caps.feature_flags);
+        printf("  Unsupported DMA-BUF ops  : export=%" PRIu64 ", import=%" PRIu64 "\n",
+               (uint64_t)g_uapi_stats.unsupported_dmabuf_exports,
+               (uint64_t)g_uapi_stats.unsupported_dmabuf_imports);
+        printf("  Unsupported cross allocs : %" PRIu64 "\n",
+               (uint64_t)g_uapi_stats.unsupported_cross_vendor_allocs);
+    }
 }
 
 /* -------------------------------------------------------------------------
@@ -313,22 +542,60 @@ static void print_logical_device(void)
 int main(int argc, char *argv[])
 {
     bool json_output = false;
+    bool count_only = false;
+    bool vulkan_groups = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--json") == 0 || strcmp(argv[i], "-j") == 0)
             json_output = true;
+        else if (strcmp(argv[i], "--count") == 0 || strcmp(argv[i], "-c") == 0)
+            count_only = true;
+        else if (strcmp(argv[i], "--vulkan-groups") == 0)
+            vulkan_groups = true;
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            printf("Usage: mvgal-info [--json]\n");
+            printf("Usage: mvgal-info [--json] [--count] [--vulkan-groups]\n");
             printf("  Print all detected GPUs and the MVGAL logical device configuration.\n");
-            printf("  --json   Output in JSON format\n");
+            printf("  --json           Output in JSON format\n");
+            printf("  --count          Output only the number of aggregated physical GPUs\n");
+            printf("  --vulkan-groups  Output emulated Vulkan physical device groups\n");
             return 0;
         }
     }
 
-    enumerate_drm_gpus();
+    if (!enumerate_mvgal_uapi())
+        enumerate_drm_gpus();
+
+    if (count_only) {
+        printf("%d\n", g_gpu_count);
+        return 0;
+    }
+
+    if (vulkan_groups) {
+        printf("Vulkan Device Groups:\n");
+        printf("  Group 0:\n");
+        printf("    Name: MVGAL Virtual Multi-GPU Device Group\n");
+        printf("    Physical GPUs aggregated : %d\n", g_gpu_count);
+        for (int i = 0; i < g_gpu_count; i++) {
+            printf("      GPU %d: %s [%04x:%04x]\n", i, g_gpus[i].name, g_gpus[i].vendor_id, g_gpus[i].device_id);
+        }
+        return 0;
+    }
 
     if (json_output) {
         printf("{\n");
+        printf("  \"enumeration_source\": \"%s\",\n", g_used_uapi ? "mvgal_uapi" : "drm_sysfs");
+        if (g_used_uapi) {
+            printf("  \"uapi_version\": \"%u.%u.%u\",\n",
+                   g_uapi_version.major, g_uapi_version.minor, g_uapi_version.patch);
+            printf("  \"kernel_caps\": {\n");
+            printf("    \"enabled\": %u,\n", g_uapi_caps.enabled);
+            printf("    \"topology_generation\": %u,\n", g_uapi_caps.topology_generation);
+            printf("    \"vendor_mask\": \"0x%08X\",\n", g_uapi_caps.vendor_mask);
+            printf("    \"feature_flags\": \"0x%08X\",\n", g_uapi_caps.feature_flags);
+            printf("    \"max_pcie_link_gen\": %u,\n", g_uapi_caps.max_pcie_link_gen);
+            printf("    \"max_pcie_link_width\": %u\n", g_uapi_caps.max_pcie_link_width);
+            printf("  },\n");
+        }
         printf("  \"gpu_count\": %d,\n", g_gpu_count);
         printf("  \"gpus\": [\n");
         for (int i = 0; i < g_gpu_count; i++) {
@@ -341,6 +608,11 @@ int main(int argc, char *argv[])
             printf("      \"device_id\": \"0x%04X\",\n", g->device_id);
             printf("      \"vendor\": \"%s\",\n", vendor_name(g->vendor_id));
             printf("      \"drm_node\": \"%s\",\n", g->drm_node);
+            printf("      \"driver\": \"%s\",\n", g->driver);
+            printf("      \"class_code\": \"0x%04X\",\n", g->class_code);
+            printf("      \"numa_node\": %u,\n", g->numa_node);
+            printf("      \"pcie_link_gen\": %u,\n", g->pcie_link_gen);
+            printf("      \"pcie_link_width\": %u,\n", g->pcie_link_width);
             printf("      \"vram_total_bytes\": %lld,\n", g->vram_total_bytes);
             printf("      \"vram_used_bytes\": %lld,\n", g->vram_used_bytes);
             printf("      \"temperature_c\": %d,\n", g->temperature_c);

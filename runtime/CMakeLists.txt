@@ -133,21 +133,33 @@ if(MVGAL_ENABLE_RUST)
         # Configure cargo build
         set(CARGO_TARGET_DIR "${CMAKE_BINARY_DIR}/rust-target")
 
-        # Build the safe library
+        # Build the safe staticlib
+        set(MVGAL_SAFE_LIB "${CARGO_TARGET_DIR}/debug/libmvgal_safe.a")
+
         add_custom_command(
-            OUTPUT "${CARGO_TARGET_DIR}/debug/deps/libmvgal_safe.rlib"
-            COMMAND cargo build --manifest-path runtime/safe/Cargo.toml --target-dir "${CARGO_TARGET_DIR}"
+            OUTPUT "${MVGAL_SAFE_LIB}"
+            COMMAND ${CARGO} build
+                --manifest-path "${CMAKE_SOURCE_DIR}/runtime/safe/Cargo.toml"
+                --target-dir "${CARGO_TARGET_DIR}"
             WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-            COMMENT "Building Rust safety components"
+            COMMENT "Building Rust safety components (mvgal_safe)"
+            VERBATIM
         )
 
         # Add custom target for Rust build
         add_custom_target(rust-build ALL
-            DEPENDS "${CARGO_TARGET_DIR}/debug/deps/libmvgal_safe.rlib"
+            DEPENDS "${MVGAL_SAFE_LIB}"
         )
 
-        # Link Rust library to daemon (when ready)
-        # target_link_libraries(mvgald PRIVATE "${CARGO_TARGET_DIR}/debug/libmvgal_safe.a")
+        # Ensure the daemon waits for the Rust library before linking
+        add_dependencies(mvgald rust-build)
+
+        # Link Rust staticlib into the daemon.
+        # The Rust standard library requires dl, pthread, and m on Linux.
+        target_link_libraries(mvgald PRIVATE
+            "${MVGAL_SAFE_LIB}"
+            ${CMAKE_DL_LIBS}
+        )
     else()
         message(WARNING "Rust not found, safety components will not be built")
     endif()

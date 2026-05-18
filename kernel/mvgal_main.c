@@ -23,6 +23,9 @@
 #include <linux/compat.h>
 
 #include <mvgal/mvgal_uapi.h>
+#include "mvgal_core.h"
+#include "mvgal_memory.h"
+#include "mvgal_device.h"
 
 #define MVGAL_KERNEL_VERSION "0.2.2"
 
@@ -684,21 +687,63 @@ static long mvgal_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		mutex_unlock(&mvgal_dev.lock);
 		return 0;
 
-	case MVGAL_IOC_EXPORT_DMABUF:
+	case MVGAL_IOC_EXPORT_DMABUF: {
+#ifdef MVGAL_FULL_STACK
+		struct mvgal_export_dmabuf_args dmabuf_args;
+		if (copy_from_user(&dmabuf_args, uarg, sizeof(dmabuf_args)))
+			return -EFAULT;
+		ret = mvgal_ioctl_export_dmabuf(NULL, &dmabuf_args, NULL);
+		if (ret == 0 && copy_to_user(uarg, &dmabuf_args, sizeof(dmabuf_args)))
+			return -EFAULT;
+#else
 		mvgal_dev.stats.unsupported_dmabuf_exports++;
 		ret = -EOPNOTSUPP;
+#endif
 		break;
+	}
 
-	case MVGAL_IOC_IMPORT_DMABUF:
+	case MVGAL_IOC_IMPORT_DMABUF: {
+#ifdef MVGAL_FULL_STACK
+		struct mvgal_import_dmabuf_args dmabuf_args;
+		if (copy_from_user(&dmabuf_args, uarg, sizeof(dmabuf_args)))
+			return -EFAULT;
+		ret = mvgal_ioctl_import_dmabuf(NULL, &dmabuf_args, NULL);
+		if (ret == 0 && copy_to_user(uarg, &dmabuf_args, sizeof(dmabuf_args)))
+			return -EFAULT;
+#else
 		mvgal_dev.stats.unsupported_dmabuf_imports++;
 		ret = -EOPNOTSUPP;
+#endif
 		break;
+	}
 
-	case MVGAL_IOC_ALLOC_CROSS_VENDOR:
-	case MVGAL_IOC_FREE_CROSS_VENDOR:
+	case MVGAL_IOC_ALLOC_CROSS_VENDOR: {
+#ifdef MVGAL_FULL_STACK
+		struct mvgal_alloc_memory_args alloc_args;
+		if (copy_from_user(&alloc_args, uarg, sizeof(alloc_args)))
+			return -EFAULT;
+		ret = mvgal_ioctl_alloc_memory(NULL, &alloc_args, NULL);
+		if (ret == 0 && copy_to_user(uarg, &alloc_args, sizeof(alloc_args)))
+			return -EFAULT;
+#else
 		mvgal_dev.stats.unsupported_cross_vendor_allocs++;
 		ret = -EOPNOTSUPP;
+#endif
 		break;
+	}
+
+	case MVGAL_IOC_FREE_CROSS_VENDOR: {
+#ifdef MVGAL_FULL_STACK
+		struct mvgal_free_memory_args free_args;
+		if (copy_from_user(&free_args, uarg, sizeof(free_args)))
+			return -EFAULT;
+		ret = mvgal_ioctl_free_memory(NULL, &free_args, NULL);
+#else
+		mvgal_dev.stats.unsupported_cross_vendor_allocs++;
+		ret = -EOPNOTSUPP;
+#endif
+		break;
+	}
 
 	default:
 		ret = -ENOTTY;
@@ -770,6 +815,16 @@ static int __init mvgal_module_init(void)
 	else
 		pr_warn("mvgal: hotplug notifier unavailable: %d\n", ret);
 
+#ifdef MVGAL_FULL_STACK
+	{
+		extern int mvgal_stack_init(void);
+
+		ret = mvgal_stack_init();
+		if (ret < 0)
+			pr_warn("mvgal: aggregation stack init failed: %d\n", ret);
+	}
+#endif
+
 	pr_info("mvgal: /dev/%s ready with %u GPU(s), sysfs at /sys/class/mvgal/%s/\n",
 		MVGAL_DEVICE_NAME, mvgal_dev.gpu_count, MVGAL_DEVICE_NAME);
 	return 0;
@@ -786,6 +841,14 @@ err_chrdev:
 
 static void __exit mvgal_module_exit(void)
 {
+#ifdef MVGAL_FULL_STACK
+	{
+		extern void mvgal_stack_exit(void);
+
+		mvgal_stack_exit();
+	}
+#endif
+
 	if (mvgal_dev.notifier_registered) {
 		bus_unregister_notifier(&pci_bus_type, &mvgal_dev.pci_notifier);
 		mvgal_dev.notifier_registered = false;

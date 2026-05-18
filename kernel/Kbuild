@@ -1,8 +1,16 @@
 # Kbuild file for MVGAL kernel module (out-of-tree)
+#
+# Default build: Phase-1 foundation (PCI topology, UAPI, sysfs) via mvgal_main.c
+# Full stack:    set MVGAL_BUILD_FULL_STACK=1 to link aggregation + vendor shims
+#
+#   make MVGAL_BUILD_FULL_STACK=1 -C /lib/modules/$(uname -r)/build M=$PWD modules
 
 obj-m := mvgal.o
-mvgal-y := mvgal_main.o \
-           mvgal_core.o \
+
+mvgal-y := mvgal_main.o
+
+ifeq ($(MVGAL_BUILD_FULL_STACK),1)
+mvgal-y += mvgal_core.o \
            mvgal_device.o \
            mvgal_power.o \
            mvgal_memory.o \
@@ -12,5 +20,7 @@ mvgal-y := mvgal_main.o \
            vendors/mvgal_nvidia.o \
            vendors/mvgal_intel.o \
            vendors/mvgal_mtt.o
+ccflags-y += -DMVGAL_FULL_STACK=1
+endif
 
 ccflags-y += -I$(src)/../include

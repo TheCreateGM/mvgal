@@ -44,6 +44,7 @@ bool PowerManager::init()
     m_gpuPowerInfo.resize(gpuCount);
     m_dvfsState.resize(gpuCount);
     m_fanCurves.resize(gpuCount);
+    m_powerCurves.resize(gpuCount);
     
     for (uint32_t i = 0; i < gpuCount; i++) {
         auto ts = std::chrono::high_resolution_clock::now().time_since_epoch();
@@ -87,7 +88,21 @@ bool PowerManager::init()
             curve.points[j] = defaultCurve[j];
         }
     }
-    
+
+    const PowerCurvePoint defaultPowerCurve[] = {
+        {0, 30}, {25, 50}, {50, 70}, {75, 90}, {100, 100},
+    };
+    const uint32_t numPowerPoints =
+        static_cast<uint32_t>(sizeof(defaultPowerCurve) / sizeof(defaultPowerCurve[0]));
+
+    for (uint32_t i = 0; i < gpuCount; i++) {
+        GpuPowerCurve& pcurve = m_powerCurves[i];
+        pcurve.numPoints = numPowerPoints;
+        for (uint32_t j = 0; j < numPowerPoints; j++) {
+            pcurve.points[j] = defaultPowerCurve[j];
+        }
+    }
+
     // Initialize default PSU config
     m_psuConfig.totalCapacityWatts = 0;      /* Unknown, will be probed */
     m_psuConfig.safetyMarginPercent = 20;     /* 20% safety margin */
@@ -124,23 +139,23 @@ void PowerManager::processEvents()
         m_lastThermalUpdate = now;
     }
     
-    /* Apply DVFS */
+    /* Apply DVFS and power curves */
     if (m_config.enableDvfs) {
         auto dvfsElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
             now - m_lastDvfsUpdate).count();
         if (dvfsElapsed >= static_cast<int64_t>(m_config.dvfsPollIntervalMs)) {
             applyDvfs();
+            applyPowerCurves();
             m_lastDvfsUpdate = now;
         }
     }
-    
-    /* Apply fan control */
-    applyFanControl();
-    
-    /* Update PSU headroom if enabled */
+
     if (m_psuConfig.enableHeadroomTracking) {
         updatePsuHeadroom();
     }
+
+    /* Apply fan control */
+    applyFanControl();
 }
 
 bool PowerManager::setPowerState(uint32_t gpuIndex, PowerState state)
@@ -649,6 +664,79 @@ PsuHeadroom PowerManager::getPsuHeadroom() const
     }
     
     return headroom;
+}
+
+void PowerManager::setPowerCurve(uint32_t gpuIndex, const GpuPowerCurve& curve)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (gpuIndex < m_powerCurves.size()) {
+        m_powerCurves[gpuIndex] = curve;
+    }
+}
+
+GpuPowerCurve PowerManager::getPowerCurve(uint32_t gpuIndex) const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (gpuIndex < m_powerCurves.size()) {
+        return m_powerCurves[gpuIndex];
+    }
+    return {};
+}
+
+uint8_t PowerManager::interpolatePowerLimit(const GpuPowerCurve& curve,
+                                            uint8_t utilization) const
+{
+    if (curve.numPoints == 0) {
+        return 100;
+    }
+    if (utilization <= curve.points[0].utilizationPercent) {
+        return curve.points[0].powerLimitPercent;
+    }
+    for (uint32_t i = 1; i < curve.numPoints; i++) {
+        const auto& lo = curve.points[i - 1];
+        const auto& hi = curve.points[i];
+        if (utilization <= hi.utilizationPercent) {
+            const int span = hi.utilizationPercent - lo.utilizationPercent;
+            if (span <= 0) {
+                return hi.powerLimitPercent;
+            }
+            const int t = utilization - lo.utilizationPercent;
+            return static_cast<uint8_t>(
+                lo.powerLimitPercent +
+                (hi.powerLimitPercent - lo.powerLimitPercent) * t / span);
+        }
+    }
+    return curve.points[curve.numPoints - 1].powerLimitPercent;
+}
+
+void PowerManager::applyPowerCurves()
+{
+    if (!m_config.enablePowerCapping && m_psuConfig.totalCapacityWatts == 0) {
+        return;
+    }
+
+    for (uint32_t i = 0; i < m_powerCurves.size(); i++) {
+        const auto* gpu = m_deviceRegistry->getGpu(i);
+        if (!gpu || i >= m_dvfsState.size()) {
+            continue;
+        }
+
+        const uint8_t util = static_cast<uint8_t>(std::min<uint32_t>(100, gpu->utilization()));
+        uint8_t limitPct = interpolatePowerLimit(m_powerCurves[i], util);
+
+        if (m_config.powerLimitWatts > 0) {
+            const uint32_t tdp = m_config.powerLimitWatts;
+            const uint32_t capMw = tdp * 1000U * limitPct / 100U;
+            if (m_gpuPowerInfo[i].stats.powerDrawMilliwatts > capMw && capMw > 0) {
+                const uint32_t maxClock = m_dvfsState[i].currentClockMhz > 0
+                    ? m_dvfsState[i].currentClockMhz
+                    : 2000U;
+                const uint32_t reduced = std::max<uint32_t>(500U, maxClock * 9U / 10U);
+                m_dvfsState[i].targetClockMhz = reduced;
+                writeFrequency(i, reduced);
+            }
+        }
+    }
 }
 
 void PowerManager::updatePsuHeadroom()

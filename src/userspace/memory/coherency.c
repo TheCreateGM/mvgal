@@ -10,6 +10,7 @@
  */
 
 #include "memory_internal.h"
+#include "mvgal/mvgal_coherency.h"
 #include "mvgal/mvgal_log.h"
 #include <stdlib.h>
 #include <string.h>

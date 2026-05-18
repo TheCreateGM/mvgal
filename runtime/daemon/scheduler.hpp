@@ -37,6 +37,7 @@ enum class SchedulingMode {
     STATIC_PARTITIONING,      /* Workload divided by static weights */
     DYNAMIC_LOAD_BALANCING,   /* Route to GPU with most capacity */
     APPLICATION_PROFILE,      /* Pre-configured profiles for known apps */
+    AI_DRIVEN,                /* AI/ML model based scheduling */
 };
 
 /**
@@ -212,11 +213,7 @@ private:
     uint32_t scheduleStatic(std::shared_ptr<Workload> workload);
     uint32_t scheduleDynamic(std::shared_ptr<Workload> workload);
     uint32_t scheduleByProfile(std::shared_ptr<Workload> workload);
-
-    /* AI-driven scheduling */
     uint32_t scheduleAI(std::shared_ptr<Workload> workload);
-
-    /* Network-aware scheduling (remote GPU offload) */
     uint32_t scheduleNetwork(std::shared_ptr<Workload> workload);
 
     /* AI scheduler toggle */

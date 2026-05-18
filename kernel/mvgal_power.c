@@ -806,7 +806,4 @@ void mvgal_power_module_exit(void)
 	}
 }
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("MVGAL Project");
-MODULE_DESCRIPTION("MVGAL Power Management - DVFS, Thermal Throttling, Power Budgeting");
-MODULE_VERSION("0.2.2");
+/* Linked into mvgal.ko; no separate module metadata. */

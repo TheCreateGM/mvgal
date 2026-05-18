@@ -634,7 +634,7 @@ mvgal_error_t mvgal_memory_get_alias_info(
     info->alias = buffer;
     info->offset = b->alias_offset;
     info->size = b->alias_size;
-    info->flags = b->alias_flags;
+    info->flags = (mvgal_memory_flags_t)b->alias_flags;
     info->gpu_mask = b->gpu_mask;
 
     return MVGAL_SUCCESS;
