@@ -3,7 +3,7 @@
 
 Name: mvgal
 Version: 0.2.2
-Release: 1%{?dist}
+Release: 7%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -76,7 +76,7 @@ Features:
     -DMVGAL_BUILD_KERNEL=OFF \
     -DMVGAL_BUILD_RUNTIME=ON \
     -DMVGAL_BUILD_API=ON \
-    -DMVGAL_BUILD_TOOLS=OFF \
+    -DMVGAL_BUILD_TOOLS=ON \
     -DMVGAL_BUILD_TESTS=OFF \
     -DMVGAL_ENABLE_RUST=OFF
 %cmake_build
@@ -140,8 +140,23 @@ fi
 # Daemon binary (with symlink for service file compatibility)
 %{_bindir}/mvgald
 %{_bindir}/mvgal-daemon
+# CLI tools
+%{_bindir}/mvgal
+%{_bindir}/mvgal-info
+%{_bindir}/mvgal-status
+%{_bindir}/mvgal-bench
+%{_bindir}/mvgal-compat
+%{_bindir}/mvgal-config
+%{_bindir}/mvgal-steam-setup
+# Additional tools enabled by MVGAL_BUILD_TOOLS=ON
+%{_bindir}/mvgal-probe
+%{_bindir}/mvgal_amd_external_mem
 # Core library (static)
 %{_libdir}/libmvgal_core.a
+# libmvgal UAPI wrapper shared library (from tools/libmvgal/)
+%{_libdir}/libmvgal.so*
+# CMake config files for libmvgal
+%{_libdir}/cmake/mvgal/
 # API interception libraries
 %{_libdir}/libVK_LAYER_MVGAL.so*
 %{_libdir}/libmvgal_d3d.so*
@@ -189,6 +204,38 @@ fi
 %{_docdir}/mvgal/
 
 %changelog
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-7
+- Fix RHEL 8 LTO: disable per-target -flto for mvgal-config and mvgal-bin
+  with -fno-lto override; GCC 8 LTO plugin drops unresolved symbols from
+  static archives even with --whole-archive wrapper
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-6
+- Fix RHEL 8 LTO linker: use -Wl,--push-state,--whole-archive flags directly
+  in target_link_libraries (not target_link_options) so --whole-archive
+  is placed right before libmvgal_core.a in the library link order
+- Also apply to mvgal-config and mvgal-bin tools
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-5
+- Fix source tarball: use --prefix=mvgal-0.2.2/ so %%setup finds source dir
+- Enable CLI tools (MVGAL_BUILD_TOOLS=ON) with all binaries in %%files
+- Fix RHEL 8 LTO: wrap libmvgal_core with --whole-archive in link step
+- Add mvgal-probe, mvgal_amd_external_mem, libmvgal.so*, cmake config to %%files
+- Update shell-completion %%files to include bash/zsh completions
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-4
+- Fix RHEL 8 LTO linker error: wrap mvgal_core with --whole-archive
+  in tools/CMakeLists.txt so older GCC 8.x resolves mvgal_* symbols
+  from the static archive during LTO link phase
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-3
+- Fix unpackaged files from MVGAL_BUILD_TOOLS=ON: add mvgal-probe,
+  mvgal_amd_external_mem, libmvgal.so*, and CMake config files to %%files
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-2
+- Enable MVGAL_BUILD_TOOLS=ON to build and package CLI tools
+  (mvgal, mvgal-info, mvgal-status, mvgal-bench, mvgal-compat,
+  mvgal-config, mvgal-steam-setup)
+
 * Sat May 16 2026 AxoGM <creategm10@proton.me> - 0.2.2-1
 - Version bump to 0.2.2
 - Add libmvgal_prometheus.a and libmvgal_sycl_backend.a to %%files

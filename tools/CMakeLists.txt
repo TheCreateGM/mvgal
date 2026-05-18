@@ -31,31 +31,27 @@ foreach(tool ${STANDALONE_TOOLS})
     install(TARGETS ${tool} DESTINATION ${CMAKE_INSTALL_BINDIR})
 endforeach()
 
-# Tools that require libmvgal (linking against the main library)
-set(MVGAL_DEPENDENT_TOOLS
-    mvgal-config
-)
-
-foreach(tool ${MVGAL_DEPENDENT_TOOLS})
-    if(TARGET mvgal_core)
-        add_executable(${tool} ${tool}.c)
-        target_include_directories(${tool} PRIVATE 
-            ${CMAKE_CURRENT_SOURCE_DIR}/.. 
-            ${CMAKE_CURRENT_SOURCE_DIR}/../include
-        )
-        target_link_libraries(${tool} PRIVATE mvgal_core pthread)
-        install(TARGETS ${tool} DESTINATION ${CMAKE_INSTALL_BINDIR})
+# Helper: set up mvgal_core-dependent tool target
+function(add_mvgal_tool TOOL_NAME SOURCE_FILE)
+    if(NOT TARGET mvgal_core)
+        return()
     endif()
-endforeach()
-
-# Special case for 'mvgal' tool to avoid conflict with 'mvgal' library target
-if(TARGET mvgal_core)
-    add_executable(mvgal-bin mvgal.c)
-    set_target_properties(mvgal-bin PROPERTIES OUTPUT_NAME "mvgal")
-    target_include_directories(mvgal-bin PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}/.. 
+    add_executable(${TOOL_NAME} ${SOURCE_FILE})
+    target_include_directories(${TOOL_NAME} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/..
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
     )
-    target_link_libraries(mvgal-bin PRIVATE mvgal_core pthread)
-    install(TARGETS mvgal-bin DESTINATION ${CMAKE_INSTALL_BINDIR})
-endif()
+    # RHEL 8 / GCC 8 LTO plugin drops symbols from static archives
+    # (libmvgal_core.a) even with --whole-archive.  Disable LTO per-target
+    # so mvgal_config_init etc. resolve correctly on these older toolchains.
+    target_compile_options(${TOOL_NAME} PRIVATE -fno-lto)
+    target_link_libraries(${TOOL_NAME} PRIVATE mvgal_core pthread)
+    install(TARGETS ${TOOL_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
+endfunction()
+
+# Tools that require libmvgal (linking against the main library)
+add_mvgal_tool(mvgal-config mvgal-config.c)
+
+# Special case for 'mvgal' tool to avoid conflict with 'mvgal' library target
+add_mvgal_tool(mvgal-bin mvgal.c)
+set_target_properties(mvgal-bin PROPERTIES OUTPUT_NAME "mvgal")
