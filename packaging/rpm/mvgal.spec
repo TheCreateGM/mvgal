@@ -435,6 +435,13 @@ fi
 - Fix unconditional opengl and vulkan_icd subdirectory builds to be
   discoverable from parent CMakeLists.txt
 
+* Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-2
+- Fix RHEL 8 %%cmake macro breakage: cmake-rpm-macros 3.26 from EPEL emits
+  "does in-source builds." as literal cmake arguments. Bypass %%cmake on RHEL 8
+  and invoke cmake directly with equivalent flags.
+- Keep %%cmake for all other chroots (Fedora, RHEL 9+, openSUSE, etc.)
+- Retain RHEL 8 LTO workaround (sed strip -flto from cmake build files)
+
 * Thu May 07 2026 AxoGM <creategm10@proton.me> - 0.2.1-4
 - Fix unpackaged files error: add headers (%%{_includedir}/mvgal/) and
   documentation (%%{_datadir}/doc/mvgal/) to %%files section
@@ -443,13 +450,6 @@ fi
 - Remove duplicate BuildRequires: opencl-headers
 - Add %%dir %%{_localstatedir}/log/mvgal to %%files and %%install sections
 - Fix %%files section to properly conditionally include libmvgal_opencl.so
-
-* Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-2
-- Fix RHEL 8 %%cmake macro breakage: cmake-rpm-macros 3.26 from EPEL emits
-  "does in-source builds." as literal cmake arguments. Bypass %%cmake on RHEL 8
-  and invoke cmake directly with equivalent flags.
-- Keep %%cmake for all other chroots (Fedora, RHEL 9+, openSUSE, etc.)
-- Retain RHEL 8 LTO workaround (sed strip -flto from cmake build files)
 
 * Wed May 06 2026 AxoGM <creategm10@proton.me> - 0.2.1-2
 - Fix CMake install paths to use CMAKE_INSTALL_LIBDIR instead of hardcoded "lib"
