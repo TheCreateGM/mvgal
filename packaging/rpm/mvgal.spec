@@ -7,7 +7,7 @@
 
 Name: mvgal
 Version: 0.2.3
-Release: 1%{?dist}
+Release: 2%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -89,6 +89,38 @@ directory = "vendor"
 EOF
 
 %build
+%if 0%{?rhel} == 8
+# cmake-rpm-macros on RHEL 8 (cmake 3.26 EPEL) has broken %%cmake macro
+# that emits "does in-source builds." as literal arguments.
+# Invoke cmake directly instead, then strip -flto for GCC 8.
+cmake \
+    -DCMAKE_C_FLAGS_RELEASE:STRING=-DNDEBUG \
+    -DCMAKE_CXX_FLAGS_RELEASE:STRING=-DNDEBUG \
+    -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON \
+    -DCMAKE_INSTALL_PREFIX:PATH=%{_prefix} \
+    -DINCLUDE_INSTALL_DIR:PATH=%{_includedir} \
+    -DLIB_INSTALL_DIR:PATH=%{_libdir} \
+    -DSYSCONF_INSTALL_DIR:PATH=%{_sysconfdir} \
+    -DSHARE_INSTALL_PREFIX:PATH=%{_datadir} \
+    -DLIB_SUFFIX=64 \
+    -DBUILD_SHARED_LIBS:BOOL=ON \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_LIBDIR=%{_libdir} \
+    -DMVGAL_BUILD_KERNEL=OFF \
+    -DMVGAL_BUILD_RUNTIME=ON \
+    -DMVGAL_BUILD_API=ON \
+    -DMVGAL_BUILD_TOOLS=ON \
+    -DMVGAL_BUILD_TESTS=OFF \
+    -DMVGAL_ENABLE_RUST=ON
+
+# RHEL 8 / GCC 8: strip -flto from cmake-generated build files.
+# Use individual find commands (no \(\)) to avoid RHEL 8 RPM parser bug.
+# Use . because RHEL 8 cmake does in-source builds.
+find . -type f -name 'flags.make' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
+find . -type f -name 'build.make' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
+find . -type f -name '*.link.txt' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
+find . -type f -name '*.rsp' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
+%else
 %cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_LIBDIR=%{_libdir} \
@@ -98,14 +130,6 @@ EOF
     -DMVGAL_BUILD_TOOLS=ON \
     -DMVGAL_BUILD_TESTS=OFF \
     -DMVGAL_ENABLE_RUST=ON
-%if 0%{?rhel} == 8
-# RHEL 8 / GCC 8: strip -flto from cmake-generated build files.
-# Use individual find commands (no \(\)) to avoid RHEL 8 RPM parser bug.
-# Use . because RHEL 8 %cmake does in-source builds.
-find . -type f -name 'flags.make' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
-find . -type f -name 'build.make' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
-find . -type f -name '*.link.txt' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
-find . -type f -name '*.rsp' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
 %endif
 %cmake_build
 
@@ -419,6 +443,13 @@ fi
 - Remove duplicate BuildRequires: opencl-headers
 - Add %%dir %%{_localstatedir}/log/mvgal to %%files and %%install sections
 - Fix %%files section to properly conditionally include libmvgal_opencl.so
+
+* Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-2
+- Fix RHEL 8 %%cmake macro breakage: cmake-rpm-macros 3.26 from EPEL emits
+  "does in-source builds." as literal cmake arguments. Bypass %%cmake on RHEL 8
+  and invoke cmake directly with equivalent flags.
+- Keep %%cmake for all other chroots (Fedora, RHEL 9+, openSUSE, etc.)
+- Retain RHEL 8 LTO workaround (sed strip -flto from cmake build files)
 
 * Wed May 06 2026 AxoGM <creategm10@proton.me> - 0.2.1-2
 - Fix CMake install paths to use CMAKE_INSTALL_LIBDIR instead of hardcoded "lib"
