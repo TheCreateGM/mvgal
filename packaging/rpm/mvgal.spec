@@ -7,7 +7,7 @@
 
 Name: mvgal
 Version: 0.2.2
-Release: 21%{?dist}
+Release: 22%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -34,6 +34,8 @@ BuildRequires: vulkan-headers
 BuildRequires: pkgconfig(vulkan)
 BuildRequires: opencl-headers
 BuildRequires: ocl-icd-devel
+BuildRequires: rust
+BuildRequires: cargo
 
 Requires: libdrm
 Requires: systemd
@@ -82,20 +84,15 @@ Features:
     -DMVGAL_BUILD_API=ON \
     -DMVGAL_BUILD_TOOLS=ON \
     -DMVGAL_BUILD_TESTS=OFF \
-    -DMVGAL_ENABLE_RUST=OFF
+    -DMVGAL_ENABLE_RUST=ON
 %if 0%{?rhel} == 8
-# RHEL 8 / GCC 8: strip -flto from ALL cmake-generated build files.
-# The %cmake Lua macro injects -flto in a way that's immune to env CFLAGS,
-# %%_lto_cflags, redhat-lto.cmake removal, and -D cache variable overrides.
-# By patching the generated Makefiles and flags files after %cmake runs,
-# we remove -flto from every compile and link command before make sees them.
-# Fresh mock chroot — no side effects from patching generated files.
-find "%{_vpath_builddir}" -type f \( \
-    -name 'flags.make' -o \
-    -name 'build.make' -o \
-    -name '*.link.txt' -o \
-    -name '*.rsp' \
-\) -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
+# RHEL 8 / GCC 8: strip -flto from cmake-generated build files.
+# Use individual find commands (no \(\)) to avoid RHEL 8 RPM parser bug.
+# Use . because RHEL 8 %cmake does in-source builds.
+find . -type f -name 'flags.make' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
+find . -type f -name 'build.make' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
+find . -type f -name '*.link.txt' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
+find . -type f -name '*.rsp' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
 %endif
 %cmake_build
 
