@@ -10,10 +10,46 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "mvgal/mvgal.h"
 #include "mvgal/mvgal_gpu.h"
 #include "mvgal/mvgal_config.h"
+
+#define MVGALD_PID_FILE "/etc/mvgal/mvgald.pid"
+#define MVGALD_BIN      "/usr/bin/mvgald"
+
+/* Check if daemon is running by PID file */
+static int daemon_pid(void) {
+    FILE *f = fopen(MVGALD_PID_FILE, "r");
+    if (!f) return -1;
+    pid_t pid;
+    if (fscanf(f, "%d", &pid) != 1) { fclose(f); return -1; }
+    fclose(f);
+    if (pid <= 0) return -1;
+    if (kill(pid, 0) == 0) return (int)pid;
+    /* stale PID */
+    unlink(MVGALD_PID_FILE);
+    return -1;
+}
+
+/* Try mvgald in build dir first, then system path */
+static const char *find_mvgald(void) {
+    const char *paths[] = {
+        "runtime/mvgald",           /* in-tree build */
+        "build_output/runtime/mvgald",
+        MVGALD_BIN,                 /* system install */
+        "/usr/sbin/mvgald",
+        "/usr/local/bin/mvgald",
+        NULL
+    };
+    for (const char **p = paths; *p; p++)
+        if (access(*p, X_OK) == 0) return *p;
+    return MVGALD_BIN; /* fallback */
+}
 
 static void print_usage(const char *prog) {
     printf("Usage: %s [OPTIONS] COMMAND\n\n", prog);
@@ -216,6 +252,14 @@ int main(int argc, char *argv[]) {
     const char *arg1 = (argc > 2) ? argv[2] : NULL;
     const char *arg2 = (argc > 3) ? argv[3] : NULL;
     
+    int result = 0;
+    mvgal_context_t context = NULL;
+    int mvgal_initialized = 0;
+    
+    /* start/stop/restart skip MVGAL init */
+    if (command && (strcmp(command, "start") == 0 || strcmp(command, "stop") == 0 || strcmp(command, "restart") == 0))
+        goto skip_init;
+    
     // Initialize MVGAL
     mvgal_error_t err;
     if (config_file) {
@@ -228,39 +272,83 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error: Failed to initialize MVGAL: %d\n", err);
         return 1;
     }
+    mvgal_initialized = 1;
     
     // Create context
-    mvgal_context_t context = NULL;
     mvgal_context_create(&context);
     
-    int result = 0;
-    
     if (strcmp(command, "start") == 0) {
-        printf("Starting MVGAL daemon...\n");
-        printf("Note: MVGAL runs via LD_PRELOAD, no daemon currently\n");
+        int pid = daemon_pid();
+        if (pid > 0) {
+            printf("MVGAL daemon already running (PID: %d)\n", pid);
+        } else {
+            const char *bin = find_mvgald();
+            pid_t child = fork();
+            if (child == 0) {
+                /* Child: exec daemon, it will daemonize itself */
+                execl(bin, bin, (char *)NULL);
+                _exit(127);
+            } else if (child > 0) {
+                /* Parent: wait a moment, check PID file */
+                usleep(300000); /* 300ms */
+                int dp = daemon_pid();
+                if (dp > 0) {
+                    printf("MVGAL daemon started (PID: %d)\n", dp);
+                } else {
+                    /* daemon may need --no-daemon if run as user */
+                    fprintf(stderr, "Error: Failed to start daemon (try: sudo %s start)\n", prog);
+                    result = 1;
+                }
+            } else {
+                fprintf(stderr, "Error: fork failed: %s\n", strerror(errno));
+                result = 1;
+            }
+        }
     } else if (strcmp(command, "stop") == 0) {
-        printf("Stopping MVGAL daemon...\n");
-        printf("Note: Cannot stop LD_PRELOAD-based interception\n");
+        int pid = daemon_pid();
+        if (pid <= 0) {
+            printf("MVGAL daemon is not running\n");
+        } else {
+            if (kill(pid, SIGTERM) == 0) {
+                printf("MVGAL daemon stopped (PID: %d)\n", pid);
+                unlink(MVGALD_PID_FILE);
+            } else {
+                fprintf(stderr, "Error: Failed to stop daemon: %s\n", strerror(errno));
+                result = 1;
+            }
+        }
     } else if (strcmp(command, "status") == 0 || strcmp(command, "list-gpus") == 0) {
+        int pid = daemon_pid();
+        if (pid > 0)
+            printf("MVGAL daemon: running (PID: %d)\n\n", pid);
+        else
+            printf("MVGAL daemon: not running\n\n");
         show_status(context);
     } else if (strcmp(command, "restart") == 0) {
-        printf("Restarting MVGAL...\n");
-        mvgal_context_destroy(context);
-        mvgal_shutdown();
-        
-        if (config_file) {
-            err = mvgal_init_with_config(config_file, 0);
+        int pid = daemon_pid();
+        if (pid > 0) {
+            kill(pid, SIGTERM);
+            unlink(MVGALD_PID_FILE);
+            usleep(200000);
+        }
+        const char *bin = find_mvgald();
+        pid_t child = fork();
+        if (child == 0) {
+            execl(bin, bin, (char *)NULL);
+            _exit(127);
+        } else if (child > 0) {
+            usleep(300000);
+            int dp = daemon_pid();
+            if (dp > 0)
+                printf("MVGAL daemon restarted (PID: %d)\n", dp);
+            else {
+                fprintf(stderr, "Error: Failed to restart daemon\n");
+                result = 1;
+            }
         } else {
-            err = mvgal_init(0);
-        }
-        
-        if (err != MVGAL_SUCCESS) {
-            fprintf(stderr, "Error: Failed to reinitialize MVGAL\n");
+            fprintf(stderr, "Error: fork failed: %s\n", strerror(errno));
             result = 1;
-            goto done;
         }
-        mvgal_context_create(&context);
-        printf("MVGAL restarted\n");
     } else if (strcmp(command, "show-config") == 0) {
         show_config();
     } else if (strcmp(command, "show-stats") == 0) {
@@ -346,12 +434,14 @@ int main(int argc, char *argv[]) {
         result = 1;
     }
     
+    skip_init:
     done:
-    // Shutdown MVGAL
     if (context != NULL) {
         mvgal_context_destroy(context);
     }
-    mvgal_shutdown();
+    if (mvgal_initialized) {
+        mvgal_shutdown();
+    }
     
     return result;
 }
