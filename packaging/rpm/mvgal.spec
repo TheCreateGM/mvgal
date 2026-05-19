@@ -13,6 +13,8 @@ Summary: Multi-Vendor GPU Aggregation Layer for Linux
 License: GPL-3.0-only
 URL: https://github.com/TheCreateGM/mvgal
 Source0: https://github.com/TheCreateGM/mvgal/archive/v%{version}.tar.gz
+# Vendored Rust dependencies for offline COPR builds (no network access)
+Source1: https://github.com/TheCreateGM/mvgal/releases/download/v%{version}/mvgal-vendor-%{version}.tar.gz
 
 # OpenCL support is conditional - enable by default, disable with --without opencl
 %bcond_without opencl
@@ -74,6 +76,17 @@ Features:
 
 %prep
 %setup -q
+
+# Extract vendored Rust dependencies for offline cargo builds
+tar xzf %{SOURCE1}
+mkdir -p .cargo
+cat > .cargo/config.toml << 'EOF'
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"
+EOF
 
 %build
 %cmake \
