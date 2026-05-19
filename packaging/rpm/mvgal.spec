@@ -256,6 +256,13 @@ fi
 %{_docdir}/mvgal/
 
 %changelog
+* Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-2
+- Fix RHEL 8 %%cmake macro breakage: cmake-rpm-macros 3.26 from EPEL emits
+  "does in-source builds." as literal cmake arguments. Bypass %%cmake on RHEL 8
+  and invoke cmake directly with equivalent flags.
+- Keep %%cmake for all other chroots (Fedora, RHEL 9+, openSUSE, etc.)
+- Retain RHEL 8 LTO workaround (sed strip -flto from cmake build files)
+
 * Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-1
 - Updated to version 0.2.3
 - Fix SYCL backend: use correct mvgal_gpu_descriptor_t/mvgal_gpu_get_descriptor API
@@ -434,13 +441,6 @@ fi
   UDEV_IMPORTED_TARGET)
 - Fix unconditional opengl and vulkan_icd subdirectory builds to be
   discoverable from parent CMakeLists.txt
-
-* Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-2
-- Fix RHEL 8 %%cmake macro breakage: cmake-rpm-macros 3.26 from EPEL emits
-  "does in-source builds." as literal cmake arguments. Bypass %%cmake on RHEL 8
-  and invoke cmake directly with equivalent flags.
-- Keep %%cmake for all other chroots (Fedora, RHEL 9+, openSUSE, etc.)
-- Retain RHEL 8 LTO workaround (sed strip -flto from cmake build files)
 
 * Thu May 07 2026 AxoGM <creategm10@proton.me> - 0.2.1-4
 - Fix unpackaged files error: add headers (%%{_includedir}/mvgal/) and
