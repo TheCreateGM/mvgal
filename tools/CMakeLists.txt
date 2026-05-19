@@ -44,7 +44,10 @@ function(add_mvgal_tool TOOL_NAME SOURCE_FILE)
     # RHEL 8 / GCC 8 LTO plugin drops symbols from static archives
     # (libmvgal_core.a) even with --whole-archive.  Disable LTO per-target
     # so mvgal_config_init etc. resolve correctly on these older toolchains.
+    # LINK_FLAGS appends after all IPO-generated flags in the link command,
+    # so -fno-lto always wins over -flto regardless of GCC version.
     target_compile_options(${TOOL_NAME} PRIVATE -fno-lto)
+    set_target_properties(${TOOL_NAME} PROPERTIES LINK_FLAGS "-fno-lto")
     target_link_libraries(${TOOL_NAME} PRIVATE mvgal_core pthread)
     install(TARGETS ${TOOL_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
 endfunction()

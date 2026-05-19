@@ -1,9 +1,13 @@
 # Disable automatic debuginfo generation to avoid conflicts
 %global debug_package %{nil}
 
+# RHEL 8 / GCC 8 LTO: handled at the cmake level (src/userspace/CMakeLists.txt)
+# by building libmvgal_core.a objects with -fno-lto, so the LTO plugin never
+# encounters bytecode it can't process from the static archive.
+
 Name: mvgal
 Version: 0.2.2
-Release: 7%{?dist}
+Release: 21%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -79,6 +83,20 @@ Features:
     -DMVGAL_BUILD_TOOLS=ON \
     -DMVGAL_BUILD_TESTS=OFF \
     -DMVGAL_ENABLE_RUST=OFF
+%if 0%{?rhel} == 8
+# RHEL 8 / GCC 8: strip -flto from ALL cmake-generated build files.
+# The %cmake Lua macro injects -flto in a way that's immune to env CFLAGS,
+# %%_lto_cflags, redhat-lto.cmake removal, and -D cache variable overrides.
+# By patching the generated Makefiles and flags files after %cmake runs,
+# we remove -flto from every compile and link command before make sees them.
+# Fresh mock chroot — no side effects from patching generated files.
+find "%{_vpath_builddir}" -type f \( \
+    -name 'flags.make' -o \
+    -name 'build.make' -o \
+    -name '*.link.txt' -o \
+    -name '*.rsp' \
+\) -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null || :
+%endif
 %cmake_build
 
 %install
@@ -204,6 +222,92 @@ fi
 %{_docdir}/mvgal/
 
 %changelog
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-21
+- Fix RHEL 8 LTO: strip -flto from cmake-generated build files (flags.make,
+  build.make, link.txt, .rsp) via sed after %%cmake configures but before
+  %%cmake_build runs.  Fresh mock chroot — no side effects.  This bypasses
+  the cmake-rpm-macros Lua %%cmake which injects -flto immune to all other
+  override approaches (env CFLAGS, %%_lto_cflags, rm redhat-lto.cmake,
+  -D cache variable overrides, -fno-lto compile/link options)
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-20
+- Fix RHEL 8 LTO: bypass %%cmake Lua macro entirely — invoke cmake directly
+  with CFLAGS="%%{optflags}" only (no %%{_lto_cflags}).  The %%cmake macro on
+  RHEL 8 cmake 3.26 EPEL injects -flto in a way immune to all overrides (env,
+  cache vars, system file patching).  Direct cmake invocation with optflags on
+  RHEL 8 does NOT include -flto (it comes from _lto_cflags which we bypass).
+  On Fedora 44+, optflags include -flto=auto which modern GCC handles fine.
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-19
+- Fix RHEL 8 LTO: bypass %%cmake Lua macro entirely (cmake-rpm-macros on
+  RHEL 8 cmake 3.26 from EPEL injects -flto immune to all normal overrides);
+  invoke cmake directly with clean CFLAGS (optflags only, no _lto_cflags)
+- Extract common cmake args into %%mvgal_cmake_args macro shared by both
+  RHEL 8 and non-RHEL build paths
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-18
+- Fix RHEL 8 LTO: build libmvgal_core.a with -fno-lto via GCC version check
+  (GCC < 9) in src/userspace/CMakeLists.txt so static archive contains no LTO
+  bytecode — GCC 8's LTO plugin cannot misinterpret regular bytecode.
+  Remove all spec-level LTO workarounds (rhel_cmake_no_lto, CFLAGS stripping,
+  redhat-lto.cmake removal) that fought the %%cmake macro in vain.
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-17
+- Fix RHEL 8 LTO: override CMAKE_C_FLAGS/CXX_FLAGS/C_FLAGS_RELEASE/
+  CXX_FLAGS_RELEASE via cmake -D cache vars instead of env CFLAGS sed
+  (%%cmake macro assigns CFLAGS directly overriding env overrides)
+- Remove redhat-lto.cmake rm and CFLAGS env stripping (both ineffective)
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-16
+- Fix RHEL 8 LTO: strip -flto from CFLAGS/CXXFLAGS in %%build section
+  via sed before %%cmake, and use set_target_properties(LINK_FLAGS "-fno-lto")
+  unconditionally (removes cmake version conditional) — the RPM optflags
+  persist -flto in CMAKE_C_FLAGS regardless of redhat-lto.cmake removal,
+  and target_link_options on cmake 3.26 places -fno-lto before -flto
+  in the link command so GCC picks -flto (last flag wins)
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-15
+- Fix RHEL 8 LTO: use LINK_FLAGS property (cmake <3.13) and
+  target_link_options (cmake >=3.13) to add -fno-lto at link time
+  in add_mvgal_tool(); remove redhat-lto.cmake in %%prep (sed didn't
+  match file content); add_mvgal_tool handles compile + link separately
+  so LTO is fully disabled for mvgal-config and mvgal-bin targets
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-14
+- Fix RHEL 8 LTO: patch redhat-lto.cmake in %%prep to set
+  CMAKE_INTERPROCEDURAL_OPTIMIZATION=FALSE (system cmake module overrides
+  both per-target properties and cache variables; GCC 8 LTO plugin drops
+  static archive symbols regardless of workarounds)
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-13
+- Fix RHEL 8 LTO: disable globally via -DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF
+  instead of per-target properties; redhat-lto.cmake on cmake 3.26 overrides
+  per-target IPO settings and GCC 8 LTO plugin drops static archive symbols
+  regardless of --whole-archive/-fno-lto tricks
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-12
+- Fix RHEL 8 LTO: use INTERPROCEDURAL_OPTIMIZATION per-target property
+  (cmake 3.9+) in tools/CMakeLists.txt instead of CMAKE_C_FLAGS_RELEASE
+  override; target_link_options requires cmake 3.13+ (RHEL 8 ships 3.11)
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-11
+- Fix RHEL 8 LTO: use single-line %%define to avoid shell expansion bug
+- Override CMAKE_C_FLAGS_RELEASE to strip -flto on RHEL 8 only
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-10
+- RHEL 8: override CMAKE_C_FLAGS_RELEASE to strip -flto (RPM _lto_cflags
+  macro unreliable on COPR mock); GCC 8 LTO plugin drops static archive symbols
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-9
+- Fix RHEL 8 LTO: disable LTO entirely via %%_lto_cflags on RHEL 8
+- GCC 8 / older binutils LTO plugin drops symbols from static archives
+  even with --whole-archive or per-target -fno-lto; the RPM-level
+  %%_lto_cflags macro is the only reliable way to suppress -flto
+
+* Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-8
+- Fix RHEL 8 LTO linker: add -fno-lto to both compile and link for mvgal tools
+- RHEL 8 / GCC 8 LTO plugin drops static archive symbols even with --whole-archive;
+  per-target -fno-lto at compile + link suppresses the LTO plugin entirely
+
 * Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-7
 - Fix RHEL 8 LTO: disable per-target -flto for mvgal-config and mvgal-bin
   with -fno-lto override; GCC 8 LTO plugin drops unresolved symbols from

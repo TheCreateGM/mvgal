@@ -22,6 +22,13 @@ add_library(mvgal_core STATIC
     scheduler/strategy/hybrid.c
 )
 
+# GCC < 9: LTO plugin drops symbols from static archives when linking
+# executables that consume mvgal_core.  Build archive objects with -fno-lto
+# so the LTO plugin has no bytecode to misinterpret during linking.
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS 9)
+    target_compile_options(mvgal_core PRIVATE -fno-lto)
+endif()
+
 target_include_directories(mvgal_core
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
