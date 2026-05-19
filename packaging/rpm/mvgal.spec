@@ -6,8 +6,8 @@
 # encounters bytecode it can't process from the static archive.
 
 Name: mvgal
-Version: 0.2.2
-Release: 24%{?dist}
+Version: 0.2.3
+Release: 1%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -219,8 +219,11 @@ fi
 %{_docdir}/mvgal/
 
 %changelog
-* Tue May 19 2026 axogm - 0.2.2-24
-- Build from main branch (includes SYCL backend fix for mvgal_gpu_descriptor_t API)
+* Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-1
+- Updated to version 0.2.3
+- Fix SYCL backend: use correct mvgal_gpu_descriptor_t/mvgal_gpu_get_descriptor API
+- Fix Source0 to use GitHub archive URL
+- Enable Rust safety crates (BuildRequires rust cargo)
 
 * Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-21
 - Fix RHEL 8 LTO: strip -flto from cmake-generated build files (flags.make,
