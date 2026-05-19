@@ -7,7 +7,7 @@
 
 Name: mvgal
 Version: 0.2.2
-Release: 23%{?dist}
+Release: 24%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -219,6 +219,9 @@ fi
 %{_docdir}/mvgal/
 
 %changelog
+* Tue May 19 2026 axogm - 0.2.2-24
+- Build from main branch (includes SYCL backend fix for mvgal_gpu_descriptor_t API)
+
 * Mon May 18 2026 AxoGM <creategm10@proton.me> - 0.2.2-21
 - Fix RHEL 8 LTO: strip -flto from cmake-generated build files (flags.make,
   build.make, link.txt, .rsp) via sed after %%cmake configures but before
