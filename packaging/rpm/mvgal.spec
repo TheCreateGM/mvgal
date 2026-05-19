@@ -12,7 +12,7 @@ Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
 URL: https://github.com/TheCreateGM/mvgal
-Source0: mvgal-%{version}.tar.gz
+Source0: https://github.com/TheCreateGM/mvgal/archive/v%{version}.tar.gz
 
 # OpenCL support is conditional - enable by default, disable with --without opencl
 %bcond_without opencl
