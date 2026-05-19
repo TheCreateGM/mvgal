@@ -7,7 +7,7 @@
 
 Name: mvgal
 Version: 0.2.2
-Release: 22%{?dist}
+Release: 23%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
