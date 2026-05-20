@@ -22,17 +22,29 @@
 #define MVGALD_PID_FILE "/etc/mvgal/mvgald.pid"
 #define MVGALD_BIN      "/usr/bin/mvgald"
 
-/* Check if daemon is running by PID file */
+/* Check if daemon is running by PID file, fallback to pidof */
 static int daemon_pid(void) {
     FILE *f = fopen(MVGALD_PID_FILE, "r");
-    if (!f) return -1;
-    pid_t pid;
-    if (fscanf(f, "%d", &pid) != 1) { fclose(f); return -1; }
-    fclose(f);
-    if (pid <= 0) return -1;
-    if (kill(pid, 0) == 0) return (int)pid;
-    /* stale PID */
-    unlink(MVGALD_PID_FILE);
+    if (f) {
+        int pid = 0;
+        if (fscanf(f, "%d", &pid) == 1 && pid > 0) {
+            fclose(f);
+            if (kill(pid, 0) == 0 || errno == EPERM)
+                return pid;
+            /* stale PID — clean up */
+            unlink(MVGALD_PID_FILE);
+        } else {
+            fclose(f);
+        }
+    }
+    /* Fallback: scan for mvgald process (e.g. when PID file is root-owned) */
+    f = popen("pidof -s mvgald 2>/dev/null", "r");
+    if (f) {
+        int pid = 0;
+        fscanf(f, "%d", &pid);
+        pclose(f);
+        if (pid > 0) return pid;
+    }
     return -1;
 }
 
@@ -277,7 +289,15 @@ int main(int argc, char *argv[]) {
     // Create context
     mvgal_context_create(&context);
     
+    skip_init:
     if (strcmp(command, "start") == 0) {
+        /* Re-exec via pkexec if not running as root (daemon needs it for /etc/mvgal/) */
+        if (geteuid() != 0) {
+            execlp("pkexec", "pkexec", prog, "start", (char *)NULL);
+            fprintf(stderr, "Error: Need root. Try: pkexec %s start\n", prog);
+            result = 1;
+            goto done;
+        }
         int pid = daemon_pid();
         if (pid > 0) {
             printf("MVGAL daemon already running (PID: %d)\n", pid);
@@ -295,8 +315,7 @@ int main(int argc, char *argv[]) {
                 if (dp > 0) {
                     printf("MVGAL daemon started (PID: %d)\n", dp);
                 } else {
-                    /* daemon may need --no-daemon if run as user */
-                    fprintf(stderr, "Error: Failed to start daemon (try: sudo %s start)\n", prog);
+                    fprintf(stderr, "Error: Failed to start daemon\n");
                     result = 1;
                 }
             } else {
@@ -305,6 +324,13 @@ int main(int argc, char *argv[]) {
             }
         }
     } else if (strcmp(command, "stop") == 0) {
+        /* Re-exec via pkexec if not running as root */
+        if (geteuid() != 0) {
+            execlp("pkexec", "pkexec", prog, "stop", (char *)NULL);
+            fprintf(stderr, "Error: Need root. Try: pkexec %s stop\n", prog);
+            result = 1;
+            goto done;
+        }
         int pid = daemon_pid();
         if (pid <= 0) {
             printf("MVGAL daemon is not running\n");
@@ -325,6 +351,13 @@ int main(int argc, char *argv[]) {
             printf("MVGAL daemon: not running\n\n");
         show_status(context);
     } else if (strcmp(command, "restart") == 0) {
+        /* Re-exec via pkexec if not running as root */
+        if (geteuid() != 0) {
+            execlp("pkexec", "pkexec", prog, "restart", (char *)NULL);
+            fprintf(stderr, "Error: Need root. Try: pkexec %s restart\n", prog);
+            result = 1;
+            goto done;
+        }
         int pid = daemon_pid();
         if (pid > 0) {
             kill(pid, SIGTERM);
@@ -434,7 +467,8 @@ int main(int argc, char *argv[]) {
         result = 1;
     }
     
-    skip_init:
+    goto done;
+    
     done:
     if (context != NULL) {
         mvgal_context_destroy(context);

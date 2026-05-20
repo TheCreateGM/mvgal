@@ -46,6 +46,18 @@ static void signalHandler(int signal)
     case SIGTERM:
     case SIGQUIT:
         g_running = 0;
+        /* Force exit after a brief grace period — nanosleep isn't SA_RESTART-respected */
+        {
+            static struct sigaction sa_exit;
+            memset(&sa_exit, 0, sizeof(sa_exit));
+            sa_exit.sa_handler = SIG_DFL;
+            sigaction(SIGALRM, &sa_exit, nullptr);
+            alarm(2);  /* If main loop hasn't exited in 2s, SIGALRM kills us */
+        }
+        break;
+    case SIGALRM:
+        /* Emergency exit — main loop didn't respond */
+        _exit(1);
         break;
     default:
         break;
@@ -63,6 +75,12 @@ static void setupSignalHandlers()
     sigaction(SIGTERM, &sa, nullptr);
     sigaction(SIGQUIT, &sa, nullptr);
     sigaction(SIGHUP, &sa, nullptr);
+
+    /* SIGALRM: emergency kill after shutdown grace period — no SA_RESTART */
+    struct sigaction sa_alarm;
+    memset(&sa_alarm, 0, sizeof(sa_alarm));
+    sa_alarm.sa_handler = signalHandler;
+    sigaction(SIGALRM, &sa_alarm, nullptr);
 
     /* Ignore SIGPIPE */
     signal(SIGPIPE, SIG_IGN);

@@ -81,6 +81,8 @@ set(DAEMON_SOURCES
     daemon/metrics_collector.cpp
     daemon/ipc_server.cpp
     daemon/dbus_service.cpp
+    ${CMAKE_SOURCE_DIR}/src/userspace/api/mvgal_ai.c
+    ${CMAKE_SOURCE_DIR}/src/userspace/api/mvgal_log.c
 )
 
 # Daemon headers
