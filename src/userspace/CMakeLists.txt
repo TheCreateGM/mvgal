@@ -3,6 +3,7 @@
 # Core library
 add_library(mvgal_core STATIC
     api/mvgal_api.c
+    api/mvgal_ai.c
     api/mvgal_log.c
     daemon/gpu_manager.c
     daemon/config.c

@@ -81,8 +81,6 @@ set(DAEMON_SOURCES
     daemon/metrics_collector.cpp
     daemon/ipc_server.cpp
     daemon/dbus_service.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/userspace/api/mvgal_ai.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/userspace/api/mvgal_log.c
 )
 
 # Daemon headers
@@ -110,6 +108,7 @@ target_include_directories(mvgald PRIVATE
 pkg_check_modules(SYSTEMD QUIET IMPORTED_TARGET libsystemd)
 
 target_link_libraries(mvgald PRIVATE
+    mvgal_core
     Threads::Threads
     PkgConfig::LIBDRM
     PkgConfig::PCIACCESS

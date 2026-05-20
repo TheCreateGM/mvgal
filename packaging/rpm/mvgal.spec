@@ -7,7 +7,7 @@
 
 Name: mvgal
 Version: 0.2.3
-Release: 3%{?dist}
+Release: 4%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -256,12 +256,12 @@ fi
 %{_docdir}/mvgal/
 
 %changelog
-* Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-3
-- Fix RHEL 8 linker error: use relative path CMAKE_CURRENT_SOURCE_DIR instead of
-  CMAKE_SOURCE_DIR for mvgal_ai.c and mvgal_log.c sources in runtime/CMakeLists.txt.
-  Absolute paths from another source tree were not generating .o files on any
-  platform; Fedora/LTO succeeded only because LTO dropped the unreferenced symbols
-  from scheduleAI(), but GCC 8 on RHEL 8 could not.
+* Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-4
+- Fix RHEL 8 linker error: add mvgal_ai.c to mvgal_core static library in
+  src/userspace/CMakeLists.txt, link mvgal_core into mvgald. cmake refuses to
+  compile source files listed via absolute or ../ paths from a different source
+  tree (previous attempt). Reorder root CMakeLists.txt so src/userspace is
+  processed before runtime, ensuring mvgal_core target exists for linking.
 
 * Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-2
 - Fix RHEL 8 %%cmake macro breakage: cmake-rpm-macros 3.26 from EPEL emits

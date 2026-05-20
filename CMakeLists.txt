@@ -282,16 +282,17 @@ if(MVGAL_BUILD_KERNEL AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/kernel/CMakeLists.
     add_subdirectory(kernel)
 endif()
 
-# Runtime daemon and libraries
-if(MVGAL_BUILD_RUNTIME AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/runtime/CMakeLists.txt")
-    add_subdirectory(runtime)
-endif()
-
-# API layers (OpenGL, OpenCL, CUDA, SYCL, Vulkan)
+# API layers (OpenGL, OpenCL, CUDA, SYCL, Vulkan) — must precede runtime
+# so mvgal_core target is available for mvgald linking.
 if(MVGAL_BUILD_API AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/userspace/CMakeLists.txt")
     # Propagate OpenCL_FOUND to subdirectory
     set(OpenCL_FOUND ${OPENCL_FOUND})
     add_subdirectory(src/userspace)
+endif()
+
+# Runtime daemon and libraries — must come after src/userspace for mvgal_core
+if(MVGAL_BUILD_RUNTIME AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/runtime/CMakeLists.txt")
+    add_subdirectory(runtime)
 endif()
 
 # Monitoring components (Prometheus metrics, health checks)
