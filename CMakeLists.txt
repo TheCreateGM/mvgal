@@ -210,8 +210,13 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        add_compile_options(-O3 -DNDEBUG -flto)
-        add_link_options(-flto)
+        add_compile_options(-O3 -DNDEBUG)
+        # GCC < 9: LTO plugin drops symbols from static archives.
+        # GCC >= 9 and Clang handle LTO correctly.
+        if(NOT (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS 9))
+            add_compile_options(-flto)
+            add_link_options(-flto)
+        endif()
     endif()
 
     # Platform-specific

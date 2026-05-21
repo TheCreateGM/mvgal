@@ -7,7 +7,7 @@
 
 Name: mvgal
 Version: 0.2.3
-Release: 4%{?dist}
+Release: 5%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -111,7 +111,8 @@ cmake \
     -DMVGAL_BUILD_API=ON \
     -DMVGAL_BUILD_TOOLS=ON \
     -DMVGAL_BUILD_TESTS=OFF \
-    -DMVGAL_ENABLE_RUST=ON
+    -DMVGAL_ENABLE_RUST=ON \
+    -DMVGAL_BUILD_GAMING=ON
 
 # RHEL 8 / GCC 8: strip -flto from cmake-generated build files.
 # Use individual find commands (no \(\)) to avoid RHEL 8 RPM parser bug.
@@ -256,6 +257,14 @@ fi
 %{_docdir}/mvgal/
 
 %changelog
+* Thu May 21 2026 AxoGM <creategm10@proton.me> - 0.2.3-5
+- GCC 8 LTO: guard -flto with version check (GCC < 9) in root CMakeLists.txt
+  so the LTO option is never emitted for RHEL 8 / GCC 8 builds. Removes the
+  need for spec-level sed stripping of -flto from generated build files.
+- Enable MVGAL_BUILD_GAMING=ON on RHEL 8 for Steam/Proton gaming integration.
+- mvgal_ai.c excluded from mvgal_core unless MVGAL_BUILD_GAMING=ON; gaming
+  API functions only compiled when gaming integration is active.
+
 * Tue May 19 2026 AxoGM <creategm10@proton.me> - 0.2.3-4
 - Fix RHEL 8 linker error: add mvgal_ai.c to mvgal_core static library in
   src/userspace/CMakeLists.txt, link mvgal_core into mvgald. cmake refuses to
