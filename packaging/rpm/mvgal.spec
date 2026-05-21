@@ -7,7 +7,7 @@
 
 Name: mvgal
 Version: 0.2.3
-Release: 5%{?dist}
+Release: 6%{?dist}
 Summary: Multi-Vendor GPU Aggregation Layer for Linux
 
 License: GPL-3.0-only
@@ -130,7 +130,8 @@ find . -type f -name '*.rsp' -exec sed -i 's/-flto[^ ]*//g' {} \; 2>/dev/null ||
     -DMVGAL_BUILD_API=ON \
     -DMVGAL_BUILD_TOOLS=ON \
     -DMVGAL_BUILD_TESTS=OFF \
-    -DMVGAL_ENABLE_RUST=ON
+    -DMVGAL_ENABLE_RUST=ON \
+    -DMVGAL_BUILD_GAMING=ON
 %endif
 %cmake_build
 
@@ -257,6 +258,12 @@ fi
 %{_docdir}/mvgal/
 
 %changelog
+* Thu May 21 2026 AxoGM <creategm10@proton.me> - 0.2.3-6
+- Enable MVGAL_BUILD_GAMING=ON on Fedora and all non-RHEL targets (%%else
+  branch in %%build section) so Gaming integration shows as ON in COPR
+  builds for Fedora, openSUSE, CentOS Stream, Amazon Linux, etc.
+  This was previously only set in the %%if rhel == 8 branch.
+
 * Thu May 21 2026 AxoGM <creategm10@proton.me> - 0.2.3-5
 - GCC 8 LTO: guard -flto with version check (GCC < 9) in root CMakeLists.txt
   so the LTO option is never emitted for RHEL 8 / GCC 8 builds. Removes the
